@@ -10,3 +10,5 @@ DerivedData/
 .kittify/charter/.failed/
 .kittify/charter/generated/
 .kittify/encoding-provenance/
+.kittify/sync-state.json
+.worktrees/
