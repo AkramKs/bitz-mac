@@ -1,0 +1,52 @@
+anti_patterns:
+- bad_example: "var body: some View {\n    RiveViewModel(fileName: \"Bitz\", stateMachineName:
+    \"BitzStateMachine\").view()\n}\n"
+  description: Recreating RiveViewModel or allocating new NSWindow/NSPanel 
+    instances on state transitions, causing memory to exceed 70MB.
+  good_example: "@StateObject private var rive = RiveViewModel(fileName: \"Bitz\"\
+    , stateMachineName: \"BitzStateMachine\")\n"
+  name: Unbounded Particle or Frame Allocation
+- bad_example: "nonisolated(unsafe) var globalPanel: MascotOverlayPanel?\n"
+  description: Using unsafe nonisolated globals without synchronization to 
+    silence compiler errors.
+  good_example: "@MainActor final class OverlayWindowController {\n    private let
+    panel: MascotOverlayPanel\n}\n"
+  name: Suppressing Swift 6 Concurrency Diagnostics
+applies_to_languages:
+- swift
+id: quality-gates-style-guide
+patterns:
+- bad_example: "Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in\n\
+    \    _ = ActivityMonitorService().getFrontmostApp()\n}\n"
+  description: Use coarse timer intervals with tolerance on background/main 
+    queues to keep idle CPU utilization well under 2%.
+  good_example: "let timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats:
+    true) { _ in\n    monitor.sampleTick()\n}\ntimer.tolerance = 1.0\n"
+  name: Low-Overhead Coalesced Activity Polling
+- bad_example: "TimelineView(.animation) { _ in\n    updateRiveInputs(for: pointEngine.currentState)\n\
+    }\n"
+  description: Push inputs to RiveViewModel only when 
+    WellnessPointEngine.currentState transitions rather than on every animation 
+    frame.
+  good_example: ".onChange(of: pointEngine.currentState) { _, newState in\n    updateRiveInputs(for:
+    newState)\n}\n"
+  name: State-Change-Driven Rive Input Updates
+principles:
+- Enforce zero compiler warnings and strict Swift 6 concurrency checking on 
+  every build.
+- Run SwiftLint static analysis and require clean formatting before merging any 
+  feature branch.
+- Gate every change on the runtime resource budget (< 2% CPU on Apple Silicon, <
+  70MB RAM at 60 FPS).
+- Verify NSPanel overlay invariants (ignoresMouseEvents = true, transparent 
+  background, no wallpaper modification) prior to merge.
+quality_test: Does the build pass with zero warnings, zero SwiftLint violations,
+  >= 80% test coverage, and < 2% CPU / < 70MB RAM during 60 FPS Rive animation 
+  playback?
+schema_version: '1.0'
+scope: operations
+title: Bitz Quality Gates and Resource Verification Style Guide
+tooling:
+  compiler: swiftc -strict-concurrency=complete
+  linter: swiftlint --strict
+  profiler: Instruments (Time Profiler & Allocations < 2% CPU, < 70MB RAM)

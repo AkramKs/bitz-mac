@@ -1,0 +1,38 @@
+applies_to_languages:
+- swift
+failure_modes:
+- Approving changes that introduce main-thread polling spikes or exceed the 2% 
+  CPU budget.
+- Merging updates to BitzState or Rive inputs without updating 
+  docs/STATE_MACHINE.md.
+- Bypassing Conventional Commits formatting on feature branch merges.
+id: review-policy-tactic
+name: Bitz Acceptance-Driven Code and Resource Review
+notes: Requires 1 focused review approval and clean quality gates before merging
+  to main.
+purpose: Ensure every feature branch merged into main satisfies macOS overlay 
+  non-intrusiveness, Rive state machine contracts, Swift 6 concurrency safety, 
+  and the sub-2% CPU / sub-70MB RAM budget.
+schema_version: '1.0'
+steps:
+- description: Check the diff against docs/ACCEPTANCE_CRITERIA.md, confirming 
+    that MascotOverlayPanel remains borderless, transparent, floating, and 
+    click-through (ignoresMouseEvents = true) with zero wallpaper changes.
+  examples:
+  - Confirm no window styleMask or NSWorkspace change allows the mascot panel to
+    steal focus or block clicks.
+  title: Verify Acceptance Criteria and Overlay Non-Intrusiveness
+- description: Verify that all unit tests pass with >= 80% service coverage, 
+    SwiftLint reports zero violations, and the build completes with zero Swift 6
+    concurrency warnings.
+  examples:
+  - Check that ObservableObject and AppKit NSPanel mutations execute on 
+    @MainActor.
+  title: Audit Swift 6 Concurrency, SwiftLint, and Test Coverage
+- description: Confirm that timer cadences, CGEventSource idle queries, and Rive
+    animations remain under 2% CPU on Apple Silicon and 70MB RAM, and that 
+    docs/ARCHITECTURE.md, docs/STATE_MACHINE.md, and docs/ACCEPTANCE_CRITERIA.md
+    reflect any contract updates.
+  examples:
+  - Reject high-frequency unthrottled polling loops in ActivityMonitorService.
+  title: Validate Runtime Resource Budget and Documentation Sync

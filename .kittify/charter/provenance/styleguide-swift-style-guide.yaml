@@ -1,0 +1,21 @@
+adapter_id: generated
+adapter_notes: 
+  generated-artifact:.kittify/charter/generated/styleguides/swift-style-guide.styleguide.yaml
+adapter_version: 1.0.0
+artifact_content_hash: 
+  0a9ab8641cf2eb971e6be3f8fb25660a5946dc209a458a0f5ea49f19d3234e4f
+artifact_kind: styleguide
+artifact_slug: swift-style-guide
+artifact_urn: styleguide:swift-style-guide
+corpus_snapshot_id: generic-v1.0.0
+evidence_bundle_hash: 
+  97c4e393455eb24dedc924f1d97b8716b7da0b759cf6fafd4bbd04d33bdaf957
+generated_at: '2026-10-24T22:55:26.731325+00:00'
+inputs_hash: 6c8e79ec5f2fc7ef95042bf7bcd403daeca2085fcd518a615e9512f53353a3ee
+produced_at: '2026-10-24T22:57:51.348800+00:00'
+schema_version: '2'
+source_input_ids: []
+source_section: language_scope
+source_urns: []
+synthesis_run_id: 2DC96455B0FA4EA49A0C8B7B9A
+synthesizer_version: 3.2.7

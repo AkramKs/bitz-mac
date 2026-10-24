@@ -1,0 +1,45 @@
+anti_patterns:
+- bad_example: "// Changed overworked threshold to 20..<50 in Swift while docs/STATE_MACHINE.md
+    still lists 15..<40.\n"
+  description: Updating point deltas or state ranges in 
+    WellnessPointEngine.swift without updating docs/STATE_MACHINE.md and 
+    docs/ACCEPTANCE_CRITERIA.md.
+  good_example: "// Update WellnessPointEngine.swift, unit tests, and docs/STATE_MACHINE.md
+    together in one atomic change.\n"
+  name: Stale Thresholds Between Code and Docs
+- bad_example: "Bitz renders on the desktop wallpaper layer.\n"
+  description: Describing the mascot as a "desktop background" instead of a 
+    transparent click-through NSPanel overlay.
+  good_example: "Bitz renders in a borderless, transparent, floating `NSPanel` overlay
+    above desktop windows without modifying the user's wallpaper.\n"
+  name: Ambiguous Window Behavior Descriptions
+id: documentation-policy-style-guide
+patterns:
+- bad_example: "Bitz changes color and speed based on how much you work.\n"
+  description: Document Rive state machine inputs with exact parameter names, 
+    types, ranges, and BitzState mappings.
+  good_example: "| Input | Type | Range / Values | State Mapping |\n|---|---|---|---|\n\
+    | `speedMultiplier` | Float | `0.0` to `2.5` | SuperCharged=`2.0`, Balanced=`1.0`,
+    Overworked=`0.4`, Burnout=`0.0` |\n| `visorColor` | Number | `0`=Cyan, `1`=Magenta,
+    `2`=Amber, `3`=Red | Matches active `BitzState` |\n"
+  name: Explicit Rive Input Contract Table
+- bad_example: "The app should be lightweight and not bother the user.\n"
+  description: Phrase acceptance criteria as testable invariants tied to 
+    concrete Swift types and runtime metrics.
+  good_example: "1. `MascotOverlayPanel` sets `ignoresMouseEvents = true` and `level
+    = .floating`.\n2. Idle and 60 FPS CPU usage remains `< 2%` on Apple Silicon with
+    `< 70MB` RAM.\n"
+  name: Traceable Acceptance Criteria
+principles:
+- Keep docs/ARCHITECTURE.md, docs/STATE_MACHINE.md, and 
+  docs/ACCEPTANCE_CRITERIA.md synchronized with implementation changes in the 
+  same commit or PR.
+- Document every BitzStateMachine input name, type, numeric domain, and visual 
+  behavior explicitly in docs/STATE_MACHINE.md.
+- Record concrete, verifiable thresholds (points per tick, break recovery rate, 
+  CPU thermal threshold, CPU/RAM budgets) in docs/ACCEPTANCE_CRITERIA.md.
+quality_test: Can an engineer or agent reconstruct the exact BitzStateMachine 
+  inputs, WellnessPointEngine formulas, and NSPanel flags solely from docs/?
+schema_version: '1.0'
+scope: docs
+title: Bitz Living Architecture and State Machine Documentation Guide

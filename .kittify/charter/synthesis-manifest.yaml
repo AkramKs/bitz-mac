@@ -1,0 +1,60 @@
+adapter_id: generated
+adapter_version: 1.0.0
+artifacts:
+- content_hash: b54953ddc2aa590b229072df794632a36e02cb2640c6e552bf7dc84882d90604
+  kind: directive
+  path: 
+    .kittify/doctrine/directive/001-mission-type-scope-directive.directive.yaml
+  provenance_path: 
+    .kittify/charter/provenance/directive-mission-type-scope-directive.yaml
+  slug: mission-type-scope-directive
+- content_hash: 266bc507a43230b8961bc8310cbf06ff2a8669828b6df8a855bda6dfb971d626
+  kind: directive
+  path: .kittify/doctrine/directive/002-risk-appetite-directive.directive.yaml
+  provenance_path: 
+    .kittify/charter/provenance/directive-risk-appetite-directive.yaml
+  slug: risk-appetite-directive
+- content_hash: 96a9d13516e43d94782a9c9d80f935e583f7929925149d72573a608f1f5470f6
+  kind: styleguide
+  path: 
+    .kittify/doctrine/styleguide/documentation-policy-style-guide.styleguide.yaml
+  provenance_path: 
+    .kittify/charter/provenance/styleguide-documentation-policy-style-guide.yaml
+  slug: documentation-policy-style-guide
+- content_hash: 662a20136f6e4a68f231109302ad4823b83c8a3e74f9ed17ed51d1b6874b7b4d
+  kind: styleguide
+  path: .kittify/doctrine/styleguide/quality-gates-style-guide.styleguide.yaml
+  provenance_path: 
+    .kittify/charter/provenance/styleguide-quality-gates-style-guide.yaml
+  slug: quality-gates-style-guide
+- content_hash: 0a9ab8641cf2eb971e6be3f8fb25660a5946dc209a458a0f5ea49f19d3234e4f
+  kind: styleguide
+  path: .kittify/doctrine/styleguide/swift-style-guide.styleguide.yaml
+  provenance_path: .kittify/charter/provenance/styleguide-swift-style-guide.yaml
+  slug: swift-style-guide
+- content_hash: d1bf396b721fc7b434b9622435e8f43ddee3b7ab4b2ae58cde7bb5cc7808ebf1
+  kind: styleguide
+  path: .kittify/doctrine/styleguide/testing-style-guide.styleguide.yaml
+  provenance_path: 
+    .kittify/charter/provenance/styleguide-testing-style-guide.yaml
+  slug: testing-style-guide
+- content_hash: 851950ef8c150fd4ceed83248c08a50d64108c1f88daac509dd1938a96242b9b
+  kind: tactic
+  path: .kittify/doctrine/tactic/review-policy-tactic.tactic.yaml
+  provenance_path: .kittify/charter/provenance/tactic-review-policy-tactic.yaml
+  slug: review-policy-tactic
+- content_hash: 113ea194be174c815f878ddc951246e92a266fc0c2e7fafc28979aaaa29a7a16
+  kind: tactic
+  path: .kittify/doctrine/tactic/testing-philosophy-tactic.tactic.yaml
+  provenance_path: 
+    .kittify/charter/provenance/tactic-testing-philosophy-tactic.yaml
+  slug: testing-philosophy-tactic
+built_in_only: false
+bundle_content_hash: 
+  sha256:646de070243df0daeacf2d17a0a8b1640c9647a98bd5ab9b9f1696cdbebf5568
+created_at: '2026-10-24T22:57:51.364213+00:00'
+manifest_hash: 9e5ce67455719528bd86b03c739647f4148c7b735bb1757460136fb3f8e315d1
+mission_id:
+run_id: 2DC96455B0FA4EA49A0C8B7B9A
+schema_version: '3'
+synthesizer_version: 3.2.7

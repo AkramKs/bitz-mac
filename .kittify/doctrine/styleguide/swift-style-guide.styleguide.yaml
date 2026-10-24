@@ -1,0 +1,56 @@
+anti_patterns:
+- bad_example: "try NSWorkspace.shared.setDesktopImageURL(url, for: screen, options:
+    [:])\n"
+  description: Calling NSWorkspace desktop image mutation APIs instead of 
+    rendering in a transparent floating overlay.
+  good_example: "panel.backgroundColor = .clear\npanel.isOpaque = false\npanel.level
+    = .floating\n"
+  name: Modifying User Desktop Wallpaper
+- bad_example: "panel.ignoresMouseEvents = false\n"
+  description: Leaving ignoresMouseEvents as false on the overlay window and 
+    blocking user clicks on underlying apps.
+  good_example: "panel.ignoresMouseEvents = true\n"
+  name: Capturing Mouse Events on Desktop Overlay
+applies_to_languages:
+- swift
+id: swift-style-guide
+patterns:
+- bad_example: "let window = NSWindow(contentRect: rect, styleMask: [.titled], backing:
+    .buffered, defer: false)\n"
+  description: Configure MascotOverlayPanel with borderless, non-activating, 
+    transparent, click-through flags across all macOS spaces.
+  good_example: "final class MascotOverlayPanel: NSPanel {\n    init(contentRect:
+    NSRect) {\n        super.init(\n            contentRect: contentRect,\n      \
+    \      styleMask: [.nonactivatingPanel, .borderless],\n            backing: .buffered,\n\
+    \            defer: false\n        )\n        self.level = .floating\n       \
+    \ self.isOpaque = false\n        self.backgroundColor = .clear\n        self.hasShadow
+    = false\n        self.isMovableByWindowBackground = false\n        self.ignoresMouseEvents
+    = true\n        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary,
+    .stationary]\n    }\n}\n"
+  name: Non-Activating Click-Through NSPanel Configuration
+- bad_example: "points += 0.5\nif points > 80 { currentState = .superCharged }\n"
+  description: Clamp wellness points within 0.0...100.0 using min/max and 
+    prioritize thermal overheating before numeric ranges.
+  good_example: "points = min(100.0, points + 0.5)\nevaluateState(isOverheating: false)\n"
+  name: Clamped Wellness Point Transitions
+principles:
+- Use Swift 6 strict concurrency (@MainActor for NSPanel, SwiftUI views, and 
+  ObservableObject state; Sendable value types for cross-task data).
+- Keep AppKit windowing concerns isolated in 
+  src/App/Window/MascotOverlayPanel.swift, domain logic in src/Services/, and 
+  presentation in src/Views/.
+- Mark classes final by default unless designed for subclassing (e.g., final 
+  class MascotOverlayPanel, final class WellnessPointEngine).
+- Drive Rive animations declaratively through RiveViewModel state machine inputs
+  rather than imperative frame-by-frame timers.
+quality_test: Does all Swift code compile cleanly under Swift 6 strict 
+  concurrency, isolate AppKit NSPanel setup from WellnessPointEngine domain 
+  logic, and preserve click-through transparency?
+schema_version: '1.0'
+scope: code
+title: Bitz Swift 6, SwiftUI, AppKit, and RiveRuntime Style Guide
+tooling:
+  build_system: Swift Package Manager / Xcode (macOS 14.0+ Universal)
+  language: Swift 6
+  linter: SwiftLint
+  ui_frameworks: SwiftUI + AppKit + RiveRuntime

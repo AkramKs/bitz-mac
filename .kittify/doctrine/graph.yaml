@@ -1,0 +1,29 @@
+schema_version: '1.0'
+generated_at: '2026-10-24T22:57:51+00:00'
+generated_by: spec-kitty charter synthesize 3.2.7
+nodes:
+- urn: directive:PROJECT_001
+  kind: directive
+  label: Mission Type Directive
+- urn: directive:PROJECT_002
+  kind: directive
+  label: Risk Appetite Directive
+- urn: tactic:review-policy-tactic
+  kind: tactic
+  label: Review Policy Tactic
+- urn: tactic:testing-philosophy-tactic
+  kind: tactic
+  label: Testing Philosophy Tactic
+- urn: styleguide:documentation-policy-style-guide
+  kind: styleguide
+  label: Documentation Policy Styleguide
+- urn: styleguide:quality-gates-style-guide
+  kind: styleguide
+  label: Quality Gates Styleguide
+- urn: styleguide:swift-style-guide
+  kind: styleguide
+  label: Swift Style Guide
+- urn: styleguide:testing-style-guide
+  kind: styleguide
+  label: Testing Philosophy Styleguide
+edges: []

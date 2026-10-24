@@ -1,0 +1,21 @@
+adapter_id: generated
+adapter_notes: 
+  generated-artifact:.kittify/charter/generated/directives/001-mission-type-scope-directive.directive.yaml
+adapter_version: 1.0.0
+artifact_content_hash: 
+  b54953ddc2aa590b229072df794632a36e02cb2640c6e552bf7dc84882d90604
+artifact_kind: directive
+artifact_slug: mission-type-scope-directive
+artifact_urn: directive:PROJECT_001
+corpus_snapshot_id: generic-v1.0.0
+evidence_bundle_hash: 
+  97c4e393455eb24dedc924f1d97b8716b7da0b759cf6fafd4bbd04d33bdaf957
+generated_at: '2026-10-24T22:54:34.789244+00:00'
+inputs_hash: b312d9c4c4f93726ae565bda22bf3efda3b7991aaf22a6c02dab5963a70a7288
+produced_at: '2026-10-24T22:57:51.336910+00:00'
+schema_version: '2'
+source_input_ids: []
+source_section: mission_type
+source_urns: []
+synthesis_run_id: 2DC96455B0FA4EA49A0C8B7B9A
+synthesizer_version: 3.2.7

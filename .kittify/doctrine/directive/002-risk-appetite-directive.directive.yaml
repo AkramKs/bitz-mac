@@ -1,0 +1,29 @@
+enforcement: required
+id: PROJECT_002
+integrity_rules:
+- Never call NSWorkspace.shared.setDesktopImageURL or mutate user desktop 
+  background settings.
+- Never set ignoresMouseEvents = false on MascotOverlayPanel unless an explicit 
+  opt-in interaction mode is specified and bounded.
+- Never disable Swift 6 concurrency checks or exceed the 2% CPU / 70MB RAM 
+  runtime budget.
+intent: Enforce non-negotiable desktop non-intrusiveness, click-through safety, 
+  Swift 6 concurrency isolation, and strict CPU/memory resource ceilings for the
+  Bitz macOS companion.
+procedures:
+- Audit all NSPanel and NSWorkspace calls to ensure desktop wallpaper APIs are 
+  never invoked and mouse event passthrough is never disabled on the overlay.
+- Bound ActivityMonitorService polling intervals and Rive state machine updates 
+  so Apple Silicon CPU usage stays under 2% and memory stays under 70MB.
+- Maintain strict Swift 6 concurrency annotations (@MainActor isolation for 
+  UI/NSPanel and ObservableObject state updates).
+schema_version: '1.0'
+scope: Applies to all window management, background activity polling, thermal 
+  monitoring, and Rive animation rendering code paths.
+title: Bitz Overlay Safety and Resource Risk Boundaries
+validation_criteria:
+- Static search confirms zero calls to wallpaper mutation APIs across src/.
+- Unit and integration checks verify MascotOverlayPanel.ignoresMouseEvents 
+  remains true.
+- Profiling confirms < 2% CPU on Apple Silicon and < 70MB RAM during 60 FPS 
+  BitzStateMachine playback.

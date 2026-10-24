@@ -1,0 +1,67 @@
+schema_version: 1.0.0
+mission: software-dev
+profile: comprehensive
+answers:
+  project_intent: >-
+    Build "Bitz the Cyber Cat", a native macOS wellness and PC health desktop
+    companion that renders in a borderless, transparent, click-through NSPanel
+    overlay (ignoresMouseEvents = true) without modifying the user's desktop
+    wallpaper, driven by a Metal-accelerated Rive state machine
+    (BitzStateMachine) and WellnessPointEngine.
+  languages_frameworks: >-
+    Swift 6, SwiftUI, AppKit, CoreGraphics, and RiveRuntime targeting macOS
+    14.0+ Universal (Apple Silicon & Intel) with XCTest and Swift Testing.
+  testing_requirements: >-
+    TDD required using Swift Testing and XCTest on core services
+    (WellnessPointEngine, ActivityMonitorService, BitzState transitions, and
+    Rive input mappings) with 80%+ coverage.
+  quality_gates: >-
+    Strict Swift 6 concurrency checking, SwiftLint static analysis, zero
+    compiler warnings, and verified runtime resource ceiling (< 2% CPU on Apple
+    Silicon, < 70MB RAM at 60 FPS) before merge.
+  review_policy: >-
+    Feature branches merged into main using conventional commits with 1 approval
+    and verification against desktop overlay, click-through, and thermal/wellness
+    acceptance criteria.
+  performance_targets: >-
+    Idle and 60 FPS overlay CPU usage < 2% on Apple Silicon, memory footprint
+    < 70MB RAM, and CLI tool operations < 2 seconds.
+  deployment_constraints: >-
+    macOS 14.0+ Universal app bundle (Apple Silicon & Intel) running as a
+    floating non-activating NSPanel across all spaces (.canJoinAllSpaces,
+    .fullScreenAuxiliary, .stationary).
+  documentation_policy: >-
+    Keep docs/ARCHITECTURE.md, docs/STATE_MACHINE.md, and
+    docs/ACCEPTANCE_CRITERIA.md synchronized whenever state machine inputs,
+    wellness scoring rules, or windowing behaviors change.
+  risk_boundaries: >-
+    Never modify or replace the desktop wallpaper; never intercept mouse events
+    on the overlay panel (ignoresMouseEvents = true is non-negotiable); never
+    exceed the 2% CPU / 70MB RAM overhead cap or disable Swift 6 concurrency
+    checks.
+  amendment_process: >-
+    Propose charter changes by updating .kittify/charter/charter.md and
+    .kittify/charter/charter.yaml, running spec-kitty charter generate and
+    spec-kitty charter synthesize, and reviewing diffs before merging to main.
+  exception_policy: >-
+    Document any temporary gate exception in commit or PR notes with explicit
+    scope, mitigation, and sunset criteria.
+selected_paradigms:
+  - deep-module-design
+  - specification-by-example
+selected_directives:
+  - DIRECTIVE_001
+  - DIRECTIVE_010
+  - DIRECTIVE_030
+  - DIRECTIVE_034
+  - DIRECTIVE_037
+selected_tactics:
+  - tdd-red-green-refactor
+  - acceptance-test-first
+  - quality-gate-verification
+  - review-intent-and-risk-first
+available_tools:
+  - git
+  - spec-kitty
+agent_profile: implementer-ivan
+agent_role: implementer

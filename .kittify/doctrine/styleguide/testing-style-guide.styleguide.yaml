@@ -1,0 +1,53 @@
+anti_patterns:
+- bad_example: "let app = ActivityMonitorService().getFrontmostApp()\nXCTAssertEqual(app?.bundleIdentifier,
+    \"com.apple.dt.Xcode\")\n"
+  description: Relying on whichever app happens to be frontmost on the 
+    developer's Mac during test execution.
+  good_example: "let monitor = ActivityMonitorService(workspace: MockWorkspace(frontmostBundleID:
+    \"com.apple.dt.Xcode\"))\nXCTAssertTrue(monitor.isFrontmostAppProductive())\n"
+  name: Live Desktop Session Dependency in Unit Tests
+- bad_example: "// Updating .overworked threshold without testing visorColor == 2.0
+    and speedMultiplier == 0.4\n"
+  description: Changing BitzState cases without asserting the corresponding 
+    speedMultiplier, visorColor, isStandby, and isGlitching values.
+  good_example: "let inputs = BitzRiveInputMapper.inputs(for: .overworked)\nXCTAssertEqual(inputs.speedMultiplier,
+    0.4)\nXCTAssertEqual(inputs.visorColor, 2.0)\n"
+  name: Untested Rive Input Mapping
+applies_to_languages:
+- swift
+id: testing-style-guide
+patterns:
+- bad_example: "func testEngine() {\n    let engine = WellnessPointEngine()\n    engine.registerWorkTick(isProductiveApp:
+    true)\n    XCTAssertNotNil(engine.currentState)\n}\n"
+  description: Test exact threshold boundaries for WellnessPointEngine state 
+    transitions and point clamping.
+  good_example: "func testSuperChargedBoundaryAtEightyPoints() {\n    let engine =
+    WellnessPointEngine()\n    engine.points = 79.5\n    engine.registerWorkTick(isProductiveApp:
+    true)\n    XCTAssertEqual(engine.points, 80.0, accuracy: 0.001)\n    XCTAssertEqual(engine.currentState,
+    .superCharged)\n}\n"
+  name: Parameterized Boundary State Verification
+- bad_example: "engine.evaluateState(isOverheating: false)\n"
+  description: Verify that thermal alerts override point-based states regardless
+    of current wellness points.
+  good_example: "engine.points = 95.0\nengine.evaluateState(isOverheating: true)\n\
+    XCTAssertEqual(engine.currentState, .overheating)\n"
+  name: Overheating Priority Verification
+principles:
+- Write deterministic, fast unit tests for WellnessPointEngine and 
+  ActivityMonitorService using Swift Testing or XCTest before production code 
+  (TDD).
+- Test every BitzState boundary (0.0, 15.0, 40.0, 80.0, 100.0) and overheating 
+  override explicitly.
+- Decouple macOS system services (NSWorkspace, CGEventSource, thermal sensors) 
+  behind protocols so unit tests run without GUI session side effects.
+- Maintain at least 80% code coverage across core wellness and activity 
+  monitoring services.
+quality_test: Can the entire unit test suite run headlessly in under 2 seconds 
+  and catch any regression in WellnessPointEngine thresholds or Rive state 
+  machine inputs?
+schema_version: '1.0'
+scope: testing
+title: Bitz Swift Testing and XCTest Conventions
+tooling:
+  coverage: llvm-cov / Xcode Code Coverage (80%+ target)
+  test_runner: swift test / xcodebuild test

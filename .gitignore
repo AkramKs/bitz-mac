@@ -1,0 +1,12 @@
+# macOS / Xcode / SwiftPM
+.DS_Store
+.build/
+DerivedData/
+*.xcuserdata
+
+# Spec Kitty runtime & transient state
+.kittify/charter/context-state.json
+.kittify/charter/.staging/
+.kittify/charter/.failed/
+.kittify/charter/generated/
+.kittify/encoding-provenance/
