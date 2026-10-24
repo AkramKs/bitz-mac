@@ -1,0 +1,15 @@
+{
+  "coordination_branch": "kitty/mission-bitz-macos-mascot-01M5R2H1",
+  "created_at": "2026-10-24T23:04:26.098985+00:00",
+  "flattened": false,
+  "friendly_name": "Bitz the Cyber Cat macOS Desktop Companion",
+  "mission_id": "01M5R2H1565BXFKD6TVZRRMH9V",
+  "mission_number": null,
+  "mission_slug": "bitz-macos-mascot-01M5R2H1",
+  "mission_type": "software-dev",
+  "purpose_context": "Implement Bitz the Cyber Cat in Swift 6, SwiftUI, AppKit, and RiveRuntime inside a borderless floating NSPanel overlay (<2% CPU, <70MB RAM) with WellnessPointEngine and ActivityMonitorService.",
+  "purpose_tldr": "Native macOS 14+ transparent click-through Rive desktop mascot driven by wellness and PC thermal state.",
+  "slug": "bitz-macos-mascot-01M5R2H1",
+  "target_branch": "feat/bitz-macos-mascot",
+  "topology": "coord"
+}
