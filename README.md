@@ -81,20 +81,22 @@ Bitz's mood is driven by **Wellness Points (`PTS`)** on a scale from **`0.0` to 
 ```text
 bitz-mac/
 ├── Package.swift                              # SwiftPM manifest (BitzCore library, Bitz executable, BitzTests)
+├── Resources/
+│   └── AppIcon.icns                           # High-resolution macOS application icon bundle
 ├── Scripts/
 │   └── package_and_run.sh                     # Builds, bundles, ad-hoc signs, and launches build/Bitz.app
 ├── src/
 │   ├── App/
-│   │   ├── BitzApp.swift                      # NSApplicationDelegate + MenuBarExtra live telemetry UI
-│   │   └── Info.plist                         # LSUIElement=true agent bundle configuration (no Dock icon)
+│   │   ├── BitzApp.swift                      # NSApplicationDelegate, MenuBarExtra UI, stores & position sync
+│   │   └── Window/
+│   │       └── MascotOverlayPanel.swift       # Click-through, non-activating floating NSPanel with corner math
 │   ├── Executable/
 │   │   └── main.swift                         # Native macOS app entry point (BitzApp.main())
 │   ├── Services/
-│   │   ├── WellnessPointEngine.swift          # Reactive PTS state engine & Rive state machine adapter seam
-│   │   └── ActivityMonitorService.swift       # AppleSiliconHardwareSensors (IOHID + Mach) & activity monitor
+│   │   ├── WellnessPointEngine.swift          # Reactive PTS state engine, work streak & break persistence
+│   │   └── ActivityMonitorService.swift       # Apple Silicon hardware sensors (IOHID + Mach) & telemetry
 │   └── Views/
-│       ├── MascotOverlayPanel.swift           # Click-through, non-activating floating NSPanel
-│       └── MascotOverlayView.swift            # Cyberpunk cat vector rig, reactive LED visor & live HUD pill
+│       └── MascotOverlayView.swift            # Vector cat rig, LED visor, trot cycles & ambient particles
 ├── Tests/
 │   └── BitzTests/                             # 33 deterministic XCTest unit tests
 │       ├── WellnessPointEngineTests.swift
