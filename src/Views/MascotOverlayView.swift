@@ -172,7 +172,28 @@ public struct MascotOverlayView: View {
                     .offset(y: engine.currentState == .burnout ? -22 : -44)
                 }
                 .offset(x: glitchOffsetX, y: breathOffset)
-                .padding(.bottom, 10)
+
+                // Live Cyberpunk Hardware Telemetry Pill (shows real CPU °C, CPU %, and Wellness PTS)
+                if let tempC = engine.latestTemperatureCelsius {
+                    let cpuString = engine.latestCPULoadPercentage.map { String(format: " • %.0f%% CPU", $0) } ?? ""
+                    Text(String(format: "%.1f°C%@ • %.0f PTS", tempC, cpuString, engine.currentPoints))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(visorColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(Color(red: 0.06, green: 0.06, blue: 0.08).opacity(0.88))
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(visorColor.opacity(0.6), lineWidth: 1)
+                        )
+                        .shadow(color: visorColor.opacity(0.4), radius: 4)
+                        .padding(.bottom, 4)
+                } else {
+                    Spacer().frame(height: 10)
+                }
             }
         }
         .frame(width: 250, height: 250)

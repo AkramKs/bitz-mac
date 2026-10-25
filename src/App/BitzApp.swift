@@ -51,8 +51,92 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+/// Observable Menu Bar content view displaying live hardware sensor telemetry,
+/// wellness score, and interactive state controls.
+@MainActor
+private struct BitzMenuBarContentView: View {
+    @ObservedObject var engine: WellnessPointEngine
+    @ObservedObject var activityMonitor: ActivityMonitorService
+
+    private var thermalStateLabel: String {
+        switch activityMonitor.lastThermalState {
+        case .nominal: return "Nominal"
+        case .fair: return "Fair"
+        case .serious: return "Serious"
+        case .critical: return "Critical"
+        @unknown default: return "Unknown"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Bitz the Cyber Cat")
+                .font(.headline)
+            Text("State: \(engine.currentState.rawValue)")
+            Text(String(format: "Wellness: %.1f / 100", engine.currentPoints))
+
+            Divider()
+            Text("Live Hardware & Activity Sensors")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if let temp = activityMonitor.lastTemperatureCelsius {
+                Text(String(format: "CPU Die Temp: %.1f °C (Warn > %.0f °C)", temp, activityMonitor.overheatingTemperatureThresholdCelsius))
+            } else {
+                Text("CPU Die Temp: Sensor Unavailable")
+            }
+
+            if let load = activityMonitor.lastCPULoadPercentage {
+                Text(String(format: "CPU Load: %.1f%%", load))
+            }
+
+            Text("Thermal Pressure: \(thermalStateLabel)")
+
+            if let appName = activityMonitor.lastFrontmostAppName {
+                let tag = activityMonitor.lastAppIsProductive ? "+0.5 Productive" : "-1.5 Unproductive"
+                Text("Active App: \(appName) (\(tag))")
+            }
+
+            Text(String(format: "User Idle: %.0fs%@", activityMonitor.lastIdleSeconds, activityMonitor.isOnBreak ? " (On Break)" : ""))
+
+            Button("Sample Hardware Sensors Now") {
+                activityMonitor.performSampleTick()
+            }
+
+            Divider()
+            Button("Pet Bitz (<3)") {
+                engine.triggerPetInteraction()
+            }
+            Divider()
+            Text("Manual State Override")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Super Charged (90 pts - Magenta)") {
+                engine.setPoints(90.0)
+            }
+            Button("Balanced (50 pts - Cyan)") {
+                engine.setPoints(50.0)
+            }
+            Button("Overworked (25 pts - Amber)") {
+                engine.setPoints(25.0)
+            }
+            Button("Burnout / Standby (10 pts - ZZZ)") {
+                engine.setPoints(10.0)
+            }
+            Button("Thermal Overheat (SYSTEM HOT!)") {
+                engine.triggerThermalWarning(isOverheating: true)
+            }
+            Divider()
+            Button("Quit Bitz") {
+                NSApplication.shared.terminate(nil)
+            }
+        }
+        .padding(8)
+    }
+}
+
 /// SwiftUI `App` definition providing a lightweight Menu Bar status item for inspecting
-/// Bitz's wellness points, triggering `"Pet Bitz"`, and testing behavioral states (`FR-006`).
+/// Bitz's live hardware telemetry, wellness points, triggering `"Pet Bitz"`, and testing behavioral states (`FR-006`).
 @MainActor
 public struct BitzApp: App {
     @NSApplicationDelegateAdaptor(BitzAppDelegate.self) public var appDelegate
@@ -61,40 +145,10 @@ public struct BitzApp: App {
 
     public var body: some Scene {
         MenuBarExtra("Bitz", systemImage: "cat.fill") {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Bitz the Cyber Cat")
-                    .font(.headline)
-                Text("State: \(appDelegate.engine.currentState.rawValue)")
-                Text(String(format: "Wellness: %.1f / 100", appDelegate.engine.currentPoints))
-                Divider()
-                Button("Pet Bitz (<3)") {
-                    appDelegate.engine.triggerPetInteraction()
-                }
-                Divider()
-                Text("Preview States")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Super Charged (90 pts - Magenta)") {
-                    appDelegate.engine.setPoints(90.0)
-                }
-                Button("Balanced (50 pts - Cyan)") {
-                    appDelegate.engine.setPoints(50.0)
-                }
-                Button("Overworked (25 pts - Amber)") {
-                    appDelegate.engine.setPoints(25.0)
-                }
-                Button("Burnout / Standby (10 pts - ZZZ)") {
-                    appDelegate.engine.setPoints(10.0)
-                }
-                Button("Thermal Overheat (SYSTEM HOT!)") {
-                    appDelegate.engine.triggerThermalWarning(isOverheating: true)
-                }
-                Divider()
-                Button("Quit Bitz") {
-                    NSApplication.shared.terminate(nil)
-                }
-            }
-            .padding(8)
+            BitzMenuBarContentView(
+                engine: appDelegate.engine,
+                activityMonitor: appDelegate.activityMonitor
+            )
         }
     }
 }

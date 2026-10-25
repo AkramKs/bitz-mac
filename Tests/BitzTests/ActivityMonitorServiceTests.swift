@@ -45,6 +45,8 @@ final class ActivityMonitorServiceTests: XCTestCase {
         XCTAssertTrue(service.isProductiveBundleID("com.todesktop.230313mzl4w4u92"))
         XCTAssertTrue(service.isProductiveBundleID("dev.warp.Warp-Stable"))
         XCTAssertTrue(service.isProductiveBundleID("com.jetbrains.intellij"))
+        XCTAssertTrue(service.isProductiveBundleID("com.google.antigravity"))
+        XCTAssertTrue(service.isProductiveBundleID("com.google.antigravity-ide"))
 
         XCTAssertFalse(service.isProductiveBundleID("com.apple.Safari"))
         XCTAssertFalse(service.isProductiveBundleID(nil))
@@ -166,9 +168,17 @@ final class ActivityMonitorServiceTests: XCTestCase {
         let engine = WellnessPointEngine()
         let systemProvider = SystemActivityTelemetryProvider()
         _ = systemProvider.frontmostBundleIdentifier()
+        _ = systemProvider.frontmostApplicationName()
         XCTAssertGreaterThanOrEqual(systemProvider.secondsSinceLastInput(), 0.0)
         _ = systemProvider.thermalState()
-        XCTAssertNil(systemProvider.cpuTemperatureCelsius())
+        if let temp = systemProvider.cpuTemperatureCelsius() {
+            XCTAssertGreaterThan(temp, 15.0)
+            XCTAssertLessThan(temp, 130.0)
+        }
+        if let load = systemProvider.cpuLoadPercentage() {
+            XCTAssertGreaterThanOrEqual(load, 0.0)
+            XCTAssertLessThanOrEqual(load, 100.0)
+        }
         XCTAssertNotNil(systemProvider.now())
 
         let service = ActivityMonitorService(engine: engine, telemetry: systemProvider)

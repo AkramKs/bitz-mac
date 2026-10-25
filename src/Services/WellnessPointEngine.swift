@@ -148,6 +148,8 @@ public final class WellnessPointEngine: ObservableObject {
     @Published public private(set) var currentState: BitzState = .balanced
     @Published public private(set) var activeSpeechBubbleText: String? = nil
     @Published public private(set) var isPetReactionActive: Bool = false
+    @Published public var latestTemperatureCelsius: Double? = nil
+    @Published public var latestCPULoadPercentage: Double? = nil
 
     public let maxPoints: Double = 100.0
     public let minPoints: Double = 0.0
