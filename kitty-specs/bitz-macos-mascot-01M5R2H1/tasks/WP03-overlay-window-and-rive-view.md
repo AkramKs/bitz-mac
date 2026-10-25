@@ -10,7 +10,7 @@ requirement_refs:
 - FR-006
 planning_base_branch: feat/bitz-macos-mascot
 merge_target_branch: feat/bitz-macos-mascot
-branch_strategy: 'Current branch at workflow start: feat/bitz-macos-mascot. Planning/base branch for this feature: feat/bitz-macos-mascot. Completed changes must merge into feat/bitz-macos-mascot.'
+branch_strategy: Planning artifacts for this mission were generated on feat/bitz-macos-mascot. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into feat/bitz-macos-mascot unless the human explicitly redirects the landing branch.
 subtasks:
 - T011
 - T012
@@ -19,10 +19,9 @@ subtasks:
 - T015
 phase: Phase 3 - Desktop Overlay Presentation & App Lifecycle
 history:
-- !!omap
-  - at: '2026-10-24T23:21:06Z'
-  - actor: system
-  - action: Prompt generated via /spec-kitty.tasks
+- at: '2026-10-24T23:21:06Z'
+  actor: system
+  action: Prompt generated via /spec-kitty.tasks
 agent_profile: implementer-ivan
 authoritative_surface: src/App/
 create_intent:

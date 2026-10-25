@@ -7,7 +7,7 @@ requirement_refs:
 - FR-005
 planning_base_branch: feat/bitz-macos-mascot
 merge_target_branch: feat/bitz-macos-mascot
-branch_strategy: 'Current branch at workflow start: feat/bitz-macos-mascot. Planning/base branch for this feature: feat/bitz-macos-mascot. Completed changes must merge into feat/bitz-macos-mascot.'
+branch_strategy: Planning artifacts for this mission were generated on feat/bitz-macos-mascot. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into feat/bitz-macos-mascot unless the human explicitly redirects the landing branch.
 subtasks:
 - T006
 - T007
@@ -16,10 +16,9 @@ subtasks:
 - T010
 phase: Phase 2 - System Telemetry & Break Detection
 history:
-- !!omap
-  - at: '2026-10-24T23:21:06Z'
-  - actor: system
-  - action: Prompt generated via /spec-kitty.tasks
+- at: '2026-10-24T23:21:06Z'
+  actor: system
+  action: Prompt generated via /spec-kitty.tasks
 agent_profile: implementer-ivan
 authoritative_surface: src/Services/ActivityMonitorService.swift
 create_intent:
