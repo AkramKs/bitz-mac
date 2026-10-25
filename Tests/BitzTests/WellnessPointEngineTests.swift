@@ -22,12 +22,14 @@ final class WellnessPointEngineTests: XCTestCase {
         XCTAssertEqual(BitzVisorColor.magenta, 1.0)
         XCTAssertEqual(BitzVisorColor.amber, 2.0)
         XCTAssertEqual(BitzVisorColor.red, 3.0)
+        XCTAssertEqual(BitzVisorColor.purple, 4.0)
+        XCTAssertEqual(BitzVisorColor.green, 5.0)
 
         XCTAssertEqual(
             Set(BitzState.allCases.map(\.rawValue)),
-            Set(["superCharged", "balanced", "overworked", "burnout", "overheating"])
+            Set(["superCharged", "balanced", "dopamineSad", "overworked", "burnout", "charging", "overheating"])
         )
-        XCTAssertEqual(WellnessPointEngine.thermalWarningText, "SYSTEM HOT! > <")
+        XCTAssertEqual(WellnessPointEngine.thermalWarningText, "🔥 SYSTEM HOT! CLOSE HEAVY APPS TO COOL DOWN")
     }
 
     // MARK: - Initial State & Clamping
@@ -52,9 +54,9 @@ final class WellnessPointEngineTests: XCTestCase {
         let spyLow = SpyRiveController()
         let lowEngine = WellnessPointEngine(initialPoints: -25.0, riveController: spyLow)
         XCTAssertEqual(lowEngine.currentPoints, 0.0, accuracy: 0.0001)
-        XCTAssertEqual(lowEngine.currentState, .burnout)
-        XCTAssertEqual(spyLow.floatInputs["speedMultiplier"], 0.0)
-        XCTAssertEqual(spyLow.boolInputs["isStandby"], true)
+        XCTAssertEqual(lowEngine.currentState, .dopamineSad)
+        XCTAssertEqual(spyLow.floatInputs["speedMultiplier"], 0.35)
+        XCTAssertEqual(spyLow.floatInputs["visorColor"], BitzVisorColor.purple)
 
         let spyHigh = SpyRiveController()
         let highEngine = WellnessPointEngine(initialPoints: 150.0, riveController: spyHigh)
@@ -64,7 +66,7 @@ final class WellnessPointEngineTests: XCTestCase {
         XCTAssertEqual(spyHigh.floatInputs["visorColor"], 1.0)
     }
 
-    // MARK: - Work Ticks & Clamping
+    // MARK: - Work Ticks, Dopamine Sad & Continuous Work Burnout
 
     func testProductiveWorkTickAddsHalfPointAndTransitionsToSuperCharged() {
         let spy = SpyRiveController()
@@ -92,40 +94,42 @@ final class WellnessPointEngineTests: XCTestCase {
         XCTAssertEqual(engine.currentPoints, 100.0, accuracy: 0.0001)
     }
 
-    func testUnproductiveWorkTickSubtractsOneAndHalfPointsAcrossAllThresholds() {
+    func testUnproductiveWorkTickDrainsIntoDopamineSadAndClampsAtZero() {
         let spy = SpyRiveController()
         let engine = WellnessPointEngine(initialPoints: 41.0, riveController: spy)
         XCTAssertEqual(engine.currentState, .balanced)
 
-        // 41.0 - 1.5 = 39.5 -> Overworked
+        // 41.0 - 1.5 = 39.5 -> .dopamineSad (Too much YouTube/Netflix)
         engine.evaluateWorkTick(isProductiveApp: false)
         XCTAssertEqual(engine.currentPoints, 39.5, accuracy: 0.0001)
-        XCTAssertEqual(engine.currentState, .overworked)
-        XCTAssertEqual(spy.floatInputs["speedMultiplier"], 0.4)
-        XCTAssertEqual(spy.floatInputs["visorColor"], 2.0)
-        XCTAssertEqual(spy.boolInputs["isGlitching"], false)
-        XCTAssertEqual(spy.boolInputs["isStandby"], false)
-    }
+        XCTAssertEqual(engine.currentState, .dopamineSad)
+        XCTAssertEqual(engine.activeSpeechBubbleText, WellnessPointEngine.dopamineSadText)
+        XCTAssertEqual(spy.floatInputs["speedMultiplier"], 0.35)
+        XCTAssertEqual(spy.floatInputs["visorColor"], BitzVisorColor.purple)
 
-    func testUnproductiveWorkTickTransitionsToBurnoutAndClampsAtZero() {
-        let spy = SpyRiveController()
-        let engine = WellnessPointEngine(initialPoints: 15.5, riveController: spy)
-        XCTAssertEqual(engine.currentState, .overworked)
-
-        // 15.5 - 1.5 = 14.0 -> Burnout (< 15.0)
-        engine.evaluateWorkTick(isProductiveApp: false)
-        XCTAssertEqual(engine.currentPoints, 14.0, accuracy: 0.0001)
-        XCTAssertEqual(engine.currentState, .burnout)
-        XCTAssertEqual(spy.floatInputs["speedMultiplier"], 0.0)
-        XCTAssertEqual(spy.boolInputs["isStandby"], true)
-        XCTAssertEqual(spy.boolInputs["isGlitching"], false)
-
-        // Drain all the way to 0.0 and verify floor clamp
-        for _ in 0..<15 {
+        for _ in 0..<30 {
             engine.evaluateWorkTick(isProductiveApp: false)
         }
         XCTAssertEqual(engine.currentPoints, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .dopamineSad)
+    }
+
+    func testContinuousWorkWithoutBreakTriggersOverworkedAndBurnout() {
+        let spy = SpyRiveController()
+        let engine = WellnessPointEngine(initialPoints: 80.0, riveController: spy)
+        XCTAssertEqual(engine.currentState, .superCharged)
+
+        // Work 45 minutes continuously without a break -> .overworked
+        engine.evaluateWorkTick(isProductiveApp: true, tickDurationMinutes: 45.0)
+        XCTAssertEqual(engine.currentState, .overworked)
+        XCTAssertEqual(engine.activeSpeechBubbleText, WellnessPointEngine.overworkedWarningText)
+        XCTAssertEqual(spy.floatInputs["visorColor"], BitzVisorColor.amber)
+
+        // Work another 45 minutes (total 90m) -> .burnout
+        engine.evaluateWorkTick(isProductiveApp: true, tickDurationMinutes: 45.0)
         XCTAssertEqual(engine.currentState, .burnout)
+        XCTAssertEqual(engine.activeSpeechBubbleText, WellnessPointEngine.burnoutWarningText)
+        XCTAssertEqual(spy.boolInputs["isStandby"], true)
     }
 
     // MARK: - Exact Boundary Thresholds
@@ -135,45 +139,30 @@ final class WellnessPointEngineTests: XCTestCase {
         XCTAssertEqual(WellnessPointEngine.state(forPoints: 80.0), .superCharged)
         XCTAssertEqual(WellnessPointEngine.state(forPoints: 79.999), .balanced)
         XCTAssertEqual(WellnessPointEngine.state(forPoints: 40.0), .balanced)
-        XCTAssertEqual(WellnessPointEngine.state(forPoints: 39.999), .overworked)
-        XCTAssertEqual(WellnessPointEngine.state(forPoints: 15.0), .overworked)
-        XCTAssertEqual(WellnessPointEngine.state(forPoints: 14.999), .burnout)
-        XCTAssertEqual(WellnessPointEngine.state(forPoints: 0.0), .burnout)
+        XCTAssertEqual(WellnessPointEngine.state(forPoints: 39.999), .dopamineSad)
+        XCTAssertEqual(WellnessPointEngine.state(forPoints: 0.0), .dopamineSad)
     }
 
-    // MARK: - Offline Break Restoration
+    // MARK: - Charging & Offline Break Restoration
 
-    func testOfflineBreakTenMinutesOrLessAddsZeroPoints() {
+    func testChargingStateAndOfflineBreakRestoration() {
         let spy = SpyRiveController()
-        let engine = WellnessPointEngine(initialPoints: 20.0, riveController: spy)
-        spy.resetRecordedCommands()
-
-        engine.applyOfflineBreak(minutes: 0.0)
-        XCTAssertEqual(engine.currentPoints, 20.0, accuracy: 0.0001)
-        XCTAssertTrue(spy.commands.isEmpty)
-
-        engine.applyOfflineBreak(minutes: 10.0)
-        XCTAssertEqual(engine.currentPoints, 20.0, accuracy: 0.0001)
-        XCTAssertTrue(spy.commands.isEmpty)
-    }
-
-    func testOfflineBreakGreaterThanTenMinutesRestoresFivePointsPerMinuteAndClamps() {
-        let spy = SpyRiveController()
-        let engine = WellnessPointEngine(initialPoints: 10.0, riveController: spy)
+        let engine = WellnessPointEngine(initialPoints: 30.0, initialContinuousWorkMinutes: 95.0, riveController: spy)
         XCTAssertEqual(engine.currentState, .burnout)
 
-        // 11 minutes > 10.0 -> +55.0 pts -> 65.0 pts (.balanced)
-        engine.applyOfflineBreak(minutes: 11.0)
-        XCTAssertEqual(engine.currentPoints, 65.0, accuracy: 0.0001)
-        XCTAssertEqual(engine.currentState, .balanced)
-        XCTAssertEqual(spy.floatInputs["speedMultiplier"], 1.0)
-        XCTAssertEqual(spy.floatInputs["visorColor"], 0.0)
-        XCTAssertEqual(spy.boolInputs["isStandby"], false)
+        // User steps away from keyboard -> .charging
+        engine.setChargingState(true)
+        XCTAssertEqual(engine.currentState, .charging)
+        XCTAssertEqual(engine.activeSpeechBubbleText, WellnessPointEngine.chargingStatusText)
+        XCTAssertEqual(spy.floatInputs["visorColor"], BitzVisorColor.green)
+        XCTAssertEqual(engine.currentPoints, 30.5, accuracy: 0.0001)
 
-        // 15 minutes -> +75.0 pts -> clamped to 100.0 (.superCharged)
-        engine.applyOfflineBreak(minutes: 15.0)
-        XCTAssertEqual(engine.currentPoints, 100.0, accuracy: 0.0001)
-        XCTAssertEqual(engine.currentState, .superCharged)
+        // Return after 5 minutes (> 2.0m threshold) -> +25.0 pts (55.5) and resets continuousWorkMinutes to 0
+        engine.applyOfflineBreak(minutes: 5.0)
+        XCTAssertEqual(engine.currentPoints, 55.5, accuracy: 0.0001)
+        XCTAssertEqual(engine.continuousWorkMinutes, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .balanced)
+        XCTAssertNil(engine.activeSpeechBubbleText)
     }
 
     // MARK: - Thermal Warning Override & Recovery
@@ -184,10 +173,13 @@ final class WellnessPointEngineTests: XCTestCase {
         XCTAssertEqual(engine.currentState, .superCharged)
         XCTAssertNil(engine.activeSpeechBubbleText)
 
-        // Trigger thermal warning
-        engine.triggerThermalWarning(isOverheating: true)
+        // Trigger thermal warning with actionable message
+        engine.triggerThermalWarning(
+            isOverheating: true,
+            actionMessage: "🔥 85°C — CLOSE HEAVY APPS TO COOL DOWN!"
+        )
         XCTAssertEqual(engine.currentState, .overheating)
-        XCTAssertEqual(engine.activeSpeechBubbleText, "SYSTEM HOT! > <")
+        XCTAssertEqual(engine.activeSpeechBubbleText, "🔥 85°C — CLOSE HEAVY APPS TO COOL DOWN!")
         XCTAssertEqual(spy.boolInputs["isGlitching"], true)
         XCTAssertEqual(spy.floatInputs["visorColor"], 3.0)
 

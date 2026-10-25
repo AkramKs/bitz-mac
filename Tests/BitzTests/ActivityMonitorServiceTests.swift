@@ -78,7 +78,7 @@ final class ActivityMonitorServiceTests: XCTestCase {
         XCTAssertEqual(engine.currentPoints, 49.0, accuracy: 0.0001)
     }
 
-    func testIdleBreakEntryAndShortBreakRecoveryBelowTenMinutes() {
+    func testIdleBreakEntryEntersChargingModeAndRecovers() {
         let engine = WellnessPointEngine(initialPoints: 30.0)
         let telemetry = MockTelemetryProvider()
         let service = ActivityMonitorService(
@@ -87,33 +87,34 @@ final class ActivityMonitorServiceTests: XCTestCase {
             idleBreakThresholdSeconds: 60.0
         )
 
-        // User becomes idle for 65 seconds -> enters break, does not penalize points
+        // User becomes idle for 65 seconds -> enters .charging (+0.5 PTS per idle tick)
         telemetry.bundleID = "com.apple.Safari"
         telemetry.idleSeconds = 65.0
         service.performSampleTick()
         XCTAssertTrue(service.isOnBreak)
-        XCTAssertNotNil(service.breakStartedAt)
-        XCTAssertEqual(engine.currentPoints, 30.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .charging)
+        XCTAssertEqual(engine.currentPoints, 30.5, accuracy: 0.0001)
 
-        // User remains idle for 5 minutes total -> still on break
-        telemetry.currentDate = telemetry.currentDate.addingTimeInterval(235.0)
-        telemetry.idleSeconds = 300.0
+        // User remains idle for another tick -> continues charging (+0.5 PTS)
+        telemetry.currentDate = telemetry.currentDate.addingTimeInterval(30.0)
+        telemetry.idleSeconds = 95.0
         service.performSampleTick()
         XCTAssertTrue(service.isOnBreak)
-        XCTAssertEqual(engine.currentPoints, 30.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .charging)
+        XCTAssertEqual(engine.currentPoints, 31.0, accuracy: 0.0001)
 
-        // User returns after 5 minutes (<= 10.0 min) in Xcode -> 0 break bonus, +0.5 work tick
+        // User returns after 95s (<= 2.0 min) in Xcode -> exits .charging, +0.5 work tick
         telemetry.bundleID = "com.apple.dt.Xcode"
         telemetry.idleSeconds = 0.0
         service.performSampleTick()
         XCTAssertFalse(service.isOnBreak)
         XCTAssertNil(service.breakStartedAt)
-        XCTAssertEqual(engine.currentPoints, 30.5, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentPoints, 31.5, accuracy: 0.0001)
     }
 
-    func testLongOfflineBreakGreaterThanTenMinutesRestoresWellnessPoints() {
+    func testLongOfflineBreakRestoresWellnessPointsAndClearsBurnout() {
         let spy = SpyRiveController()
-        let engine = WellnessPointEngine(initialPoints: 12.0, riveController: spy)
+        let engine = WellnessPointEngine(initialPoints: 12.0, initialContinuousWorkMinutes: 95.0, riveController: spy)
         XCTAssertEqual(engine.currentState, .burnout)
 
         let telemetry = MockTelemetryProvider()
@@ -123,20 +124,21 @@ final class ActivityMonitorServiceTests: XCTestCase {
             idleBreakThresholdSeconds: 60.0
         )
 
-        // Enter break at t=0 (already idle for 60s, so breakStartedAt = t - 60s)
+        // Enter break at t=0 (idle for 60s -> .charging, 12.5 pts)
         telemetry.idleSeconds = 60.0
         service.performSampleTick()
         XCTAssertTrue(service.isOnBreak)
+        XCTAssertEqual(engine.currentState, .charging)
 
-        // Advance clock by 11 minutes (660s) -> total break duration = 12 minutes (> 10.0)
+        // Advance clock by 11 minutes (660s) -> total break duration = 12 minutes (> 2.0m)
         telemetry.currentDate = telemetry.currentDate.addingTimeInterval(660.0)
         telemetry.idleSeconds = 0.0
         telemetry.bundleID = "com.apple.dt.Xcode"
 
-        // Return from break: +60.0 break pts (12.0 + 60.0 = 72.0) + 0.5 work tick = 72.5 (.balanced)
+        // Return from break: +60.0 break pts (12.5 + 60.0 = 72.5) + 0.5 work tick = 73.0 (.balanced)
         service.performSampleTick()
         XCTAssertFalse(service.isOnBreak)
-        XCTAssertEqual(engine.currentPoints, 72.5, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentPoints, 73.0, accuracy: 0.0001)
         XCTAssertEqual(engine.currentState, .balanced)
         XCTAssertEqual(spy.floatInputs["visorColor"], 0.0)
         XCTAssertEqual(spy.boolInputs["isStandby"], false)
@@ -148,12 +150,12 @@ final class ActivityMonitorServiceTests: XCTestCase {
         let telemetry = MockTelemetryProvider()
         let service = ActivityMonitorService(engine: engine, telemetry: telemetry)
 
-        // 1. Spike CPU temperature > 80.0C
+        // 1. Spike CPU temperature > 80.0C -> actionable cool-down message
         telemetry.currentTemperatureCelsius = 85.0
         service.performSampleTick()
         XCTAssertTrue(service.isOverheatingActive)
         XCTAssertEqual(engine.currentState, .overheating)
-        XCTAssertEqual(engine.activeSpeechBubbleText, "SYSTEM HOT! > <")
+        XCTAssertEqual(engine.activeSpeechBubbleText, "🔥 85°C HOT — QUIT UNUSED APPS OR DOCKER TO COOL DOWN!")
         XCTAssertEqual(spy.floatInputs["visorColor"], 3.0)
         XCTAssertEqual(spy.boolInputs["isGlitching"], true)
 

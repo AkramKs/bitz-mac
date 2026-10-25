@@ -22,18 +22,24 @@ public struct MascotOverlayView: View {
         self.engine = engine
     }
 
-    /// Returns the hex color values (`red`, `green`, `blue`) matching the current `BitzState` visor color.
+    /// Returns the RGB color values (`red`, `green`, `blue`) matching the current `BitzState` visor color.
     public static func visorRGB(for state: BitzState) -> (red: Double, green: Double, blue: Double) {
         switch state {
-        case .balanced, .burnout:
+        case .balanced:
             // Electric Cyan (#00F0FF)
             return (0.0, 240.0 / 255.0, 1.0)
         case .superCharged:
             // Neon Magenta (#FF007F)
             return (1.0, 0.0, 127.0 / 255.0)
-        case .overworked:
+        case .dopamineSad:
+            // Dopamine Overload Violet (#9D4EDD)
+            return (157.0 / 255.0, 78.0 / 255.0, 221.0 / 255.0)
+        case .overworked, .burnout:
             // Warning Amber (#FFB000)
             return (1.0, 176.0 / 255.0, 0.0)
+        case .charging:
+            // Cyber Emerald Green (#00FF88)
+            return (0.0, 1.0, 136.0 / 255.0)
         case .overheating:
             // Critical Red (#FF1E1E)
             return (1.0, 30.0 / 255.0, 30.0 / 255.0)
@@ -51,13 +57,21 @@ public struct MascotOverlayView: View {
             return 2.0
         case .balanced:
             return 1.0
+        case .dopamineSad:
+            return 0.35
         case .overworked:
             return 0.4
         case .burnout:
             return 0.0
+        case .charging:
+            return 0.6
         case .overheating:
             return 2.5
         }
+    }
+
+    private var isLoafPosture: Bool {
+        engine.currentState == .burnout || engine.currentState == .charging
     }
 
     public var body: some View {
@@ -65,27 +79,35 @@ public struct MascotOverlayView: View {
             let t = timeline.date.timeIntervalSinceReferenceDate
             let breathOffset = sin(t * 2.8 * animationSpeedMultiplier) * (engine.currentState == .burnout ? 0.0 : 4.5)
             let glitchOffsetX = engine.currentState == .overheating ? sin(t * 45.0) * 3.0 : 0.0
-            let earTilt = engine.currentState == .overworked ? 12.0 : 0.0
+            let earTilt = (engine.currentState == .overworked || engine.currentState == .dopamineSad) ? 14.0 : 0.0
 
             VStack(spacing: 6) {
                 Spacer(minLength: 0)
 
                 if let speechText = engine.activeSpeechBubbleText {
                     Text(speechText)
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
+                        .frame(maxWidth: 236)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(red: 0.85, green: 0.08, blue: 0.12).opacity(0.95))
+                                .fill(
+                                    engine.currentState == .overheating
+                                        ? Color(red: 0.75, green: 0.06, blue: 0.10).opacity(0.95)
+                                        : Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.94)
+                                )
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(visorColor, lineWidth: 1.5)
                         )
                         .shadow(color: visorColor.opacity(0.7), radius: 6)
-                        .offset(y: -52)
+                        .offset(y: isLoafPosture ? -30 : -50)
                         .zIndex(2)
                 }
 
@@ -98,13 +120,13 @@ public struct MascotOverlayView: View {
                             Capsule()
                                 .stroke(visorColor.opacity(0.85), lineWidth: 2)
                         )
-                        .rotationEffect(.degrees(engine.currentState == .burnout ? 0 : -22 + sin(t * 3.2 * animationSpeedMultiplier) * 10))
+                        .rotationEffect(.degrees(isLoafPosture ? 0 : -22 + sin(t * 3.2 * animationSpeedMultiplier) * 10))
                         .offset(x: 64, y: -14)
 
                     // Compact cyber-cat body / loaf base
                     RoundedRectangle(cornerRadius: 28)
                         .fill(Color(red: 20.0 / 255.0, green: 20.0 / 255.0, blue: 24.0 / 255.0))
-                        .frame(width: engine.currentState == .burnout ? 136 : 108, height: engine.currentState == .burnout ? 54 : 68)
+                        .frame(width: isLoafPosture ? 136 : 108, height: isLoafPosture ? 54 : 68)
                         .overlay(
                             RoundedRectangle(cornerRadius: 28)
                                 .stroke(visorColor.opacity(0.45), lineWidth: 1.5)
@@ -171,7 +193,7 @@ public struct MascotOverlayView: View {
                         }
                         .zIndex(1)
                     }
-                    .offset(y: engine.currentState == .burnout ? -22 : -44)
+                    .offset(y: isLoafPosture ? -22 : -44)
                 }
                 .offset(x: glitchOffsetX, y: breathOffset)
 
@@ -210,10 +232,20 @@ public struct MascotOverlayView: View {
                 .font(.system(size: 18, weight: .heavy, design: .monospaced))
                 .foregroundStyle(Color(red: 1.0, green: 0.0, blue: 127.0 / 255.0))
                 .shadow(color: Color(red: 1.0, green: 0.0, blue: 127.0 / 255.0), radius: 6)
-        } else if engine.currentState == .burnout {
-            Text("Z Z Z")
+        } else if engine.currentState == .charging {
+            Text("⚡ Z Z")
                 .font(.system(size: 17, weight: .heavy, design: .monospaced))
-                .foregroundStyle(visorColor.opacity(0.75))
+                .foregroundStyle(visorColor)
+                .shadow(color: visorColor, radius: 6)
+        } else if engine.currentState == .burnout {
+            Text("X  X")
+                .font(.system(size: 19, weight: .heavy, design: .monospaced))
+                .foregroundStyle(visorColor.opacity(0.85))
+        } else if engine.currentState == .dopamineSad {
+            Text("T  T")
+                .font(.system(size: 19, weight: .heavy, design: .monospaced))
+                .foregroundStyle(visorColor)
+                .shadow(color: visorColor, radius: 6)
         } else if engine.currentState == .overheating {
             Text(">  <")
                 .font(.system(size: 20, weight: .heavy, design: .monospaced))

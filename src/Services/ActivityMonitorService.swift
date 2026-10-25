@@ -316,6 +316,7 @@ public final class ActivityMonitorService: ObservableObject {
     public let productiveBundleIDs: Set<String>
     public let idleBreakThresholdSeconds: TimeInterval
     public let overheatingTemperatureThresholdCelsius: Double
+    public let overheatingCPULoadThresholdPercent: Double
 
     @Published public private(set) var isMonitoring: Bool = false
     @Published public private(set) var isOnBreak: Bool = false
@@ -337,13 +338,15 @@ public final class ActivityMonitorService: ObservableObject {
         telemetry: ActivityTelemetryProviding = SystemActivityTelemetryProvider(),
         productiveBundleIDs: Set<String> = ActivityMonitorService.defaultProductiveBundleIDs,
         idleBreakThresholdSeconds: TimeInterval = 60.0,
-        overheatingTemperatureThresholdCelsius: Double = 80.0
+        overheatingTemperatureThresholdCelsius: Double = 80.0,
+        overheatingCPULoadThresholdPercent: Double = 85.0
     ) {
         self.engine = engine
         self.telemetry = telemetry
         self.productiveBundleIDs = productiveBundleIDs
         self.idleBreakThresholdSeconds = idleBreakThresholdSeconds
         self.overheatingTemperatureThresholdCelsius = overheatingTemperatureThresholdCelsius
+        self.overheatingCPULoadThresholdPercent = overheatingCPULoadThresholdPercent
     }
 
     /// Returns `true` if the given bundle identifier belongs to the configured productive app set
@@ -402,6 +405,7 @@ public final class ActivityMonitorService: ObservableObject {
                 isOnBreak = true
                 breakStartedAt = currentTime.addingTimeInterval(-idleSeconds)
             }
+            engine.setChargingState(true)
             return
         }
 
@@ -428,11 +432,34 @@ public final class ActivityMonitorService: ObservableObject {
         engine.latestCPULoadPercentage = cpuLoad
 
         let effectiveTemp = tempCelsius ?? 0.0
-        let shouldOverheat = (state == .critical || state == .serious || effectiveTemp > overheatingTemperatureThresholdCelsius)
+        let effectiveLoad = cpuLoad ?? 0.0
+        let isHotTemp = effectiveTemp > overheatingTemperatureThresholdCelsius
+        let isHighCPU = effectiveLoad > overheatingCPULoadThresholdPercent
+        let shouldOverheat = (state == .critical || state == .serious || isHotTemp || isHighCPU)
 
         if shouldOverheat {
             isOverheatingActive = true
-            engine.triggerThermalWarning(isOverheating: true)
+            let actionMessage: String
+            if isHotTemp && isHighCPU {
+                actionMessage = String(
+                    format: "🔥 %.0f°C (%.0f%% CPU) — CLOSE HEAVY TABS OR BUILDS TO COOL DOWN!",
+                    effectiveTemp,
+                    effectiveLoad
+                )
+            } else if isHotTemp {
+                actionMessage = String(
+                    format: "🔥 %.0f°C HOT — QUIT UNUSED APPS OR DOCKER TO COOL DOWN!",
+                    effectiveTemp
+                )
+            } else if isHighCPU {
+                actionMessage = String(
+                    format: "🔥 %.0f%% CPU LOAD — QUIT HEAVY BACKGROUND APPS TO COOL DOWN!",
+                    effectiveLoad
+                )
+            } else {
+                actionMessage = WellnessPointEngine.thermalWarningText
+            }
+            engine.triggerThermalWarning(isOverheating: true, actionMessage: actionMessage)
         } else if isOverheatingActive {
             isOverheatingActive = false
             engine.triggerThermalWarning(isOverheating: false)

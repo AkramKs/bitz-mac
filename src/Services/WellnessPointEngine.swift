@@ -3,12 +3,14 @@ import Foundation
 
 // MARK: - Domain State Enumeration
 
-/// Represents the 5 discrete behavioral states of Bitz the Cyber Cat.
+/// Represents the discrete behavioral and emotional states of Bitz the Cyber Cat.
 public enum BitzState: String, Sendable, Equatable, CaseIterable {
     case superCharged
     case balanced
+    case dopamineSad
     case overworked
     case burnout
+    case charging
     case overheating
 }
 
@@ -42,6 +44,10 @@ public enum BitzVisorColor {
     public static let amber: Float = 2.0
     /// Overheating state (`#FF1E1E` Critical Red).
     public static let red: Float = 3.0
+    /// Dopamine Sad / Distracted state (`#8A2BE2` Electric Violet).
+    public static let purple: Float = 4.0
+    /// Charging / Idle Break state (`#00FF88` Cyber Emerald Green).
+    public static let green: Float = 5.0
 }
 
 // MARK: - Rive State Machine Adapter Seam
@@ -135,16 +141,28 @@ public final class ProductionRiveController: BitzRiveControllable {
 // MARK: - WellnessPointEngine
 
 /// Core reactive domain engine managing Bitz's wellness score (`0.0...100.0`),
-/// behavioral `BitzState`, thermal override banner, and Rive state machine synchronization.
+/// continuous work duration (`continuousWorkMinutes`), behavioral `BitzState`,
+/// contextual speech bubbles, and Rive state machine synchronization.
 @MainActor
 public final class WellnessPointEngine: ObservableObject {
-    public static let thermalWarningText = "SYSTEM HOT! > <"
+    public static let thermalWarningText = "🔥 SYSTEM HOT! CLOSE HEAVY APPS TO COOL DOWN"
+    public static let dopamineSadText = "TOO MUCH DOPAMINE ; ; BACK TO FOCUS?"
+    public static let overworkedWarningText = "WORKING NON-STOP — TAKE A QUICK BREAK ☕"
+    public static let burnoutWarningText = "BURNOUT! STEP AWAY FOR 5 MIN TO RECHARGE 💤"
+    public static let chargingStatusText = "CHARGING ENERGY... ⚡"
+
     public static let productiveTickDelta: Double = 0.5
     public static let unproductiveTickDelta: Double = -1.5
-    public static let offlineBreakMinThresholdMinutes: Double = 10.0
+    public static let chargingTickDelta: Double = 0.5
+    public static let offlineBreakMinThresholdMinutes: Double = 2.0
     public static let offlineBreakPointsPerMinute: Double = 5.0
 
+    /// Continuous work duration thresholds (in minutes without a break) that trigger `.overworked` and `.burnout`.
+    public static let overworkedWorkMinutesThreshold: Double = 45.0
+    public static let burnoutWorkMinutesThreshold: Double = 90.0
+
     @Published public private(set) var currentPoints: Double = 50.0
+    @Published public private(set) var continuousWorkMinutes: Double = 0.0
     @Published public private(set) var currentState: BitzState = .balanced
     @Published public private(set) var activeSpeechBubbleText: String? = nil
     @Published public private(set) var isPetReactionActive: Bool = false
@@ -156,48 +174,81 @@ public final class WellnessPointEngine: ObservableObject {
 
     public var riveController: BitzRiveControllable?
     private var isOverheatingOverride: Bool = false
+    private var customOverheatingMessage: String? = nil
+    private var isChargingOverride: Bool = false
 
     public init(
         initialPoints: Double = 50.0,
+        initialContinuousWorkMinutes: Double = 0.0,
         riveController: BitzRiveControllable? = nil
     ) {
         self.riveController = riveController
         self.currentPoints = min(max(initialPoints, minPoints), maxPoints)
+        self.continuousWorkMinutes = max(0.0, initialContinuousWorkMinutes)
         evaluateState()
     }
 
-    /// Evaluates a single work tick (`+0.5` for productive apps, `-1.5` for unproductive apps),
-    /// clamps `currentPoints` within `0.0...100.0`, and synchronizes the state machine.
-    public func evaluateWorkTick(isProductiveApp: Bool) {
+    /// Evaluates a single work tick:
+    /// - Productive app (`+0.5 PTS`, increments `continuousWorkMinutes` toward `.overworked`/`.burnout` if no break is taken).
+    /// - Unproductive/entertainment app (`-1.5 PTS`, drains toward `.dopamineSad` when `< 40 PTS`).
+    public func evaluateWorkTick(isProductiveApp: Bool, tickDurationMinutes: Double = 5.0 / 60.0) {
+        if isChargingOverride {
+            isChargingOverride = false
+        }
         let delta = isProductiveApp ? Self.productiveTickDelta : Self.unproductiveTickDelta
         currentPoints = min(max(currentPoints + delta, minPoints), maxPoints)
+
+        if isProductiveApp {
+            continuousWorkMinutes += max(0.0, tickDurationMinutes)
+        }
+
         if !isOverheatingOverride {
             evaluateState()
         }
     }
 
-    /// Restores `+5.0` points per minute when the offline break exceeds `10.0` minutes,
-    /// clamps `currentPoints` within `0.0...100.0`, and synchronizes the state machine.
+    /// Activates or deactivates `.charging` mode when the user steps away from the keyboard/mouse.
+    /// While charging, each sample tick restores `+0.5 PTS` and reduces continuous work fatigue.
+    public func setChargingState(_ isCharging: Bool) {
+        isChargingOverride = isCharging
+        if isCharging {
+            currentPoints = min(max(currentPoints + Self.chargingTickDelta, minPoints), maxPoints)
+            continuousWorkMinutes = max(0.0, continuousWorkMinutes - 5.0)
+        }
+        if !isOverheatingOverride {
+            evaluateState()
+        }
+    }
+
+    /// Restores `+5.0` points per minute when returning from an offline break (`> 2.0` minutes)
+    /// and resets continuous work fatigue (`continuousWorkMinutes = 0`).
     public func applyOfflineBreak(minutes: Double) {
-        guard minutes > Self.offlineBreakMinThresholdMinutes else { return }
+        isChargingOverride = false
+        guard minutes > Self.offlineBreakMinThresholdMinutes else {
+            if !isOverheatingOverride {
+                evaluateState()
+            }
+            return
+        }
         let restoredPoints = minutes * Self.offlineBreakPointsPerMinute
         currentPoints = min(max(currentPoints + restoredPoints, minPoints), maxPoints)
+        continuousWorkMinutes = 0.0
         if !isOverheatingOverride {
             evaluateState()
         }
     }
 
-    /// Triggers or clears the `.overheating` state override and `"SYSTEM HOT! > <"` speech bubble.
-    /// When `isOverheating` is `false`, restores the underlying point-derived `BitzState`.
-    public func triggerThermalWarning(isOverheating: Bool) {
+    /// Triggers or clears the `.overheating` state override with an actionable cool-down message above Bitz.
+    public func triggerThermalWarning(isOverheating: Bool, actionMessage: String? = nil) {
         if isOverheating {
             isOverheatingOverride = true
+            customOverheatingMessage = actionMessage ?? Self.thermalWarningText
             currentState = .overheating
-            activeSpeechBubbleText = Self.thermalWarningText
+            activeSpeechBubbleText = customOverheatingMessage
             syncWithRive()
         } else {
             isOverheatingOverride = false
-            activeSpeechBubbleText = nil
+            customOverheatingMessage = nil
             evaluateState()
         }
     }
@@ -212,33 +263,71 @@ public final class WellnessPointEngine: ObservableObject {
         }
     }
 
-    /// Sets `currentPoints` directly (clamped to `0.0...100.0`), clears any thermal override,
+    /// Sets `currentPoints` and optional `continuousWorkMinutes` directly, clears thermal/charging overrides,
     /// and re-evaluates `currentState` and Rive inputs.
-    public func setPoints(_ points: Double) {
+    public func setPoints(_ points: Double, continuousWorkMinutes: Double = 0.0) {
         isOverheatingOverride = false
-        activeSpeechBubbleText = nil
-        currentPoints = min(max(points, minPoints), maxPoints)
+        customOverheatingMessage = nil
+        isChargingOverride = false
+        self.currentPoints = min(max(points, minPoints), maxPoints)
+        self.continuousWorkMinutes = max(0.0, continuousWorkMinutes)
         evaluateState()
     }
 
-    /// Evaluates the point-derived `BitzState` from `currentPoints` and synchronizes Rive inputs.
+    /// Evaluates `currentState` and contextual `activeSpeechBubbleText` from overrides,
+    /// continuous work duration (`overworked` / `burnout`), and focus points (`superCharged` / `balanced` / `dopamineSad`).
     public func evaluateState() {
+        if isOverheatingOverride {
+            currentState = .overheating
+            activeSpeechBubbleText = customOverheatingMessage ?? Self.thermalWarningText
+            syncWithRive()
+            return
+        }
+
+        if isChargingOverride {
+            currentState = .charging
+            activeSpeechBubbleText = Self.chargingStatusText
+            syncWithRive()
+            return
+        }
+
+        if continuousWorkMinutes >= Self.burnoutWorkMinutesThreshold {
+            currentState = .burnout
+            activeSpeechBubbleText = Self.burnoutWarningText
+            syncWithRive()
+            return
+        }
+
+        if continuousWorkMinutes >= Self.overworkedWorkMinutesThreshold {
+            currentState = .overworked
+            activeSpeechBubbleText = Self.overworkedWarningText
+            syncWithRive()
+            return
+        }
+
         let newState = Self.state(forPoints: currentPoints)
         currentState = newState
+        switch newState {
+        case .dopamineSad:
+            activeSpeechBubbleText = Self.dopamineSadText
+        case .superCharged, .balanced, .overworked, .burnout, .charging, .overheating:
+            activeSpeechBubbleText = nil
+        }
         syncWithRive()
     }
 
-    /// Pure threshold mapping from `points` (`0.0...100.0`) to a non-overheating `BitzState`.
+    /// Pure threshold mapping from `points` (`0.0...100.0`) when not on a continuous-work burnout streak:
+    /// - `80.0...100.0`: `.superCharged`
+    /// - `40.0..<80.0`: `.balanced`
+    /// - `< 40.0`: `.dopamineSad` (too much YouTube / Netflix / distraction)
     public static func state(forPoints points: Double) -> BitzState {
         switch points {
         case 80.0...100.0:
             return .superCharged
         case 40.0..<80.0:
             return .balanced
-        case 15.0..<40.0:
-            return .overworked
         default:
-            return .burnout
+            return .dopamineSad
         }
     }
 
@@ -259,6 +348,12 @@ public final class WellnessPointEngine: ObservableObject {
             rive.setInput(BitzRiveInputName.isGlitching, value: false)
             rive.setInput(BitzRiveInputName.isStandby, value: false)
 
+        case .dopamineSad:
+            rive.setInput(BitzRiveInputName.speedMultiplier, value: Float(0.35))
+            rive.setInput(BitzRiveInputName.visorColor, value: BitzVisorColor.purple)
+            rive.setInput(BitzRiveInputName.isGlitching, value: false)
+            rive.setInput(BitzRiveInputName.isStandby, value: false)
+
         case .overworked:
             rive.setInput(BitzRiveInputName.speedMultiplier, value: Float(0.4))
             rive.setInput(BitzRiveInputName.visorColor, value: BitzVisorColor.amber)
@@ -267,6 +362,13 @@ public final class WellnessPointEngine: ObservableObject {
 
         case .burnout:
             rive.setInput(BitzRiveInputName.speedMultiplier, value: Float(0.0))
+            rive.setInput(BitzRiveInputName.visorColor, value: BitzVisorColor.amber)
+            rive.setInput(BitzRiveInputName.isStandby, value: true)
+            rive.setInput(BitzRiveInputName.isGlitching, value: false)
+
+        case .charging:
+            rive.setInput(BitzRiveInputName.speedMultiplier, value: Float(0.5))
+            rive.setInput(BitzRiveInputName.visorColor, value: BitzVisorColor.green)
             rive.setInput(BitzRiveInputName.isStandby, value: true)
             rive.setInput(BitzRiveInputName.isGlitching, value: false)
 

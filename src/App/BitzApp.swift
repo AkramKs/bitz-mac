@@ -73,7 +73,8 @@ private struct BitzMenuBarContentView: View {
             Text("Bitz the Cyber Cat")
                 .font(.headline)
             Text("State: \(engine.currentState.rawValue)")
-            Text(String(format: "Wellness: %.1f / 100", engine.currentPoints))
+            Text(String(format: "Focus PTS: %.1f / 100", engine.currentPoints))
+            Text(String(format: "Work Streak: %.1f min (Overwork >= 45m, Burnout >= 90m)", engine.continuousWorkMinutes))
 
             Divider()
             Text("Live Hardware & Activity Sensors")
@@ -87,17 +88,17 @@ private struct BitzMenuBarContentView: View {
             }
 
             if let load = activityMonitor.lastCPULoadPercentage {
-                Text(String(format: "CPU Load: %.1f%%", load))
+                Text(String(format: "CPU Load: %.1f%% (Warn > %.0f%%)", load, activityMonitor.overheatingCPULoadThresholdPercent))
             }
 
             Text("Thermal Pressure: \(thermalStateLabel)")
 
             if let appName = activityMonitor.lastFrontmostAppName {
-                let tag = activityMonitor.lastAppIsProductive ? "+0.5 Productive" : "-1.5 Unproductive"
+                let tag = activityMonitor.lastAppIsProductive ? "+0.5 Productive" : "-1.5 Dopamine Drain"
                 Text("Active App: \(appName) (\(tag))")
             }
 
-            Text(String(format: "User Idle: %.0fs%@", activityMonitor.lastIdleSeconds, activityMonitor.isOnBreak ? " (On Break)" : ""))
+            Text(String(format: "User Idle: %.0fs%@", activityMonitor.lastIdleSeconds, activityMonitor.isOnBreak ? " (Charging ⚡)" : ""))
 
             Button("Sample Hardware Sensors Now") {
                 activityMonitor.performSampleTick()
@@ -111,20 +112,31 @@ private struct BitzMenuBarContentView: View {
             Text("Manual State Override")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Button("Super Charged (90 pts - Magenta)") {
-                engine.setPoints(90.0)
+            Button("Super Charged (90 PTS - Magenta ^ ^)") {
+                engine.setPoints(90.0, continuousWorkMinutes: 10.0)
             }
-            Button("Balanced (50 pts - Cyan)") {
-                engine.setPoints(50.0)
+            Button("Balanced (50 PTS - Cyan)") {
+                engine.setPoints(50.0, continuousWorkMinutes: 0.0)
             }
-            Button("Overworked (25 pts - Amber)") {
-                engine.setPoints(25.0)
+            Button("Sad / Dopamine Overload (20 PTS - Purple T T)") {
+                engine.setPoints(20.0, continuousWorkMinutes: 0.0)
             }
-            Button("Burnout / Standby (10 pts - ZZZ)") {
-                engine.setPoints(10.0)
+            Button("Overworked (50m Non-Stop Work - Amber - -)") {
+                engine.setPoints(75.0, continuousWorkMinutes: 50.0)
             }
-            Button("Thermal Overheat (SYSTEM HOT!)") {
-                engine.triggerThermalWarning(isOverheating: true)
+            Button("Burnout (95m Non-Stop Work - X X)") {
+                engine.setPoints(75.0, continuousWorkMinutes: 95.0)
+            }
+            Button("Charging Mode (Idle Away from Keyboard ⚡ Z Z)") {
+                engine.setChargingState(true)
+            }
+            Button("Thermal / CPU Overheat (Cool-Down Action Alert)") {
+                let temp = activityMonitor.lastTemperatureCelsius ?? 86.0
+                let load = activityMonitor.lastCPULoadPercentage ?? 92.0
+                engine.triggerThermalWarning(
+                    isOverheating: true,
+                    actionMessage: String(format: "🔥 %.0f°C (%.0f%% CPU) — CLOSE HEAVY TABS OR APPS TO COOL DOWN!", max(temp, 85.0), max(load, 88.0))
+                )
             }
             Divider()
             Button("Quit Bitz") {

@@ -79,7 +79,7 @@ final class MascotOverlayPanelTests: XCTestCase {
         XCTAssertTrue(delegate.activityMonitor.isMonitoring)
 
         delegate.engine.triggerThermalWarning(isOverheating: true)
-        XCTAssertEqual(delegate.engine.activeSpeechBubbleText, "SYSTEM HOT! > <")
+        XCTAssertEqual(delegate.engine.activeSpeechBubbleText, WellnessPointEngine.thermalWarningText)
 
         delegate.engine.triggerPetInteraction()
         XCTAssertEqual(delegate.riveController.lastTriggeredInput, "triggerPet")

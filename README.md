@@ -36,23 +36,26 @@
 
 Bitz's mood is driven by **Wellness Points (`PTS`)** on a scale from **`0.0` to `100.0`** (starting at `50.0 PTS`), sampled every **5 seconds** with timer coalescing (`< 1%` CPU overhead):
 
-### How `PTS` Changes
-| Activity | Condition | `PTS` Delta |
+### How `PTS` & Continuous Work Streak Change
+| Activity | Condition | Effect |
 | :--- | :--- | :--- |
-| **Productive Coding & Office Work** | Active app is a Developer IDE/Terminal (`Antigravity IDE`, `Xcode`, `VS Code`, `Cursor`, `Windsurf`, `Zed`, `Terminal`, `iTerm2`, `Warp`, `Ghostty`, `JetBrains`, `Docker`, `Postman`, `TablePlus`), Office Suite (`Word`, `Excel`, `PowerPoint`, `Outlook`, `OneNote`, `Pages`, `Numbers`, `Keynote`, `Notes`, `Calendar`, `Mail`), or Collaboration/Design tool (`Teams`, `Slack`, `Zoom`, `Notion`, `Obsidian`, `Linear`, `Figma`, `Miro`, `Canva`) | **`+0.5 PTS`** / tick |
-| **Unproductive / Distraction** | Active app is a web browser, entertainment app, or non-productivity app (`Safari`, `Firefox`, `Chrome`, `WhatsApp`, etc.) | **`-1.5 PTS`** / tick |
-| **Short Idle (`1 – 10 min`)** | No keyboard or mouse input for `>= 60s` | **Paused (`On Break`)** — no point drain |
-| **Offline Break (`> 10 min`)** | Stepping away from the Mac for more than `10.0` minutes | **`+5.0 PTS` per minute** restored on return |
-| **Thermal Overheat Override** | Apple Silicon CPU die temperature **`> 80.0 °C`** or `ProcessInfo.ThermalState` is `.serious` / `.critical` | Immediate override to **`.overheating`** (`"SYSTEM HOT! > <"`) until cooled |
+| **Productive Coding & Office Work** | Active app is a Developer IDE/Terminal (`Antigravity IDE`, `Xcode`, `VS Code`, `Cursor`, `Windsurf`, `Zed`, `Terminal`, `iTerm2`, `Warp`, `Ghostty`, `JetBrains`, `Docker`, `Postman`, `TablePlus`), Office Suite (`Word`, `Excel`, `PowerPoint`, `Outlook`, `OneNote`, `Pages`, `Numbers`, `Keynote`, `Notes`, `Calendar`, `Mail`), or Collaboration/Design tool (`Teams`, `Slack`, `Zoom`, `Notion`, `Obsidian`, `Linear`, `Figma`, `Miro`, `Canva`) | **`+0.5 PTS`** / tick (increases continuous work streak) |
+| **Too Much YouTube / Netflix / Browsing** | Active app is a browser, video player, or distraction (`Firefox`, `Safari`, `Chrome`, `WhatsApp`, `Discord`, etc.) | **`-1.5 PTS`** / tick — drains below `40 PTS` into **`.dopamineSad`** (`T  T`) |
+| **Working Too Long Without a Break** | Continuous productive work `>= 45 min` (`Overworked`) or `>= 90 min` (`Burnout`) without stepping away | Triggers **`.overworked`** (`-  -`) -> **`.burnout`** (`X  X`) with break reminders |
+| **Idle / Away from Keyboard (`>= 60s`)** | No keyboard or mouse input for `>= 60s` | Enters **`.charging`** (`⚡ Z Z`), recharging **`+0.5 PTS`** per tick & clearing work fatigue |
+| **Offline Break Return (`> 2 min`)** | Returning after stepping away from the Mac | **`+5.0 PTS` per minute** restored and resets continuous work streak to `0m` |
+| **Thermal / CPU Spike Override** | Apple Silicon CPU die temperature **`> 80.0 °C`**, CPU load **`> 85%`**, or `.serious`/`.critical` thermal pressure | Immediate override to **`.overheating`** (`>  <`) with an actionable cool-down alert above Bitz |
 
-### Bitz's 5 Behavioral States (`BitzState`)
-| State | Trigger Threshold | Visor Color | Visual & Animation Behavior |
+### Bitz's Behavioral States (`BitzState`)
+| State | Trigger Condition | Visor Color | Visual & Speech Bubble Behavior |
 | :--- | :--- | :--- | :--- |
-| **Super Charged** (`.superCharged`) | `80.0 – 100.0 PTS` | **Neon Magenta (`#FF007F`)** | Happy `^  ^` LED visor, fast `2.0x` breathing & tail wag |
-| **Balanced** (`.balanced`) | `40.0 – 79.9 PTS` | **Electric Cyan (`#00F0FF`)** | Calm glowing cyan eyes, steady `1.0x` breathing & tail sway |
-| **Overworked** (`.overworked`) | `15.0 – 39.9 PTS` | **Warning Amber (`#FFB000`)** | Tired `-  -` squint, drooping ears, sluggish `0.4x` breathing |
-| **Burnout / Standby** (`.burnout`) | `0.0 – 14.9 PTS` | **Dim Cyan (`#00F0FF`)** | Tucks into a sleeping cat loaf (`0.0x` motion) with **`Z Z Z`** on the visor |
-| **Overheating** (`.overheating`) | **`> 80.0 °C`** or `.critical`/`.serious` thermal state | **Critical Red (`#FF1E1E`)** | Distressed `>  <` visor, high-frequency horizontal glitch, **`"SYSTEM HOT! > <"`** speech banner |
+| **Super Charged** (`.superCharged`) | `80.0 – 100.0 PTS` (`< 45m` work streak) | **Neon Magenta (`#FF007F`)** | Happy `^  ^` LED visor, fast `2.0x` breathing & tail wag |
+| **Balanced** (`.balanced`) | `40.0 – 79.9 PTS` (`< 45m` work streak) | **Electric Cyan (`#00F0FF`)** | Calm glowing cyan eyes, steady `1.0x` breathing & tail sway |
+| **Sad / Dopamine Overload** (`.dopamineSad`) | `< 40.0 PTS` (Watching YouTube/Netflix/browsing too long) | **Dopamine Violet (`#9D4EDD`)** | Sad crying `T  T` eyes, drooping ears, **`"TOO MUCH DOPAMINE ; ; BACK TO FOCUS?"`** |
+| **Overworked** (`.overworked`) | `>= 45 min` non-stop work without a break | **Warning Amber (`#FFB000`)** | Tired `-  -` squint, drooping ears, **`"WORKING NON-STOP — TAKE A QUICK BREAK ☕"`** |
+| **Burnout** (`.burnout`) | `>= 90 min` non-stop work without a break | **Warning Amber (`#FFB000`)** | Exhausted `X  X` loaf (`0.0x` motion), **`"BURNOUT! STEP AWAY FOR 5 MIN TO RECHARGE 💤"`** |
+| **Charging** (`.charging`) | `>= 60s` without touching keyboard or mouse | **Cyber Green (`#00FF88`)** | Cozy loaf with **`⚡ Z Z`** visor, **`"CHARGING ENERGY... ⚡"`** |
+| **Overheating** (`.overheating`) | **`> 80.0 °C`** die temp or **`> 85%`** CPU load | **Critical Red (`#FF1E1E`)** | Glitching `>  <` visor + actionable alert: **`"🔥 85°C (92% CPU) — CLOSE HEAVY TABS OR BUILDS TO COOL DOWN!"`** |
 
 > **Petting Bitz**: Clicking **"Pet Bitz (`<3`)"** in the Menu Bar fires the `triggerPet` state machine trigger and lights up Bitz's visor with glowing neon magenta hearts (`<3  <3`).
 
