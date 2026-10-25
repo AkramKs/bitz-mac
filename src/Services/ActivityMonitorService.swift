@@ -164,8 +164,20 @@ public struct SystemActivityTelemetryProvider: ActivityTelemetryProviding {
         NSWorkspace.shared.frontmostApplication?.localizedName
     }
 
+    private static let trackedInputEventTypes: [CGEventType] = [
+        .mouseMoved,
+        .leftMouseDown,
+        .leftMouseUp,
+        .rightMouseDown,
+        .scrollWheel,
+        .keyDown,
+        .flagsChanged
+    ]
+
     public func secondsSinceLastInput() -> TimeInterval {
-        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .null)
+        Self.trackedInputEventTypes
+            .map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }
+            .min() ?? 0.0
     }
 
     public func thermalState() -> ProcessInfo.ThermalState {

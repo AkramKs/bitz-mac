@@ -178,7 +178,7 @@ public struct MascotOverlayView: View {
                 // Live Cyberpunk Hardware Telemetry Pill (shows real CPU °C, CPU %, and Wellness PTS)
                 if let tempC = engine.latestTemperatureCelsius {
                     let cpuString = engine.latestCPULoadPercentage.map { String(format: " • %.0f%% CPU", $0) } ?? ""
-                    Text(String(format: "%.1f°C%@ • %.0f PTS", tempC, cpuString, engine.currentPoints))
+                    Text(String(format: "%.1f°C%@ • %.1f PTS", tempC, cpuString, engine.currentPoints))
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(visorColor)
                         .padding(.horizontal, 8)
