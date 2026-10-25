@@ -1,6 +1,8 @@
 {
+  "accept_commit": "87ba45c3a4d07f14501312af9169d5839b3a33db",
   "acceptance_history": [
     {
+      "accept_commit": "87ba45c3a4d07f14501312af9169d5839b3a33db",
       "acceptance_mode": "local",
       "accepted_at": "2026-10-25T09:43:01.908203+00:00",
       "accepted_by": "antigravity",
