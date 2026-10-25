@@ -17,9 +17,14 @@ private struct CyberEarShape: Shape {
 /// `"SYSTEM HOT! > <"` thermal warning speech bubble (`FR-001`, `FR-003`, `FR-004`).
 public struct MascotOverlayView: View {
     @ObservedObject public var engine: WellnessPointEngine
+    @ObservedObject public var scaleStore: AvatarScaleStore
 
-    public init(engine: WellnessPointEngine) {
+    public init(
+        engine: WellnessPointEngine,
+        scaleStore: AvatarScaleStore = AvatarScaleStore()
+    ) {
         self.engine = engine
+        self.scaleStore = scaleStore
     }
 
     /// Returns the RGB color values (`red`, `green`, `blue`) matching the current `BitzState` visor color.
@@ -221,6 +226,11 @@ public struct MascotOverlayView: View {
             }
         }
         .frame(width: 250, height: 250)
+        .scaleEffect(scaleStore.scaleFactor)
+        .frame(
+            width: MascotOverlayPanel.defaultPanelSize.width * scaleStore.scaleFactor,
+            height: MascotOverlayPanel.defaultPanelSize.height * scaleStore.scaleFactor
+        )
         .background(Color.clear)
         .allowsHitTesting(false)
     }

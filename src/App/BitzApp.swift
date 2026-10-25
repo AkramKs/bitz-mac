@@ -2,29 +2,37 @@ import AppKit
 import SwiftUI
 
 /// Application delegate managing the transparent `MascotOverlayPanel`, `WellnessPointEngine`,
-/// and `ActivityMonitorService` lifecycle (`FR-001`, `FR-005`, `FR-006`).
+/// `ActivityMonitorService`, and `AvatarScaleStore` lifecycle (`FR-001`, `FR-005`, `FR-006`).
 @MainActor
 public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let riveController: ProductionRiveController
     public let engine: WellnessPointEngine
     public let activityMonitor: ActivityMonitorService
+    public let scaleStore: AvatarScaleStore
     public private(set) var overlayPanel: MascotOverlayPanel?
 
     public override convenience init() {
         self.init(
             riveController: ProductionRiveController(),
-            telemetryProvider: SystemActivityTelemetryProvider()
+            telemetryProvider: SystemActivityTelemetryProvider(),
+            scaleStore: AvatarScaleStore()
         )
     }
 
     public init(
         riveController: ProductionRiveController = ProductionRiveController(),
-        telemetryProvider: ActivityTelemetryProviding = SystemActivityTelemetryProvider()
+        telemetryProvider: ActivityTelemetryProviding = SystemActivityTelemetryProvider(),
+        scaleStore: AvatarScaleStore = AvatarScaleStore()
     ) {
         self.riveController = riveController
         self.engine = WellnessPointEngine(initialPoints: 50.0, riveController: riveController)
         self.activityMonitor = ActivityMonitorService(engine: self.engine, telemetry: telemetryProvider)
+        self.scaleStore = scaleStore
         super.init()
+
+        self.scaleStore.onScaleChanged = { [weak self] newScale in
+            self?.overlayPanel?.applyScaleFactor(newScale)
+        }
     }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
@@ -38,25 +46,27 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Instantiates and positions the borderless, click-through `MascotOverlayPanel`
-    /// hosting `MascotOverlayView`.
+    /// hosting `MascotOverlayView` at the user's persisted `scaleStore.scaleFactor`.
     public func setupOverlayPanel() {
         let panel = MascotOverlayPanel()
-        let rootView = MascotOverlayView(engine: engine)
+        let rootView = MascotOverlayView(engine: engine, scaleStore: scaleStore)
         let hostingView = NSHostingView(rootView: rootView)
-        hostingView.frame = NSRect(origin: .zero, size: MascotOverlayPanel.defaultPanelSize)
+        let initialSize = MascotOverlayPanel.calculatePanelSize(for: CGFloat(scaleStore.scaleFactor))
+        hostingView.frame = NSRect(origin: .zero, size: initialSize)
         panel.contentView = hostingView
-        panel.positionInBottomRight()
+        panel.applyScaleFactor(CGFloat(scaleStore.scaleFactor))
         panel.orderFrontRegardless()
         self.overlayPanel = panel
     }
 }
 
 /// Observable Menu Bar content view displaying live hardware sensor telemetry,
-/// wellness score, and interactive state controls.
+/// wellness score, manual avatar resizing controls, and interactive state controls.
 @MainActor
 private struct BitzMenuBarContentView: View {
     @ObservedObject var engine: WellnessPointEngine
     @ObservedObject var activityMonitor: ActivityMonitorService
+    @ObservedObject var scaleStore: AvatarScaleStore
     @AppStorage("enableManualStateOverrideMenu") private var showManualOverrideMenu: Bool = true
 
     private var thermalStateLabel: String {
@@ -109,6 +119,35 @@ private struct BitzMenuBarContentView: View {
             Button("Pet Bitz (<3)") {
                 engine.triggerPetInteraction()
             }
+            Divider()
+            Text("Avatar Size: \(scaleStore.formattedSizeSummary)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("Smaller (-10%)") {
+                scaleStore.stepDown()
+            }
+            .disabled(!scaleStore.canStepDown)
+
+            Button("Larger (+10%)") {
+                scaleStore.stepUp()
+            }
+            .disabled(!scaleStore.canStepUp)
+
+            if !scaleStore.isPresetSelected(.defaultSize) {
+                Button("Reset Size (100% — 250×250 pt)") {
+                    scaleStore.resetToDefault()
+                }
+            }
+
+            Menu("Size Presets (\(scaleStore.percentageInt)%)") {
+                ForEach(AvatarSizePreset.allCases, id: \.rawValue) { preset in
+                    Button(scaleStore.isPresetSelected(preset) ? "✓ \(preset.menuTitle)" : preset.menuTitle) {
+                        scaleStore.selectPreset(preset)
+                    }
+                }
+            }
+
             Divider()
             Toggle("Manual State Override", isOn: $showManualOverrideMenu)
                 .onChange(of: showManualOverrideMenu) { _, isEnabled in
@@ -178,7 +217,8 @@ public struct BitzApp: App {
         MenuBarExtra("Bitz", systemImage: "cat.fill") {
             BitzMenuBarContentView(
                 engine: appDelegate.engine,
-                activityMonitor: appDelegate.activityMonitor
+                activityMonitor: appDelegate.activityMonitor,
+                scaleStore: appDelegate.scaleStore
             )
         }
     }
