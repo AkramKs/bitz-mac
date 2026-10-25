@@ -407,6 +407,33 @@ public enum BrowserTabTelemetryReader {
         }
         return (url, nil)
     }
+
+    /// Reads the currently active tab URL and title from Safari via AppleScript if permitted,
+    /// or returns `(nil, nil)` without throwing or hanging.
+    public static func readActiveSafariTab() -> (url: String?, title: String?) {
+        let scriptSource = """
+        tell application "Safari"
+            if (count of windows) > 0 then
+                set currentTab to current tab of front window
+                return {URL of currentTab, name of currentTab}
+            end if
+        end tell
+        return {"", ""}
+        """
+        guard let script = NSAppleScript(source: scriptSource) else {
+            return (nil, nil)
+        }
+        var errorInfo: NSDictionary?
+        let descriptor = script.executeAndReturnError(&errorInfo)
+        guard errorInfo == nil, descriptor.numberOfItems >= 2 else {
+            return (nil, nil)
+        }
+        let url = descriptor.atIndex(1)?.stringValue
+        let title = descriptor.atIndex(2)?.stringValue
+        let cleanURL = (url?.isEmpty ?? true) ? nil : url
+        let cleanTitle = (title?.isEmpty ?? true) ? nil : title
+        return (cleanURL, cleanTitle)
+    }
 }
 
 // MARK: - ActivityTelemetryProviding Seam
@@ -524,17 +551,25 @@ public struct SystemActivityTelemetryProvider: ActivityTelemetryProviding {
            bundleID.contains("thebrowser") || bundleID.contains("opera") || bundleID.contains("vivaldi") {
             return BrowserTabTelemetryReader.readActiveChromiumTab(forBundleID: bundleID).url
         }
+        if bundleID.contains("safari") {
+            return BrowserTabTelemetryReader.readActiveSafariTab().url
+        }
         return nil
     }
 
     public func activeBrowserTabTitle() -> String? {
-        guard let bundleID = frontmostBundleIdentifier()?.lowercased(),
-              bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") else {
+        guard let bundleID = frontmostBundleIdentifier()?.lowercased() else {
             return nil
         }
-        return BrowserTabTelemetryReader.readActiveFirefoxTab(
-            preferStreamingTabWhenVideoPlaying: isVideoPlaybackActive()
-        ).title
+        if bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") {
+            return BrowserTabTelemetryReader.readActiveFirefoxTab(
+                preferStreamingTabWhenVideoPlaying: isVideoPlaybackActive()
+            ).title
+        }
+        if bundleID.contains("safari") {
+            return BrowserTabTelemetryReader.readActiveSafariTab().title
+        }
+        return nil
     }
 
     public func isVideoPlaybackActive() -> Bool {
@@ -663,7 +698,7 @@ public final class ActivityMonitorService: ObservableObject {
     /// Browser bundle ID keywords where work/research tabs (like GitHub, docs, Stack Overflow) are productive,
     /// while streaming & social media tabs (YouTube, Netflix, Instagram, Facebook, TikTok, etc.) drain PTS.
     private static let browserBundleKeywords: [String] = [
-        "firefox", "chrome", "brave", "edgemac", "thebrowser.browser", "opera", "zen-browser", "waterfox"
+        "firefox", "chrome", "brave", "edgemac", "thebrowser.browser", "opera", "zen-browser", "waterfox", "safari"
     ]
 
     /// Streaming, video, and social media domains/keywords that trigger Dopamine Drain (`-1.5 PTS`).
@@ -703,6 +738,12 @@ public final class ActivityMonitorService: ObservableObject {
     public let overheatingTemperatureThresholdCelsius: Double
     public let overheatingCPULoadThresholdPercent: Double
 
+    public static let customProductiveKey = "customProductiveBundleIDs"
+    public static let customDistractionKey = "customDistractionBundleIDs"
+
+    @Published public private(set) var customProductiveIDs: Set<String> = []
+    @Published public private(set) var customDistractionIDs: Set<String> = []
+
     @Published public private(set) var isMonitoring: Bool = false
     @Published public private(set) var isOnBreak: Bool = false
     @Published public private(set) var breakStartedAt: Date? = nil
@@ -719,6 +760,8 @@ public final class ActivityMonitorService: ObservableObject {
     @Published public private(set) var lastAppIsProductive: Bool = false
 
     private var pollingTimer: Timer?
+    private var sleepWakeObservers: [NSObjectProtocol] = []
+    private var sleepRecordedAt: Date? = nil
 
     public init(
         engine: WellnessPointEngine,
@@ -734,6 +777,46 @@ public final class ActivityMonitorService: ObservableObject {
         self.idleBreakThresholdSeconds = idleBreakThresholdSeconds
         self.overheatingTemperatureThresholdCelsius = overheatingTemperatureThresholdCelsius
         self.overheatingCPULoadThresholdPercent = overheatingCPULoadThresholdPercent
+
+        if let storedProd = UserDefaults.standard.stringArray(forKey: Self.customProductiveKey) {
+            self.customProductiveIDs = Set(storedProd)
+        }
+        if let storedDist = UserDefaults.standard.stringArray(forKey: Self.customDistractionKey) {
+            self.customDistractionIDs = Set(storedDist)
+        }
+    }
+
+    /// Marks the currently active frontmost application as explicitly productive or a distraction.
+    public func markFrontmostApp(asProductive isProductive: Bool) {
+        guard let bundleID = lastFrontmostBundleID, !bundleID.isEmpty else { return }
+        if isProductive {
+            customProductiveIDs.insert(bundleID)
+            customDistractionIDs.remove(bundleID)
+        } else {
+            customDistractionIDs.insert(bundleID)
+            customProductiveIDs.remove(bundleID)
+        }
+        UserDefaults.standard.set(Array(customProductiveIDs), forKey: Self.customProductiveKey)
+        UserDefaults.standard.set(Array(customDistractionIDs), forKey: Self.customDistractionKey)
+        performSampleTick()
+    }
+
+    /// Resets any custom classification rule for the current frontmost application back to default.
+    public func resetFrontmostAppRule() {
+        guard let bundleID = lastFrontmostBundleID, !bundleID.isEmpty else { return }
+        customProductiveIDs.remove(bundleID)
+        customDistractionIDs.remove(bundleID)
+        UserDefaults.standard.set(Array(customProductiveIDs), forKey: Self.customProductiveKey)
+        UserDefaults.standard.set(Array(customDistractionIDs), forKey: Self.customDistractionKey)
+        performSampleTick()
+    }
+
+    /// Returns `true` if custom productive, `false` if custom distraction, or `nil` if default.
+    public var frontmostAppCustomRule: Bool? {
+        guard let bundleID = lastFrontmostBundleID, !bundleID.isEmpty else { return nil }
+        if customProductiveIDs.contains(bundleID) { return true }
+        if customDistractionIDs.contains(bundleID) { return false }
+        return nil
     }
 
     /// Static helper returning `true` if the given browser tab URL or title belongs to a streaming or social media platform.
@@ -779,6 +862,12 @@ public final class ActivityMonitorService: ObservableObject {
         isVideoPlaying: Bool = false
     ) -> Bool {
         guard let bundleID else { return false }
+        if customDistractionIDs.contains(bundleID) {
+            return false
+        }
+        if customProductiveIDs.contains(bundleID) {
+            return true
+        }
         if isDopamineStreamingOrSocialTab(url: activeTabURL, title: activeTabTitle) {
             return false
         }
@@ -799,7 +888,7 @@ public final class ActivityMonitorService: ObservableObject {
         if Self.productiveBundleKeywords.contains(where: { lower.contains($0) }) {
             return true
         }
-        if Self.browserBundleKeywords.contains(where: { lower.contains($0) }) {
+        if Self.browserBundleKeywords.contains(where: { lower.contains($0) }) && !lower.contains("safari") {
             return true
         }
         return false
@@ -819,12 +908,73 @@ public final class ActivityMonitorService: ObservableObject {
         timer.tolerance = intervalSeconds * 0.2
         RunLoop.main.add(timer, forMode: .common)
         pollingTimer = timer
+
+        // Register sleep / wake & screen sleep observers for offline recharge tracking
+        let workspace = NSWorkspace.shared.notificationCenter
+        let sleepObs = workspace.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleSystemSleepOrLock()
+            }
+        }
+        let wakeObs = workspace.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleSystemWakeOrUnlock()
+            }
+        }
+        let screenSleepObs = workspace.addObserver(
+            forName: NSWorkspace.screensDidSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleSystemSleepOrLock()
+            }
+        }
+        let screenWakeObs = workspace.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleSystemWakeOrUnlock()
+            }
+        }
+        sleepWakeObservers = [sleepObs, wakeObs, screenSleepObs, screenWakeObs]
     }
 
-    /// Stops periodic telemetry sampling.
+    /// Handles system or display going to sleep / screen lock.
+    public func handleSystemSleepOrLock() {
+        sleepRecordedAt = telemetry.now()
+    }
+
+    /// Handles system or display wake / unlock, restoring points for offline breaks (> 2.0 min).
+    public func handleSystemWakeOrUnlock() {
+        guard let slept = sleepRecordedAt else { return }
+        let elapsedMinutes = max(0.0, telemetry.now().timeIntervalSince(slept) / 60.0)
+        sleepRecordedAt = nil
+        if elapsedMinutes > 2.0 {
+            engine.applyOfflineBreak(minutes: elapsedMinutes)
+        }
+        performSampleTick()
+    }
+
+    /// Stops periodic telemetry sampling and unregisters sleep/wake observers.
     public func stopMonitoring() {
         pollingTimer?.invalidate()
         pollingTimer = nil
+        let center = NSWorkspace.shared.notificationCenter
+        for obs in sleepWakeObservers {
+            center.removeObserver(obs)
+        }
+        sleepWakeObservers.removeAll()
         isMonitoring = false
     }
 

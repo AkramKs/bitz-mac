@@ -157,6 +157,11 @@ public final class WellnessPointEngine: ObservableObject {
     public static let offlineBreakMinThresholdMinutes: Double = 2.0
     public static let offlineBreakPointsPerMinute: Double = 5.0
 
+    /// UserDefaults persistence keys.
+    public static let pointsUserDefaultsKey = "bitz_current_points"
+    public static let workMinutesUserDefaultsKey = "bitz_continuous_work_minutes"
+    public static let lastSavedTimeUserDefaultsKey = "bitz_last_saved_time"
+
     /// Continuous work duration thresholds (in minutes without a break) that trigger `.overworked` and `.burnout`.
     public static let overworkedWorkMinutesThreshold: Double = 45.0
     public static let burnoutWorkMinutesThreshold: Double = 90.0
@@ -174,21 +179,64 @@ public final class WellnessPointEngine: ObservableObject {
     public let minPoints: Double = 0.0
 
     public var riveController: BitzRiveControllable?
+    private let userDefaults: UserDefaults?
     private var isOverheatingOverride: Bool = false
     private var customOverheatingMessage: String? = nil
     private var isChargingOverride: Bool = false
 
     public init(
-        initialPoints: Double = 50.0,
-        initialContinuousWorkMinutes: Double = 0.0,
-        riveController: BitzRiveControllable? = nil
+        initialPoints: Double? = nil,
+        initialContinuousWorkMinutes: Double? = nil,
+        riveController: BitzRiveControllable? = nil,
+        userDefaults: UserDefaults? = nil
     ) {
         self.riveController = riveController
-        let clamped = min(max(initialPoints, minPoints), maxPoints)
+        self.userDefaults = userDefaults
+
+        let storedPointsObj = userDefaults?.object(forKey: Self.pointsUserDefaultsKey)
+        let resolvedPoints: Double
+        if let explicit = initialPoints {
+            resolvedPoints = explicit
+        } else if let stored = storedPointsObj as? Double {
+            resolvedPoints = stored
+        } else {
+            resolvedPoints = 50.0
+        }
+
+        let storedMinutesObj = userDefaults?.object(forKey: Self.workMinutesUserDefaultsKey)
+        let resolvedMinutes: Double
+        if let explicit = initialContinuousWorkMinutes {
+            resolvedMinutes = explicit
+        } else if let stored = storedMinutesObj as? Double {
+            resolvedMinutes = stored
+        } else {
+            resolvedMinutes = 0.0
+        }
+
+        let clamped = min(max(resolvedPoints, minPoints), maxPoints)
         self.currentPoints = clamped
-        self.continuousWorkMinutes = max(0.0, initialContinuousWorkMinutes)
+        self.continuousWorkMinutes = max(0.0, resolvedMinutes)
         self.lastTickWasProductive = clamped >= 40.0
         evaluateState()
+
+        // Check elapsed time since last save if restoring from disk
+        if initialPoints == nil,
+           let lastTimestamp = userDefaults?.object(forKey: Self.lastSavedTimeUserDefaultsKey) as? Double {
+            let elapsedSec = Date().timeIntervalSince1970 - lastTimestamp
+            let elapsedMin = elapsedSec / 60.0
+            if elapsedMin > Self.offlineBreakMinThresholdMinutes {
+                applyOfflineBreak(minutes: elapsedMin)
+            }
+        }
+        persistState()
+    }
+
+    /// Persists current wellness points and work streak to `UserDefaults` if persistence is enabled.
+    public func persistState() {
+        guard let userDefaults else { return }
+        userDefaults.set(currentPoints, forKey: Self.pointsUserDefaultsKey)
+        userDefaults.set(continuousWorkMinutes, forKey: Self.workMinutesUserDefaultsKey)
+        userDefaults.set(Date().timeIntervalSince1970, forKey: Self.lastSavedTimeUserDefaultsKey)
     }
 
     /// Evaluates a single work tick:
@@ -211,6 +259,7 @@ public final class WellnessPointEngine: ObservableObject {
         if !isOverheatingOverride {
             evaluateState()
         }
+        persistState()
     }
 
     /// Activates or deactivates `.charging` mode when the user steps away from the keyboard/mouse.
@@ -224,6 +273,7 @@ public final class WellnessPointEngine: ObservableObject {
         if !isOverheatingOverride {
             evaluateState()
         }
+        persistState()
     }
 
     /// Restores `+5.0` points per minute when returning from an offline break (`> 2.0` minutes)
@@ -234,6 +284,7 @@ public final class WellnessPointEngine: ObservableObject {
             if !isOverheatingOverride {
                 evaluateState()
             }
+            persistState()
             return
         }
         let restoredPoints = minutes * Self.offlineBreakPointsPerMinute
@@ -242,6 +293,7 @@ public final class WellnessPointEngine: ObservableObject {
         if !isOverheatingOverride {
             evaluateState()
         }
+        persistState()
     }
 
     /// Triggers or clears the `.overheating` state override with an actionable cool-down message above Bitz.
@@ -280,6 +332,7 @@ public final class WellnessPointEngine: ObservableObject {
         self.continuousWorkMinutes = max(0.0, continuousWorkMinutes)
         self.lastTickWasProductive = clamped >= 40.0
         evaluateState()
+        persistState()
     }
 
     /// Evaluates `currentState` and contextual `activeSpeechBubbleText` from overrides,

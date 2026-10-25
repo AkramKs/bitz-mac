@@ -10,10 +10,11 @@ APP_BUNDLE="$ROOT_DIR/build/${APP_NAME}.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+BUILD_CONFIG="${1:-release}"
 
-echo "==> Building ${APP_NAME} with Xcode Swift toolchain..."
-/usr/bin/swift build -c debug --product "$APP_NAME"
-BIN_PATH="$(/usr/bin/swift build -c debug --show-bin-path)/${APP_NAME}"
+echo "==> Building ${APP_NAME} (${BUILD_CONFIG}) with Xcode Swift toolchain..."
+/usr/bin/swift build -c "$BUILD_CONFIG" --product "$APP_NAME"
+BIN_PATH="$(/usr/bin/swift build -c "$BUILD_CONFIG" --show-bin-path)/${APP_NAME}"
 
 pkill -x "$APP_NAME" 2>/dev/null || true
 
@@ -21,6 +22,10 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BIN_PATH" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
+
+if [[ -f "$ROOT_DIR/Resources/AppIcon.icns" ]]; then
+    cp "$ROOT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+fi
 
 cat > "$CONTENTS_DIR/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -38,9 +43,11 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.1.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>

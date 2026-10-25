@@ -18,17 +18,32 @@
 ## ✨ Key Features
 
 - **100% Click-Through Desktop Overlay (`MascotOverlayPanel`)**
-  - Renders inside a borderless, non-activating `250×250` floating `NSPanel` (`ignoresMouseEvents = true`, `.canJoinAllSpaces`, `.fullScreenAuxiliary`, `.stationary`).
+  - Renders inside a borderless, non-activating floating `NSPanel` (`ignoresMouseEvents = true`, `.canJoinAllSpaces`, `.fullScreenAuxiliary`, `.stationary`).
   - Never steals keyboard focus, never intercepts mouse clicks over your IDE or browser, and **never alters your macOS desktop wallpaper**.
+- **See-Through Hologram Opacity (`AvatarOpacityStore`)**
+  - Adjustable transparency presets (`Solid 100%`, `Translucent 80%`, `Hologram 60%`, `Ghost 40%`, `Stealth 25%`) and `±10%` steps so text and code behind Bitz are always readable.
+- **4-Corner Desktop Positioning (`ScreenCornerAnchor`)**
+  - Anchor Bitz to `Bottom-Right (Default)`, `Bottom-Left`, `Top-Right`, or `Top-Left` directly from the Menu Bar.
+- **Manual Avatar Resizing (`AvatarScaleStore`)**
+  - Scale Bitz from `50%` to `175%` (`Small 60%`, `Medium 80%`, `Default 100%`, `Large 125%`, `XL 150%`) with automatic bottom/right corner re-anchoring.
+- **Expressive Procedural Animations (`MascotOverlayView`)**
+  - Cyberpunk cat silhouette with moving paws/trot cycle, natural eye-blink intervals, glowing LED visor, and ambient particles (neon sparks in Super Charged, binary bits in Balanced, drifting ZZZs in Charging, and ear steam puffs in Overheat).
 - **Real Apple Silicon Hardware Telemetry (`AppleSiliconHardwareSensors`)**
   - **Live Die Temperature (`°C`)**: Queries Apple Silicon `IOHIDEventSystemClient` on-die thermal sensors (`PrimaryUsagePage: 0xFF00`, `PrimaryUsage: 5`) without requiring `sudo` or root privileges.
   - **Live CPU Load (`%`)**: Samples Darwin Mach kernel `host_statistics(HOST_CPU_LOAD_INFO)` delta ticks (`user`, `system`, `nice`, `idle`).
   - **Live HUD Pill**: Displays real-time hardware stats directly beneath Bitz (`e.g., 51.8°C • 14% CPU • 50 PTS`).
-- **Privacy-First Focus & Break Tracking (`ActivityMonitorService`)**
-  - Uses only standard macOS `NSWorkspace.shared.frontmostApplication` (active app bundle ID) and `CGEventSource.secondsSinceLastEventType` (idle timer).
-  - **Zero Accessibility permissions (`AXIsProcessTrusted`) and zero keystroke/mouse logging**.
+- **Privacy-First Focus, Safari & Break Tracking (`ActivityMonitorService`)**
+  - Uses standard macOS `NSWorkspace.shared.frontmostApplication` and `CGEventSource.secondsSinceLastEventType`.
+  - Zero Accessibility permissions (`AXIsProcessTrusted`) and zero keystroke/mouse logging.
+  - Inspects active tabs across Firefox, Chrome, Brave, Edge, Arc, Opera, Vivaldi, and Safari.
+  - 1-click Menu Bar controls to mark any custom app or domain as **Always Productive** or **Distraction**.
+- **Session Persistence & macOS Sleep/Wake Break Crediting**
+  - Focus points, work streaks, and custom rules automatically persist in `UserDefaults`.
+  - Automatically listens to macOS sleep, display sleep, and screen lock/unlock events, restoring energy after offline breaks.
+- **Launch at Login (`SMAppService`)**
+  - Toggle native macOS auto-start at login directly from the Menu Bar.
 - **Menu Bar Control Center (`MenuBarExtra`)**
-  - Click the `cat.fill` icon in the macOS Menu Bar at any time to inspect live hardware sensor readings, active app classification, idle time, **Pet Bitz (`<3  <3`)**, or preview any emotional state.
+  - Click the `cat.fill` icon in the macOS Menu Bar to inspect live sensors, pet Bitz (`<3  <3`), change size/opacity/corner, or test states.
 
 ---
 
@@ -81,13 +96,14 @@ bitz-mac/
 │       ├── MascotOverlayPanel.swift           # Click-through, non-activating floating NSPanel
 │       └── MascotOverlayView.swift            # Cyberpunk cat vector rig, reactive LED visor & live HUD pill
 ├── Tests/
-│   └── BitzTests/                             # 23 deterministic XCTest unit tests
+│   └── BitzTests/                             # 33 deterministic XCTest unit tests
 │       ├── WellnessPointEngineTests.swift
 │       ├── ActivityMonitorServiceTests.swift
 │       └── MascotOverlayPanelTests.swift
 └── docs/
-    ├── rive-setup.md                          # Rive BitzStateMachine input contract & asset guide
-    └── verification-quickstart.md             # Verification & testing guide
+    ├── ARCHITECTURE.md                        # Layered system architecture & invariants
+    ├── STATE_MACHINE.md                       # 7-state emotional machine & Rive contract
+    └── ACCEPTANCE_CRITERIA.md                 # Requirements traceability & test matrix
 ```
 
 ---

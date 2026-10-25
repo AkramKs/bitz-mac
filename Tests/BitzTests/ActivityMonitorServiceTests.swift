@@ -350,4 +350,47 @@ final class ActivityMonitorServiceTests: XCTestCase {
         service.stopMonitoring()
         XCTAssertFalse(service.isMonitoring)
     }
+
+    func testCustomAppRulesAndSleepWakeHandling() {
+        let engine = WellnessPointEngine(initialPoints: 50.0)
+        let telemetry = MockTelemetryProvider()
+        let service = ActivityMonitorService(engine: engine, telemetry: telemetry)
+
+        // 1. Test Custom Rule marking
+        telemetry.bundleID = "com.custom.game"
+        service.performSampleTick()
+        XCTAssertFalse(service.lastAppIsProductive)
+
+        service.markFrontmostApp(asProductive: true)
+        XCTAssertEqual(service.frontmostAppCustomRule, true)
+        XCTAssertTrue(service.lastAppIsProductive)
+
+        service.markFrontmostApp(asProductive: false)
+        XCTAssertEqual(service.frontmostAppCustomRule, false)
+        XCTAssertFalse(service.lastAppIsProductive)
+
+        service.resetFrontmostAppRule()
+        XCTAssertNil(service.frontmostAppCustomRule)
+
+        // 2. Test Safari active tab inspection
+        XCTAssertTrue(
+            service.isProductiveBundleID("com.apple.Safari", activeTabURL: "https://github.com/apple/swift")
+        )
+        XCTAssertFalse(
+            service.isProductiveBundleID("com.apple.Safari", activeTabURL: "https://www.youtube.com/watch?v=123")
+        )
+
+        // 3. Test Sleep and Wake cycle crediting break
+        engine.setPoints(20.0, continuousWorkMinutes: 40.0)
+        telemetry.currentDate = Date()
+        service.handleSystemSleepOrLock()
+
+        // Fast forward 15 minutes
+        telemetry.currentDate = telemetry.currentDate.addingTimeInterval(15.0 * 60.0)
+        service.handleSystemWakeOrUnlock()
+
+        // 20.0 + (15.0 * 5.0) = 95.0 pts, streak reset to 0
+        XCTAssertGreaterThanOrEqual(engine.currentPoints, 90.0)
+        XCTAssertEqual(engine.continuousWorkMinutes, 0.0)
+    }
 }

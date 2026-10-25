@@ -229,4 +229,30 @@ final class WellnessPointEngineTests: XCTestCase {
         XCTAssertEqual(controller.totalTriggerCount, 1)
         XCTAssertTrue(dispatched.contains(.fireTrigger("triggerPet")))
     }
+
+    func testWellnessPointEnginePersistenceAndOfflineBreakRestoration() {
+        let suiteName = "BitzEnginePersistenceTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // 1. Initial engine with persistence enabled
+        let firstEngine = WellnessPointEngine(initialPoints: 45.0, initialContinuousWorkMinutes: 20.0, userDefaults: defaults)
+        firstEngine.evaluateWorkTick(isProductiveApp: true) // 45.5 pts, work streak ~20.08 min
+        XCTAssertEqual(firstEngine.currentPoints, 45.5, accuracy: 0.0001)
+
+        // 2. Re-instantiate from same suite without explicit initial points -> restores 45.5 pts
+        let restoredEngine = WellnessPointEngine(userDefaults: defaults)
+        XCTAssertEqual(restoredEngine.currentPoints, 45.5, accuracy: 0.0001)
+
+        // 3. Test offline break restoration when elapsed time > 2.0 min
+        defaults.set(20.0, forKey: WellnessPointEngine.pointsUserDefaultsKey)
+        defaults.set(30.0, forKey: WellnessPointEngine.workMinutesUserDefaultsKey)
+        // Saved 10 minutes ago
+        defaults.set(Date().timeIntervalSince1970 - (10.0 * 60.0), forKey: WellnessPointEngine.lastSavedTimeUserDefaultsKey)
+
+        let wakingEngine = WellnessPointEngine(userDefaults: defaults)
+        // 20.0 + (10.0 min * 5.0 pts/min) = 70.0 pts, continuous streak reset to 0.0
+        XCTAssertGreaterThanOrEqual(wakingEngine.currentPoints, 69.5)
+        XCTAssertEqual(wakingEngine.continuousWorkMinutes, 0.0)
+    }
 }

@@ -12,19 +12,92 @@ private struct CyberEarShape: Shape {
     }
 }
 
-/// SwiftUI view hosted inside `MascotOverlayPanel`, rendering the `250x250` transparent
+/// Floating ambient particle overlays for Bitz's states (neon sparks, binary focus bits, sleepy ZZZs, steam puffs).
+private struct AmbientParticlesOverlay: View {
+    let state: BitzState
+    let color: Color
+    let time: TimeInterval
+
+    var body: some View {
+        ZStack {
+            if state == .superCharged {
+                // Neon sparks drifting upward
+                ForEach(0..<4, id: \.self) { i in
+                    let offsetPhase = (time * 1.5 + Double(i) * 0.75).truncatingRemainder(dividingBy: 2.0)
+                    let xOffset = Double([-36, 42, -54, 38][i]) + sin(time * 3.0 + Double(i)) * 6.0
+                    let yOffset = -20.0 - (offsetPhase * 45.0)
+                    let opacity = max(0.0, 1.0 - (offsetPhase / 2.0))
+                    Circle()
+                        .fill(color)
+                        .frame(width: 3.5, height: 3.5)
+                        .shadow(color: color, radius: 4)
+                        .offset(x: xOffset, y: yOffset)
+                        .opacity(opacity)
+                }
+            } else if state == .balanced {
+                // Floating cybernetic binary bits (0 1)
+                ForEach(0..<3, id: \.self) { i in
+                    let phase = (time * 0.8 + Double(i) * 0.9).truncatingRemainder(dividingBy: 2.5)
+                    let xOffset = Double([-42, 50, 20][i]) + sin(time * 1.5 + Double(i)) * 4.0
+                    let yOffset = -25.0 - (phase * 30.0)
+                    let opacity = max(0.0, 1.0 - (phase / 2.5))
+                    Text(i % 2 == 0 ? "1" : "0")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(color)
+                        .shadow(color: color.opacity(0.8), radius: 3)
+                        .offset(x: xOffset, y: yOffset)
+                        .opacity(opacity)
+                }
+            } else if state == .charging || state == .burnout {
+                // Drifting sleepy ZZZ particles
+                ForEach(0..<3, id: \.self) { i in
+                    let phase = (time * 0.6 + Double(i) * 1.0).truncatingRemainder(dividingBy: 3.0)
+                    let xOffset = 30.0 + Double(i * 12) + sin(time * 1.2 + Double(i)) * 5.0
+                    let yOffset = -35.0 - (phase * 35.0)
+                    let opacity = max(0.0, 1.0 - (phase / 3.0))
+                    Text(i == 0 ? "z" : (i == 1 ? "Z" : "Zz"))
+                        .font(.system(size: CGFloat(8 + i * 2), weight: .bold, design: .rounded))
+                        .foregroundStyle(color)
+                        .shadow(color: color.opacity(0.6), radius: 3)
+                        .offset(x: xOffset, y: yOffset)
+                        .opacity(opacity)
+                }
+            } else if state == .overheating {
+                // Steam puffs rising from ears
+                ForEach(0..<4, id: \.self) { i in
+                    let phase = (time * 2.2 + Double(i) * 0.6).truncatingRemainder(dividingBy: 1.5)
+                    let isLeftEar = i % 2 == 0
+                    let xOffset = (isLeftEar ? -34.0 : 34.0) + sin(time * 4.0 + Double(i)) * 5.0
+                    let yOffset = -70.0 - (phase * 35.0)
+                    let opacity = max(0.0, 0.85 - (phase / 1.5))
+                    Circle()
+                        .fill(Color(white: 0.85).opacity(0.6))
+                        .frame(width: CGFloat(6 + Int(phase * 8)), height: CGFloat(6 + Int(phase * 8)))
+                        .offset(x: xOffset, y: yOffset)
+                        .opacity(opacity)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// SwiftUI view hosted inside `MascotOverlayPanel`, rendering the transparent
 /// cyberpunk mascot canvas, reactive LED visor glow, standby `"ZZZ"` badge, and
 /// `"SYSTEM HOT! > <"` thermal warning speech bubble (`FR-001`, `FR-003`, `FR-004`).
 public struct MascotOverlayView: View {
     @ObservedObject public var engine: WellnessPointEngine
     @ObservedObject public var scaleStore: AvatarScaleStore
+    @ObservedObject public var opacityStore: AvatarOpacityStore
 
     public init(
         engine: WellnessPointEngine,
-        scaleStore: AvatarScaleStore = AvatarScaleStore()
+        scaleStore: AvatarScaleStore = AvatarScaleStore(),
+        opacityStore: AvatarOpacityStore = AvatarOpacityStore()
     ) {
         self.engine = engine
         self.scaleStore = scaleStore
+        self.opacityStore = opacityStore
     }
 
     /// Returns the RGB color values (`red`, `green`, `blue`) matching the current `BitzState` visor color.
@@ -86,9 +159,14 @@ public struct MascotOverlayView: View {
             let glitchOffsetX = engine.currentState == .overheating ? sin(t * 45.0) * 3.0 : 0.0
             let earTilt = (engine.currentState == .overworked || engine.currentState == .dopamineSad) ? 14.0 : 0.0
 
+            // Periodic natural eye-blink (every ~4.2s for ~0.15s)
+            let blinkRemainder = t.truncatingRemainder(dividingBy: 4.2)
+            let isBlinking = blinkRemainder < 0.16 && !isLoafPosture && engine.currentState != .overheating && !engine.isPetReactionActive
+
             VStack(spacing: 6) {
                 Spacer(minLength: 0)
 
+                // Speech Bubble Notification (always 100% solid contrast for legibility)
                 if let speechText = engine.activeSpeechBubbleText {
                     Text(speechText)
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
@@ -113,10 +191,15 @@ public struct MascotOverlayView: View {
                         )
                         .shadow(color: visorColor.opacity(0.7), radius: 6)
                         .offset(y: isLoafPosture ? -30 : -50)
-                        .zIndex(2)
+                        .zIndex(3)
                 }
 
+                // Mascot Composition with user-selected see-through opacity
                 ZStack(alignment: .bottom) {
+                    // Ambient particles behind mascot
+                    AmbientParticlesOverlay(state: engine.currentState, color: visorColor, time: t)
+                        .zIndex(0)
+
                     // Glowing cybernetic tail on the right
                     Capsule()
                         .fill(Color(red: 26.0 / 255.0, green: 26.0 / 255.0, blue: 29.0 / 255.0))
@@ -144,6 +227,25 @@ public struct MascotOverlayView: View {
                                 .shadow(color: visorColor, radius: 6)
                                 .offset(y: 6)
                         )
+
+                    // Front Paws (with subtle sway/trot motion when standing)
+                    if !isLoafPosture {
+                        let pawSway = sin(t * 3.0 * animationSpeedMultiplier) * 2.0
+                        HStack(spacing: 28) {
+                            Capsule()
+                                .fill(Color(red: 26.0 / 255.0, green: 26.0 / 255.0, blue: 29.0 / 255.0))
+                                .frame(width: 18, height: 10)
+                                .overlay(Capsule().stroke(visorColor.opacity(0.65), lineWidth: 1))
+                                .offset(y: pawSway)
+                            Capsule()
+                                .fill(Color(red: 26.0 / 255.0, green: 26.0 / 255.0, blue: 29.0 / 255.0))
+                                .frame(width: 18, height: 10)
+                                .overlay(Capsule().stroke(visorColor.opacity(0.65), lineWidth: 1))
+                                .offset(y: -pawSway)
+                        }
+                        .offset(y: -4)
+                        .zIndex(2)
+                    }
 
                     // Head & Ears Assembly
                     VStack(spacing: -10) {
@@ -193,7 +295,7 @@ public struct MascotOverlayView: View {
                                         .stroke(visorColor.opacity(0.5), lineWidth: 1)
                                 )
                                 .overlay(
-                                    visorDisplayContent
+                                    visorContent(isBlinking: isBlinking)
                                 )
                         }
                         .zIndex(1)
@@ -201,6 +303,7 @@ public struct MascotOverlayView: View {
                     .offset(y: isLoafPosture ? -22 : -44)
                 }
                 .offset(x: glitchOffsetX, y: breathOffset)
+                .opacity(opacityStore.opacityFactor)
 
                 // Live Cyberpunk Hardware Telemetry Pill (shows real CPU °C, CPU %, and Wellness PTS)
                 if let tempC = engine.latestTemperatureCelsius {
@@ -220,6 +323,7 @@ public struct MascotOverlayView: View {
                         )
                         .shadow(color: visorColor.opacity(0.4), radius: 4)
                         .padding(.bottom, 4)
+                        .opacity(max(0.6, opacityStore.opacityFactor))
                 } else {
                     Spacer().frame(height: 10)
                 }
@@ -236,12 +340,23 @@ public struct MascotOverlayView: View {
     }
 
     @ViewBuilder
-    private var visorDisplayContent: some View {
+    private func visorContent(isBlinking: Bool) -> some View {
         if engine.isPetReactionActive {
             Text("<3  <3")
                 .font(.system(size: 18, weight: .heavy, design: .monospaced))
                 .foregroundStyle(Color(red: 1.0, green: 0.0, blue: 127.0 / 255.0))
                 .shadow(color: Color(red: 1.0, green: 0.0, blue: 127.0 / 255.0), radius: 6)
+        } else if isBlinking {
+            // Natural blink slit
+            HStack(spacing: 24) {
+                Capsule()
+                    .fill(visorColor)
+                    .frame(width: 18, height: 3)
+                Capsule()
+                    .fill(visorColor)
+                    .frame(width: 18, height: 3)
+            }
+            .shadow(color: visorColor, radius: 4)
         } else if engine.currentState == .charging {
             Text("⚡ Z Z")
                 .font(.system(size: 17, weight: .heavy, design: .monospaced))

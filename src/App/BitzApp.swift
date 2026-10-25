@@ -1,33 +1,39 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 /// Application delegate managing the transparent `MascotOverlayPanel`, `WellnessPointEngine`,
-/// `ActivityMonitorService`, and `AvatarScaleStore` lifecycle (`FR-001`, `FR-005`, `FR-006`).
+/// `ActivityMonitorService`, `AvatarScaleStore`, and `AvatarOpacityStore` lifecycle (`FR-001`, `FR-005`, `FR-006`).
 @MainActor
 public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let riveController: ProductionRiveController
     public let engine: WellnessPointEngine
     public let activityMonitor: ActivityMonitorService
     public let scaleStore: AvatarScaleStore
+    public let opacityStore: AvatarOpacityStore
     public private(set) var overlayPanel: MascotOverlayPanel?
 
     public override convenience init() {
         self.init(
             riveController: ProductionRiveController(),
             telemetryProvider: SystemActivityTelemetryProvider(),
-            scaleStore: AvatarScaleStore()
+            scaleStore: AvatarScaleStore(),
+            opacityStore: AvatarOpacityStore()
         )
     }
 
     public init(
         riveController: ProductionRiveController = ProductionRiveController(),
         telemetryProvider: ActivityTelemetryProviding = SystemActivityTelemetryProvider(),
-        scaleStore: AvatarScaleStore = AvatarScaleStore()
+        scaleStore: AvatarScaleStore = AvatarScaleStore(),
+        opacityStore: AvatarOpacityStore = AvatarOpacityStore(),
+        userDefaults: UserDefaults = .standard
     ) {
         self.riveController = riveController
-        self.engine = WellnessPointEngine(initialPoints: 50.0, riveController: riveController)
+        self.engine = WellnessPointEngine(riveController: riveController, userDefaults: userDefaults)
         self.activityMonitor = ActivityMonitorService(engine: self.engine, telemetry: telemetryProvider)
         self.scaleStore = scaleStore
+        self.opacityStore = opacityStore
         super.init()
 
         self.scaleStore.onScaleChanged = { [weak self] newScale in
@@ -43,31 +49,37 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationWillTerminate(_ notification: Notification) {
         activityMonitor.stopMonitoring()
+        engine.persistState()
     }
 
     /// Instantiates and positions the borderless, click-through `MascotOverlayPanel`
     /// hosting `MascotOverlayView` at the user's persisted `scaleStore.scaleFactor`.
     public func setupOverlayPanel() {
         let panel = MascotOverlayPanel()
-        let rootView = MascotOverlayView(engine: engine, scaleStore: scaleStore)
+        let rootView = MascotOverlayView(engine: engine, scaleStore: scaleStore, opacityStore: opacityStore)
         let hostingView = NSHostingView(rootView: rootView)
         let initialSize = MascotOverlayPanel.calculatePanelSize(for: CGFloat(scaleStore.scaleFactor))
         hostingView.frame = NSRect(origin: .zero, size: initialSize)
         panel.contentView = hostingView
         panel.applyScaleFactor(CGFloat(scaleStore.scaleFactor))
+        panel.repositionOnScreen()
         panel.orderFrontRegardless()
         self.overlayPanel = panel
     }
 }
 
 /// Observable Menu Bar content view displaying live hardware sensor telemetry,
-/// wellness score, manual avatar resizing controls, and interactive state controls.
+/// wellness score, manual avatar resizing & opacity controls, and interactive state controls.
 @MainActor
 private struct BitzMenuBarContentView: View {
     @ObservedObject var engine: WellnessPointEngine
     @ObservedObject var activityMonitor: ActivityMonitorService
     @ObservedObject var scaleStore: AvatarScaleStore
+    @ObservedObject var opacityStore: AvatarOpacityStore
+    weak var overlayPanel: MascotOverlayPanel?
+
     @AppStorage("enableManualStateOverrideMenu") private var showManualOverrideMenu: Bool = true
+    @State private var launchAtLoginEnabled: Bool = (SMAppService.mainApp.status == .enabled)
 
     private var thermalStateLabel: String {
         switch activityMonitor.lastThermalState {
@@ -106,7 +118,26 @@ private struct BitzMenuBarContentView: View {
 
             if let appName = activityMonitor.lastFrontmostAppName {
                 let tag = activityMonitor.lastAppIsProductive ? "+0.5 Productive" : "-1.5 Dopamine Drain"
-                Text("Active App: \(appName) (\(tag))")
+                let customTag = activityMonitor.frontmostAppCustomRule.map { $0 ? " [Custom: Productive]" : " [Custom: Distraction]" } ?? ""
+                Text("Active: \(appName) (\(tag))\(customTag)")
+
+                HStack(spacing: 6) {
+                    if activityMonitor.frontmostAppCustomRule != true {
+                        Button("Mark Productive") {
+                            activityMonitor.markFrontmostApp(asProductive: true)
+                        }
+                    }
+                    if activityMonitor.frontmostAppCustomRule != false {
+                        Button("Mark Distraction") {
+                            activityMonitor.markFrontmostApp(asProductive: false)
+                        }
+                    }
+                    if activityMonitor.frontmostAppCustomRule != nil {
+                        Button("Reset Rule") {
+                            activityMonitor.resetFrontmostAppRule()
+                        }
+                    }
+                }
             }
 
             let idleStatusSuffix: String = {
@@ -128,20 +159,50 @@ private struct BitzMenuBarContentView: View {
             Button("Pet Bitz (<3)") {
                 engine.triggerPetInteraction()
             }
+
             Divider()
+            // See-Through / Opacity Controls
+            Text("Mascot Opacity: \(opacityStore.formattedOpacitySummary)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Button("More Transparent (-10%)") {
+                    opacityStore.stepDown()
+                }
+                .disabled(!opacityStore.canStepDown)
+
+                Button("More Solid (+10%)") {
+                    opacityStore.stepUp()
+                }
+                .disabled(!opacityStore.canStepUp)
+            }
+
+            Menu("Opacity Presets (\(opacityStore.percentageInt)%)") {
+                ForEach(AvatarOpacityPreset.allCases, id: \.rawValue) { preset in
+                    Button(opacityStore.isPresetSelected(preset) ? "✓ \(preset.menuTitle)" : preset.menuTitle) {
+                        opacityStore.selectPreset(preset)
+                    }
+                }
+            }
+
+            Divider()
+            // Avatar Resizing Controls
             Text("Avatar Size: \(scaleStore.formattedSizeSummary)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Button("Smaller (-10%)") {
-                scaleStore.stepDown()
-            }
-            .disabled(!scaleStore.canStepDown)
+            HStack(spacing: 8) {
+                Button("Smaller (-10%)") {
+                    scaleStore.stepDown()
+                }
+                .disabled(!scaleStore.canStepDown)
 
-            Button("Larger (+10%)") {
-                scaleStore.stepUp()
+                Button("Larger (+10%)") {
+                    scaleStore.stepUp()
+                }
+                .disabled(!scaleStore.canStepUp)
             }
-            .disabled(!scaleStore.canStepUp)
 
             if !scaleStore.isPresetSelected(.defaultSize) {
                 Button("Reset Size (100% — 250×250 pt)") {
@@ -156,6 +217,33 @@ private struct BitzMenuBarContentView: View {
                     }
                 }
             }
+
+            Divider()
+            // Corner Positioning Controls
+            let currentCorner = overlayPanel?.currentCornerAnchor ?? .bottomRight
+            Menu("Screen Corner: \(currentCorner.menuTitle)") {
+                ForEach(ScreenCornerAnchor.allCases, id: \.rawValue) { corner in
+                    Button(currentCorner == corner ? "✓ \(corner.menuTitle)" : corner.menuTitle) {
+                        overlayPanel?.applyCornerAnchor(corner)
+                    }
+                }
+            }
+
+            Toggle("Launch at Login", isOn: Binding(
+                get: { launchAtLoginEnabled },
+                set: { shouldEnable in
+                    do {
+                        if shouldEnable {
+                            try SMAppService.mainApp.register()
+                        } else {
+                            try SMAppService.mainApp.unregister()
+                        }
+                        launchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
+                    } catch {
+                        launchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
+                    }
+                }
+            ))
 
             Divider()
             Toggle("Manual State Override", isOn: $showManualOverrideMenu)
@@ -227,7 +315,9 @@ public struct BitzApp: App {
             BitzMenuBarContentView(
                 engine: appDelegate.engine,
                 activityMonitor: appDelegate.activityMonitor,
-                scaleStore: appDelegate.scaleStore
+                scaleStore: appDelegate.scaleStore,
+                opacityStore: appDelegate.opacityStore,
+                overlayPanel: appDelegate.overlayPanel
             )
         }
     }

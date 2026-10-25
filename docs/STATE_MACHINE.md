@@ -12,9 +12,9 @@ All Rive mutations target state machine `"BitzStateMachine"` inside asset `"bitz
 
 | Input Identifier | Rive Type | Swift Type | Domain Range / Allowed Values | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| `speedMultiplier` | `Number` | `Float` | `0.0 ... 2.5` (`2.0`, `1.0`, `0.4`, `0.0`) | Controls idle breathing, ear twitch, and tail wag animation playback speed. |
-| `visorColor` | `Number` | `Float` | `0.0` (Cyan `#00F0FF`), `1.0` (Magenta `#FF007F`), `2.0` (Amber `#FFB000`), `3.0` (Red `#FF1E1E`) | Drives LED visor and internal ear/tail neon color blends. |
-| `isStandby` | `Boolean` | `Bool` | `true` / `false` | Transitions Bitz into/out of curled loaf sleep mode (`"ZZZ"` visor). |
+| `speedMultiplier` | `Number` | `Float` | `0.0 ... 2.5` (`2.0`, `1.0`, `0.6`, `0.4`, `0.35`, `0.0`) | Controls idle breathing, ear twitch, paws trot, and tail wag playback speed. |
+| `visorColor` | `Number` | `Float` | `0.0` (Cyan `#00F0FF`), `1.0` (Magenta `#FF007F`), `2.0` (Amber `#FFB000`), `3.0` (Red `#FF1E1E`), `4.0` (Violet `#9D4EDD`), `5.0` (Green `#00FF88`) | Drives LED visor and internal ear/tail neon color blends. |
+| `isStandby` | `Boolean` | `Bool` | `true` / `false` | Transitions Bitz into/out of curled loaf sleep/charging mode. |
 | `isGlitching` | `Boolean` | `Bool` | `true` / `false` | Enables/disables cyberpunk chromatic aberration and jitter during CPU thermal spikes. |
 | `triggerPet` | `Trigger` | `Void` | One-shot impulse | Plays the happy purr / `<3` visor reaction when triggered from the Menu Bar. |
 
@@ -25,31 +25,30 @@ All Rive mutations target state machine `"BitzStateMachine"` inside asset `"bitz
 - **Initial Score**: `50.0` points (`BitzState.balanced`).
 - **Clamping Bounds**: `minPoints = 0.0`, `maxPoints = 100.0` (`0.0 ... 100.0`).
 - **Work Tick Evaluation (`evaluateWorkTick(isProductiveApp:)`)**:
-  - Productive Foreground App (`isProductiveApp == true`): **`+0.5` points** per tick.
-  - Unproductive Foreground App (`isProductiveApp == false`): **`-1.5` points** per tick.
+  - Productive Foreground App / Whitelisted Tab (`isProductiveApp == true`): **`+0.5` points** per tick (increases continuous work streak).
+  - Unproductive Streaming / Distraction Site (`isProductiveApp == false`): **`-1.5` points** per tick (drains into `.dopamineSad` when $< 40$ PTS).
+- **Charging Idle Mode (`setChargingState(true)`)**:
+  - Recharges **`+0.5` points** per tick and reduces continuous work fatigue when away from keyboard $\ge 60$s.
 - **Offline Break Recovery (`applyOfflineBreak(minutes:)`)**:
-  - When `minutes <= 10.0`: **`+0.0` points** (no change).
-  - When `minutes > 10.0`: **`+5.0 * minutes` points**, clamped to `100.0`.
-- **Default Productive Bundle IDs (`ActivityMonitorService.defaultProductiveBundleIDs`)**:
-  - `com.apple.dt.Xcode`
-  - `com.microsoft.VSCode`
-  - `com.apple.Terminal`
-  - `com.googlecode.iterm2`
-  - `com.todesktop.230313mzl4w4u92` (Cursor)
-  - `dev.warp.Warp-Stable`
-  - `com.jetbrains.intellij`
+  - When `minutes <= 2.0`: **`+0.0` points** (no change).
+  - When `minutes > 2.0`: **`+5.0 * minutes` points**, clamped to `100.0`, and resets continuous work streak to `0.0m`.
+- **Work Fatigue Streaks**:
+  - Continuous work $\ge 45$ min without a break transitions to **`.overworked`** (`-  -`).
+  - Continuous work $\ge 90$ min without a break transitions to **`.burnout`** (`X  X`).
 
 ---
 
 ## 4. Behavioral States & Threshold Mapping (`BitzState`)
 
-| `BitzState` | Point Threshold | `speedMultiplier` | `visorColor` | `isStandby` | `isGlitching` | `activeSpeechBubbleText` | Visual Telemetry |
+| `BitzState` | Point / Streak Condition | `speedMultiplier` | `visorColor` | `isStandby` | `isGlitching` | `activeSpeechBubbleText` | Visual Telemetry |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `.superCharged` | `80.0 ... 100.0` | `2.0` | `1.0` (Magenta) | `false` | `false` | `nil` | High-energy bounce, neon magenta visor (`#FF007F`) |
-| `.balanced` | `40.0 ..< 80.0` | `1.0` | `0.0` (Cyan) | `false` | `false` | `nil` | Calm breathing, electric cyan visor (`#00F0FF`) |
-| `.overworked` | `15.0 ..< 40.0` | `0.4` | `2.0` (Amber) | `false` | `false` | `nil` | Drooping ears, sluggish motion, warning amber visor (`#FFB000`) |
-| `.burnout` | `< 15.0` (`0.0 ..< 15.0`) | `0.0` | *(unchanged)* | `true` | `false` | `nil` | Curled loaf standby mode, dimmed `"ZZZ"` visor |
-| `.overheating` | Thermal Override (`> 80.0°C` / `.critical` / `.serious`) | *(unchanged)* | `3.0` (Red) | *(unchanged)* | `true` | `"SYSTEM HOT! > <"` | Glitch animation, critical red visor (`#FF1E1E`), speech bubble banner |
+| **`.superCharged`** | `80.0 ... 100.0` PTS ($< 45$m work) | `2.0` | `1.0` (Magenta `#FF007F`) | `false` | `false` | `nil` | High-energy trot, neon sparks drifting, `^  ^` visor |
+| **`.balanced`** | `40.0 ..< 80.0` PTS ($< 45$m work) | `1.0` | `0.0` (Cyan `#00F0FF`) | `false` | `false` | `nil` | Steady breathing & paws, floating binary bits, blinking cyan eyes |
+| **`.dopamineSad`** | $< 40.0$ PTS (Streaming/distraction drain) | `0.35` | `4.0` (Violet `#9D4EDD`) | `false` | `false` | `"DOPAMINE OVERLOAD — BACK TO FOCUS?"` | Drooping ears, crying `T  T` visor |
+| **`.overworked`** | Work streak $\ge 45$ min without break | `0.4` | `2.0` (Amber `#FFB000`) | `false` | `false` | `"WORKING NON-STOP — TAKE A QUICK BREAK ☕"` | Sluggish walk, tired `-  -` squint visor |
+| **`.burnout`** | Work streak $\ge 90$ min without break | `0.0` | `2.0` (Amber `#FFB000`) | `true` | `false` | `"BURNOUT! STEP AWAY FOR 5 MIN TO RECHARGE 💤"` | Curled loaf posture, exhausted `X  X` visor |
+| **`.charging`** | Idle $\ge 60$s without mouse/keyboard input | `0.6` | `5.0` (Emerald Green `#00FF88`) | `true` | `false` | `"CHARGING ENERGY... ⚡"` | Cozy loaf posture, `⚡ Z Z` visor, drifting `Zzz` particles |
+| **`.overheating`** | Thermal Override ($> 80.0^\circ\text{C}$ or $> 85\%$ CPU) | `2.5` | `3.0` (Critical Red `#FF1E1E`) | *(prior)* | `true` | `"🔥 ... CLOSE HEAVY APPS TO COOL DOWN!"` | Glitch vibration, steam puffs from ears, `>  <` visor |
 
 ---
 
@@ -59,40 +58,32 @@ All Rive mutations target state machine `"BitzStateMachine"` inside asset `"bitz
 stateDiagram-v2
     [*] --> Balanced: init (50.0 pts)
 
-    Balanced --> SuperCharged: currentPoints >= 80.0
+    Balanced --> SuperCharged: currentPoints >= 80.0 (work streak < 45m)
     SuperCharged --> Balanced: currentPoints < 80.0
 
-    Balanced --> Overworked: currentPoints < 40.0
-    Overworked --> Balanced: currentPoints >= 40.0
+    Balanced --> DopamineSad: currentPoints < 40.0 (distraction drain)
+    DopamineSad --> Balanced: returned to productive work
 
-    Overworked --> Burnout: currentPoints < 15.0
-    Burnout --> Overworked: 15.0 <= currentPoints < 40.0
-    Burnout --> Balanced: 40.0 <= currentPoints < 80.0 (Offline Break > 10m)
-    Burnout --> SuperCharged: currentPoints >= 80.0 (Offline Break > 10m)
+    Balanced --> Overworked: continuousWorkMinutes >= 45.0
+    SuperCharged --> Overworked: continuousWorkMinutes >= 45.0
+    Overworked --> Burnout: continuousWorkMinutes >= 90.0
 
-    SuperCharged --> Overheating: triggerThermalWarning(true)
-    Balanced --> Overheating: triggerThermalWarning(true)
-    Overworked --> Overheating: triggerThermalWarning(true)
-    Burnout --> Overheating: triggerThermalWarning(true)
+    Overworked --> Charging: idleSeconds >= 60s
+    Burnout --> Charging: idleSeconds >= 60s
+    Balanced --> Charging: idleSeconds >= 60s
+    SuperCharged --> Charging: idleSeconds >= 60s
 
-    Overheating --> SuperCharged: triggerThermalWarning(false) [pts >= 80]
-    Overheating --> Balanced: triggerThermalWarning(false) [40 <= pts < 80]
-    Overheating --> Overworked: triggerThermalWarning(false) [15 <= pts < 40]
-    Overheating --> Burnout: triggerThermalWarning(false) [pts < 15]
+    Charging --> Balanced: user returns (break > 2m clears fatigue)
+    Charging --> SuperCharged: user returns (pts >= 80)
+
+    SuperCharged --> Overheating: CPU temp > 80C or CPU > 85%
+    Balanced --> Overheating: CPU temp > 80C or CPU > 85%
+    DopamineSad --> Overheating: CPU temp > 80C or CPU > 85%
+    Overworked --> Overheating: CPU temp > 80C or CPU > 85%
+    Burnout --> Overheating: CPU temp > 80C or CPU > 85%
+    Charging --> Overheating: CPU temp > 80C or CPU > 85%
+
+    Overheating --> Balanced: thermals normalize [40 <= pts < 80]
+    Overheating --> SuperCharged: thermals normalize [pts >= 80]
+    Overheating --> DopamineSad: thermals normalize [pts < 40]
 ```
-
----
-
-## 6. Thermal Override & Recovery Semantics
-
-When `triggerThermalWarning(isOverheating: true)` is invoked:
-1. `isOverheatingOverride` is set to `true`.
-2. `currentState` immediately transitions to `.overheating` regardless of `currentPoints`.
-3. `activeSpeechBubbleText` is set to `"SYSTEM HOT! > <"`.
-4. `syncWithRive()` sets `isGlitching = true` and `visorColor = 3.0` (Red).
-5. Any `evaluateWorkTick` or `applyOfflineBreak` calls while overheating continue to update `currentPoints` in the background without clearing `.overheating`.
-
-When `triggerThermalWarning(isOverheating: false)` is invoked:
-1. `isOverheatingOverride` is set to `false`.
-2. `activeSpeechBubbleText` is cleared to `nil`.
-3. `evaluateState()` recomputes the `BitzState` from `currentPoints` and calls `syncWithRive()`, restoring `isGlitching = false` and the point-appropriate `speedMultiplier`, `visorColor`, and `isStandby` values.

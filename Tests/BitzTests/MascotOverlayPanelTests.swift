@@ -233,4 +233,79 @@ final class MascotOverlayPanelTests: XCTestCase {
         XCTAssertEqual(delegate.overlayPanel?.frame.size.height ?? 0.0, 375.0, accuracy: 0.001)
         XCTAssertEqual(delegate.overlayPanel?.ignoresMouseEvents, true)
     }
+
+    func testAvatarOpacityStoreDefaultPresetsAndClamping() {
+        let suiteName = "BitzOpacityStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = AvatarOpacityStore(userDefaults: defaults)
+        XCTAssertEqual(store.opacityFactor, 0.85, accuracy: 0.001)
+        XCTAssertEqual(store.percentageInt, 85)
+        XCTAssertEqual(store.formattedOpacitySummary, "85%")
+        XCTAssertTrue(store.canStepDown)
+        XCTAssertTrue(store.canStepUp)
+
+        // Presets
+        for preset in AvatarOpacityPreset.allCases {
+            store.selectPreset(preset)
+            XCTAssertEqual(store.opacityFactor, preset.rawValue, accuracy: 0.001)
+            XCTAssertTrue(store.isPresetSelected(preset))
+            XCTAssertFalse(preset.menuTitle.isEmpty)
+            XCTAssertFalse(preset.percentageText.isEmpty)
+        }
+
+        // Stepping up to 1.00 max
+        store.selectPreset(.solid)
+        XCTAssertFalse(store.canStepUp)
+        store.stepUp()
+        XCTAssertEqual(store.opacityFactor, 1.00, accuracy: 0.001)
+
+        // Stepping down to 0.20 min
+        store.selectPreset(.stealth) // 0.25
+        store.stepDown()
+        XCTAssertEqual(store.opacityFactor, 0.20, accuracy: 0.001)
+        XCTAssertFalse(store.canStepDown)
+        store.stepDown()
+        XCTAssertEqual(store.opacityFactor, 0.20, accuracy: 0.001)
+
+        // Reset
+        store.resetToDefault()
+        XCTAssertEqual(store.opacityFactor, 0.85, accuracy: 0.001)
+
+        // Sanitization
+        XCTAssertEqual(AvatarOpacityStore.sanitizeOpacityFactor(-0.5), 0.85, accuracy: 0.001)
+        XCTAssertEqual(AvatarOpacityStore.sanitizeOpacityFactor(3.0), 1.00, accuracy: 0.001)
+        XCTAssertEqual(AvatarOpacityStore.sanitizeOpacityFactor(0.05), 0.20, accuracy: 0.001)
+        XCTAssertEqual(AvatarOpacityStore.sanitizeOpacityFactor(.nan), 0.85, accuracy: 0.001)
+    }
+
+    func testScreenCornerAnchorsAndRepositioning() {
+        let frame = NSRect(x: 0, y: 50, width: 1440, height: 800)
+        let size = NSSize(width: 250, height: 250)
+
+        // Bottom-Right: maxX (1440) - 250 - 20 = 1170, minY (50) + 20 = 70
+        let br = MascotOverlayPanel.calculateOrigin(for: frame, panelSize: size, corner: .bottomRight)
+        XCTAssertEqual(br.x, 1170.0, accuracy: 0.001)
+        XCTAssertEqual(br.y, 70.0, accuracy: 0.001)
+
+        // Bottom-Left: minX (0) + 20 = 20, minY (50) + 20 = 70
+        let bl = MascotOverlayPanel.calculateOrigin(for: frame, panelSize: size, corner: .bottomLeft)
+        XCTAssertEqual(bl.x, 20.0, accuracy: 0.001)
+        XCTAssertEqual(bl.y, 70.0, accuracy: 0.001)
+
+        // Top-Right: maxX (1440) - 250 - 20 = 1170, maxY (850) - 250 - 20 = 580
+        let tr = MascotOverlayPanel.calculateOrigin(for: frame, panelSize: size, corner: .topRight)
+        XCTAssertEqual(tr.x, 1170.0, accuracy: 0.001)
+        XCTAssertEqual(tr.y, 580.0, accuracy: 0.001)
+
+        // Top-Left: minX (0) + 20 = 20, maxY (850) - 250 - 20 = 580
+        let tl = MascotOverlayPanel.calculateOrigin(for: frame, panelSize: size, corner: .topLeft)
+        XCTAssertEqual(tl.x, 20.0, accuracy: 0.001)
+        XCTAssertEqual(tl.y, 580.0, accuracy: 0.001)
+
+        let panel = MascotOverlayPanel()
+        panel.applyCornerAnchor(.topLeft, on: nil)
+        XCTAssertEqual(panel.currentCornerAnchor, .topLeft)
+    }
 }
