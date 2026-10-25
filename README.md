@@ -51,7 +51,7 @@ Bitz's mood is driven by **Wellness Points (`PTS`)** on a scale from **`0.0` to 
 | :--- | :--- | :--- | :--- |
 | **Super Charged** (`.superCharged`) | `80.0 – 100.0 PTS` (`< 45m` work streak) | **Neon Magenta (`#FF007F`)** | Happy `^  ^` LED visor, fast `2.0x` breathing & tail wag |
 | **Balanced** (`.balanced`) | `40.0 – 79.9 PTS` (`< 45m` work streak) | **Electric Cyan (`#00F0FF`)** | Calm glowing cyan eyes, steady `1.0x` breathing & tail sway |
-| **Sad / Dopamine Overload** (`.dopamineSad`) | `< 40.0 PTS` (Watching YouTube/Netflix/browsing too long) | **Dopamine Violet (`#9D4EDD`)** | Sad crying `T  T` eyes, drooping ears, **`"TOO MUCH DOPAMINE ; ; BACK TO FOCUS?"`** |
+| **Sad / Dopamine Overload** (`.dopamineSad`) | `< 40.0 PTS` (Watching YouTube/Netflix/browsing too long) | **Dopamine Violet (`#9D4EDD`)** | Sad crying `T  T` eyes, drooping ears, **`"DOPAMINE OVERLOAD — BACK TO FOCUS?"`** |
 | **Overworked** (`.overworked`) | `>= 45 min` non-stop work without a break | **Warning Amber (`#FFB000`)** | Tired `-  -` squint, drooping ears, **`"WORKING NON-STOP — TAKE A QUICK BREAK ☕"`** |
 | **Burnout** (`.burnout`) | `>= 90 min` non-stop work without a break | **Warning Amber (`#FFB000`)** | Exhausted `X  X` loaf (`0.0x` motion), **`"BURNOUT! STEP AWAY FOR 5 MIN TO RECHARGE 💤"`** |
 | **Charging** (`.charging`) | `>= 60s` without touching keyboard or mouse | **Cyber Green (`#00FF88`)** | Cozy loaf with **`⚡ Z Z`** visor, **`"CHARGING ENERGY... ⚡"`** |

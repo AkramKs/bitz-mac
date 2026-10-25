@@ -146,7 +146,7 @@ public final class ProductionRiveController: BitzRiveControllable {
 @MainActor
 public final class WellnessPointEngine: ObservableObject {
     public static let thermalWarningText = "🔥 SYSTEM HOT! CLOSE HEAVY APPS TO COOL DOWN"
-    public static let dopamineSadText = "TOO MUCH DOPAMINE ; ; BACK TO FOCUS?"
+    public static let dopamineSadText = "DOPAMINE OVERLOAD — BACK TO FOCUS?"
     public static let overworkedWarningText = "WORKING NON-STOP — TAKE A QUICK BREAK ☕"
     public static let burnoutWarningText = "BURNOUT! STEP AWAY FOR 5 MIN TO RECHARGE 💤"
     public static let chargingStatusText = "CHARGING ENERGY... ⚡"
