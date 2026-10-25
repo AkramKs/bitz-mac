@@ -166,6 +166,7 @@ public final class WellnessPointEngine: ObservableObject {
     @Published public private(set) var currentState: BitzState = .balanced
     @Published public private(set) var activeSpeechBubbleText: String? = nil
     @Published public private(set) var isPetReactionActive: Bool = false
+    @Published public private(set) var lastTickWasProductive: Bool = true
     @Published public var latestTemperatureCelsius: Double? = nil
     @Published public var latestCPULoadPercentage: Double? = nil
 
@@ -183,18 +184,21 @@ public final class WellnessPointEngine: ObservableObject {
         riveController: BitzRiveControllable? = nil
     ) {
         self.riveController = riveController
-        self.currentPoints = min(max(initialPoints, minPoints), maxPoints)
+        let clamped = min(max(initialPoints, minPoints), maxPoints)
+        self.currentPoints = clamped
         self.continuousWorkMinutes = max(0.0, initialContinuousWorkMinutes)
+        self.lastTickWasProductive = clamped >= 40.0
         evaluateState()
     }
 
     /// Evaluates a single work tick:
-    /// - Productive app (`+0.5 PTS`, increments `continuousWorkMinutes` toward `.overworked`/`.burnout` if no break is taken).
-    /// - Unproductive/entertainment app (`-1.5 PTS`, drains toward `.dopamineSad` when `< 40 PTS`).
+    /// - Productive app/site (`+0.5 PTS`, increments `continuousWorkMinutes` toward `.overworked`/`.burnout` if no break is taken, and immediately clears `.dopamineSad` scolding).
+    /// - Unproductive streaming/social site (`-1.5 PTS`, drains toward `.dopamineSad` when `< 40 PTS`).
     public func evaluateWorkTick(isProductiveApp: Bool, tickDurationMinutes: Double = 5.0 / 60.0) {
         if isChargingOverride {
             isChargingOverride = false
         }
+        lastTickWasProductive = isProductiveApp
         let delta = isProductiveApp ? Self.productiveTickDelta : Self.unproductiveTickDelta
         currentPoints = min(max(currentPoints + delta, minPoints), maxPoints)
 
@@ -269,8 +273,10 @@ public final class WellnessPointEngine: ObservableObject {
         isOverheatingOverride = false
         customOverheatingMessage = nil
         isChargingOverride = false
-        self.currentPoints = min(max(points, minPoints), maxPoints)
+        let clamped = min(max(points, minPoints), maxPoints)
+        self.currentPoints = clamped
         self.continuousWorkMinutes = max(0.0, continuousWorkMinutes)
+        self.lastTickWasProductive = clamped >= 40.0
         evaluateState()
     }
 
@@ -305,7 +311,14 @@ public final class WellnessPointEngine: ObservableObject {
             return
         }
 
-        let newState = Self.state(forPoints: currentPoints)
+        let newState: BitzState
+        if currentPoints < 40.0 && lastTickWasProductive {
+            // User has already returned to a productive app/website (e.g. GitHub or IDE),
+            // so clear the "DOPAMINE OVERLOAD" scolding while their points recover!
+            newState = .balanced
+        } else {
+            newState = Self.state(forPoints: currentPoints)
+        }
         currentState = newState
         switch newState {
         case .dopamineSad:

@@ -56,8 +56,47 @@ final class ActivityMonitorServiceTests: XCTestCase {
         XCTAssertTrue(service.isProductiveBundleID("notion.id"))
         XCTAssertTrue(service.isProductiveBundleID("com.figma.Desktop"))
 
+        // Browser on GitHub / Docs -> Productive (+0.5 PTS)
+        XCTAssertTrue(
+            service.isProductiveBundleID(
+                "org.mozilla.firefox",
+                activeTabURL: "https://github.com/AkramKs/bitz-mac",
+                activeTabTitle: "AkramKs/bitz-mac"
+            )
+        )
+
+        // Browser on Streaming / Social Media -> Dopamine Drain (-1.5 PTS)
+        XCTAssertFalse(
+            service.isProductiveBundleID(
+                "org.mozilla.firefox",
+                activeTabURL: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                activeTabTitle: "YouTube"
+            )
+        )
+        XCTAssertFalse(
+            service.isProductiveBundleID(
+                "org.mozilla.firefox",
+                activeTabURL: "https://www.netflix.com/browse",
+                activeTabTitle: "Netflix"
+            )
+        )
+        XCTAssertFalse(
+            service.isProductiveBundleID(
+                "org.mozilla.firefox",
+                activeTabURL: "https://www.instagram.com/",
+                activeTabTitle: "Instagram"
+            )
+        )
+        XCTAssertFalse(
+            service.isProductiveBundleID(
+                "org.mozilla.firefox",
+                activeTabURL: "https://www.facebook.com/",
+                activeTabTitle: "Facebook"
+            )
+        )
+
         XCTAssertFalse(service.isProductiveBundleID("com.apple.Safari"))
-        XCTAssertFalse(service.isProductiveBundleID("org.mozilla.firefox"))
+        XCTAssertFalse(service.isProductiveBundleID("net.whatsapp.WhatsApp"))
         XCTAssertFalse(service.isProductiveBundleID(nil))
     }
 

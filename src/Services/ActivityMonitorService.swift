@@ -111,6 +111,120 @@ public final class AppleSiliconHardwareSensors {
     }
 }
 
+// MARK: - Browser Active Tab Reader (Zero-Permission Firefox mozLz40 Session Reader)
+
+/// Reads the active browser tab URL and title from Firefox's live `recovery.jsonlz4` session store
+/// without requiring Accessibility or AppleEvents permissions.
+@MainActor
+public enum BrowserTabTelemetryReader {
+    /// Decompresses a Mozilla `mozLz40\0` LZ4 block into raw JSON `Data`.
+    public static func decompressMozLZ4(_ data: Data) -> Data? {
+        guard data.count > 12 else { return nil }
+        let magic = String(data: data.subdata(in: 0..<7), encoding: .ascii)
+        guard magic == "mozLz40" else { return nil }
+
+        let expectedSize = data.subdata(in: 8..<12).withUnsafeBytes {
+            $0.load(as: UInt32.self).littleEndian
+        }
+        guard expectedSize > 0 && expectedSize < 50_000_000 else { return nil }
+
+        var out = Data()
+        out.reserveCapacity(Int(expectedSize))
+
+        let src = [UInt8](data.subdata(in: 12..<data.count))
+        var ip = 0
+        let end = src.count
+
+        while ip < end {
+            let token = Int(src[ip])
+            ip += 1
+
+            var literalLength = token >> 4
+            if literalLength == 15 {
+                while ip < end {
+                    let s = Int(src[ip])
+                    ip += 1
+                    literalLength += s
+                    if s != 255 { break }
+                }
+            }
+            guard ip + literalLength <= end else { break }
+            out.append(contentsOf: src[ip..<(ip + literalLength)])
+            ip += literalLength
+
+            if ip >= end { break }
+            guard ip + 2 <= end else { break }
+            let offset = Int(src[ip]) | (Int(src[ip + 1]) << 8)
+            ip += 2
+            guard offset > 0 && offset <= out.count else { break }
+
+            var matchLength = (token & 0x0F) + 4
+            if (token & 0x0F) == 15 {
+                while ip < end {
+                    let s = Int(src[ip])
+                    ip += 1
+                    matchLength += s
+                    if s != 255 { break }
+                }
+            }
+
+            let matchStart = out.count - offset
+            for i in 0..<matchLength {
+                out.append(out[matchStart + i])
+            }
+        }
+        return out
+    }
+
+    /// Reads the currently selected tab's `(url, title)` from the user's active Firefox profile.
+    public static func readActiveFirefoxTab() -> (url: String?, title: String?) {
+        let fm = FileManager.default
+        let profilesDir = fm.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Firefox/Profiles")
+        guard let profiles = try? fm.contentsOfDirectory(at: profilesDir, includingPropertiesForKeys: nil) else {
+            return (nil, nil)
+        }
+
+        var latestSessionURL: URL?
+        var latestModDate: Date = .distantPast
+
+        for profile in profiles {
+            let candidate = profile.appendingPathComponent("sessionstore-backups/recovery.jsonlz4")
+            if let attrs = try? fm.attributesOfItem(atPath: candidate.path),
+               let modDate = attrs[.modificationDate] as? Date,
+               modDate > latestModDate {
+                latestModDate = modDate
+                latestSessionURL = candidate
+            }
+        }
+
+        guard let sessionFile = latestSessionURL,
+              let raw = try? Data(contentsOf: sessionFile),
+              let decompressed = decompressMozLZ4(raw),
+              let json = try? JSONSerialization.jsonObject(with: decompressed) as? [String: Any],
+              let windows = json["windows"] as? [[String: Any]],
+              !windows.isEmpty else {
+            return (nil, nil)
+        }
+
+        let selectedWinIdx = max(0, min(windows.count - 1, ((json["selectedWindow"] as? Int) ?? 1) - 1))
+        let win = windows[selectedWinIdx]
+        guard let tabs = win["tabs"] as? [[String: Any]], !tabs.isEmpty else {
+            return (nil, nil)
+        }
+
+        let selectedTabIdx = max(0, min(tabs.count - 1, ((win["selected"] as? Int) ?? 1) - 1))
+        let tab = tabs[selectedTabIdx]
+        guard let entries = tab["entries"] as? [[String: Any]], !entries.isEmpty else {
+            return (nil, nil)
+        }
+
+        let entryIdx = max(0, min(entries.count - 1, ((tab["index"] as? Int) ?? entries.count) - 1))
+        let entry = entries[entryIdx]
+        return (entry["url"] as? String, entry["title"] as? String)
+    }
+}
+
 // MARK: - ActivityTelemetryProviding Seam
 
 /// Protocol abstracting macOS foreground application, user input idle duration,
@@ -135,6 +249,12 @@ public protocol ActivityTelemetryProviding {
     /// Returns an optional system-wide CPU load percentage (`0.0 ... 100.0`) if available.
     func cpuLoadPercentage() -> Double?
 
+    /// Returns the URL of the currently active browser tab, if the frontmost app is a supported browser.
+    func activeBrowserTabURL() -> String?
+
+    /// Returns the title of the currently active browser tab, if the frontmost app is a supported browser.
+    func activeBrowserTabTitle() -> String?
+
     /// Returns the current timestamp for deterministic break duration calculation.
     func now() -> Date
 }
@@ -145,6 +265,14 @@ extension ActivityTelemetryProviding {
     }
 
     public func cpuLoadPercentage() -> Double? {
+        nil
+    }
+
+    public func activeBrowserTabURL() -> String? {
+        nil
+    }
+
+    public func activeBrowserTabTitle() -> String? {
         nil
     }
 }
@@ -190,6 +318,22 @@ public struct SystemActivityTelemetryProvider: ActivityTelemetryProviding {
 
     public func cpuLoadPercentage() -> Double? {
         AppleSiliconHardwareSensors.shared.readSystemCPULoadPercentage()
+    }
+
+    public func activeBrowserTabURL() -> String? {
+        guard let bundleID = frontmostBundleIdentifier()?.lowercased(),
+              bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") else {
+            return nil
+        }
+        return BrowserTabTelemetryReader.readActiveFirefoxTab().url
+    }
+
+    public func activeBrowserTabTitle() -> String? {
+        guard let bundleID = frontmostBundleIdentifier()?.lowercased(),
+              bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") else {
+            return nil
+        }
+        return BrowserTabTelemetryReader.readActiveFirefoxTab().title
     }
 
     public func now() -> Date {
@@ -311,6 +455,28 @@ public final class ActivityMonitorService: ObservableObject {
         "slack", "zoom.xos", "notion", "obsidian", "linear", "figma", "sketch", "canva", "miro", "trello", "todoist", "thingsmac"
     ]
 
+    /// Browser bundle ID keywords where work/research tabs (like GitHub, docs, Stack Overflow) are productive,
+    /// while streaming & social media tabs (YouTube, Netflix, Instagram, Facebook, TikTok, etc.) drain PTS.
+    private static let browserBundleKeywords: [String] = [
+        "firefox", "chrome", "brave", "edgemac", "thebrowser.browser", "opera", "zen-browser", "waterfox"
+    ]
+
+    /// Streaming, video, and social media domains/keywords that trigger Dopamine Drain (`-1.5 PTS`).
+    public static let dopamineStreamingAndSocialKeywords: [String] = [
+        // Video & Streaming Providers
+        "youtube.com", "youtu.be", "netflix.com", "twitch.tv", "disneyplus.com",
+        "primevideo.com", "hbomax.com", "max.com", "hulu.com", "tv.apple.com",
+        "crunchyroll.com", "dailymotion.com", "vimeo.com", "kick.com", "plex.tv",
+        "peacocktv.com", "paramountplus.com", "viaplay.", "videoland.",
+        // Social Media & Doomscrolling
+        "facebook.com", "fb.com", "instagram.com", "tiktok.com", "twitter.com",
+        "x.com/", "reddit.com", "snapchat.com", "pinterest.com", "9gag.com",
+        "imgur.com", "threads.net", "bsky.app", "tumblr.com", "buzzfeed.com",
+        // Personal Chat & Gaming Sites
+        "web.whatsapp.com", "discord.com", "web.telegram.org", "messenger.com",
+        "steampowered.com", "roblox.com", "epicgames.com"
+    ]
+
     public let engine: WellnessPointEngine
     public let telemetry: ActivityTelemetryProviding
     public let productiveBundleIDs: Set<String>
@@ -350,15 +516,44 @@ public final class ActivityMonitorService: ObservableObject {
         self.overheatingCPULoadThresholdPercent = overheatingCPULoadThresholdPercent
     }
 
-    /// Returns `true` if the given bundle identifier belongs to the configured productive app set
-    /// or matches known developer IDE/terminal bundle keywords.
-    public func isProductiveBundleID(_ bundleID: String?) -> Bool {
+    /// Returns `true` if the given browser tab URL or title belongs to a streaming or social media platform
+    /// (YouTube, Netflix, Disney+, Twitch, Facebook, Instagram, TikTok, X/Twitter, Reddit, etc.).
+    public func isDopamineStreamingOrSocialTab(url: String?, title: String? = nil) -> Bool {
+        if let url = url?.lowercased() {
+            if Self.dopamineStreamingAndSocialKeywords.contains(where: { url.contains($0) }) {
+                return true
+            }
+        }
+        if let title = title?.lowercased() {
+            let titleKeywords = ["youtube", "netflix", "twitch", "disney+", "prime video", "instagram", "facebook", "tiktok", "reddit"]
+            if titleKeywords.contains(where: { title.contains($0) }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Returns `true` if the given bundle identifier (and optional active browser tab URL/title)
+    /// represents productive work or research rather than streaming/social media distraction.
+    public func isProductiveBundleID(_ bundleID: String?, activeTabURL: String? = nil, activeTabTitle: String? = nil) -> Bool {
         guard let bundleID else { return false }
+        if isDopamineStreamingOrSocialTab(url: activeTabURL, title: activeTabTitle) {
+            return false
+        }
+        if let url = activeTabURL, !url.isEmpty {
+            return true
+        }
         if productiveBundleIDs.contains(bundleID) {
             return true
         }
         let lower = bundleID.lowercased()
-        return Self.productiveBundleKeywords.contains { lower.contains($0) }
+        if Self.productiveBundleKeywords.contains(where: { lower.contains($0) }) {
+            return true
+        }
+        if Self.browserBundleKeywords.contains(where: { lower.contains($0) }) {
+            return true
+        }
+        return false
     }
 
     /// Starts periodic telemetry sampling on the main run loop with timer coalescing tolerance (`NFR-001`).
@@ -403,9 +598,23 @@ public final class ActivityMonitorService: ObservableObject {
         let currentTime = telemetry.now()
 
         let frontmostBundleID = telemetry.frontmostBundleIdentifier()
+        let activeTabURL = telemetry.activeBrowserTabURL()
+        let activeTabTitle = telemetry.activeBrowserTabTitle()
         lastFrontmostBundleID = frontmostBundleID
-        lastFrontmostAppName = telemetry.frontmostApplicationName() ?? frontmostBundleID
-        let isProductive = isProductiveBundleID(frontmostBundleID)
+
+        let baseAppName = telemetry.frontmostApplicationName() ?? frontmostBundleID ?? "Unknown"
+        if let urlStr = activeTabURL, let host = URL(string: urlStr)?.host {
+            let cleanHost = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+            lastFrontmostAppName = "\(baseAppName) [\(cleanHost)]"
+        } else {
+            lastFrontmostAppName = baseAppName
+        }
+
+        let isProductive = isProductiveBundleID(
+            frontmostBundleID,
+            activeTabURL: activeTabURL,
+            activeTabTitle: activeTabTitle
+        )
         lastAppIsProductive = isProductive
 
         if isManualOverrideActive {
