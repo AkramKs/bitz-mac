@@ -47,8 +47,17 @@ final class ActivityMonitorServiceTests: XCTestCase {
         XCTAssertTrue(service.isProductiveBundleID("com.jetbrains.intellij"))
         XCTAssertTrue(service.isProductiveBundleID("com.google.antigravity"))
         XCTAssertTrue(service.isProductiveBundleID("com.google.antigravity-ide"))
+        XCTAssertTrue(service.isProductiveBundleID("com.microsoft.Word"))
+        XCTAssertTrue(service.isProductiveBundleID("com.microsoft.Excel"))
+        XCTAssertTrue(service.isProductiveBundleID("com.microsoft.Powerpoint"))
+        XCTAssertTrue(service.isProductiveBundleID("com.microsoft.Outlook"))
+        XCTAssertTrue(service.isProductiveBundleID("com.microsoft.teams2"))
+        XCTAssertTrue(service.isProductiveBundleID("com.tinyspeck.slackmacgap"))
+        XCTAssertTrue(service.isProductiveBundleID("notion.id"))
+        XCTAssertTrue(service.isProductiveBundleID("com.figma.Desktop"))
 
         XCTAssertFalse(service.isProductiveBundleID("com.apple.Safari"))
+        XCTAssertFalse(service.isProductiveBundleID("org.mozilla.firefox"))
         XCTAssertFalse(service.isProductiveBundleID(nil))
     }
 

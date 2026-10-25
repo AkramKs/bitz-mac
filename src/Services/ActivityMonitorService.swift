@@ -203,24 +203,112 @@ public struct SystemActivityTelemetryProvider: ActivityTelemetryProviding {
 /// and live hardware thermal/CPU sensors to drive `WellnessPointEngine` updates.
 @MainActor
 public final class ActivityMonitorService: ObservableObject {
-    /// Default whitelist of productive developer/creative bundle identifiers.
+    /// Default whitelist of productive developer, creative, and office bundle identifiers.
     public static let defaultProductiveBundleIDs: Set<String> = [
+        // Code Editors, IDEs & AI Coding Assistants
         "com.apple.dt.Xcode",
         "com.microsoft.VSCode",
-        "com.apple.Terminal",
-        "com.googlecode.iterm2",
-        "com.todesktop.230313mzl4w4u92",
-        "dev.warp.Warp-Stable",
-        "com.jetbrains.intellij",
+        "com.microsoft.VSCodeInsiders",
         "com.google.antigravity",
         "com.google.antigravity-ide",
+        "com.google.GeminiMacOS",
+        "com.openai.chat",
+        "com.anthropic.claudefordesktop",
+        "com.todesktop.230313mzl4w4u92", // Cursor
+        "com.exafunction.windsurf",
         "dev.zed.Zed",
-        "com.sublimetext.4"
+        "com.sublimetext.4",
+        "com.sublimetext.3",
+        "com.panic.Nova",
+        "abnerworks.Typora",
+
+        // Terminals
+        "com.apple.Terminal",
+        "com.googlecode.iterm2",
+        "dev.warp.Warp-Stable",
+        "com.mitchellh.ghostty",
+        "io.alacritty",
+        "net.kovidgoyal.kitty",
+        "co.zeit.hyper",
+
+        // JetBrains & Android Studio
+        "com.jetbrains.intellij",
+        "com.jetbrains.intellij.ce",
+        "com.jetbrains.pycharm",
+        "com.jetbrains.pycharm.ce",
+        "com.jetbrains.WebStorm",
+        "com.jetbrains.goland",
+        "com.jetbrains.CLion",
+        "com.jetbrains.rider",
+        "com.jetbrains.PhpStorm",
+        "com.jetbrains.rubymine",
+        "com.jetbrains.datagrip",
+        "com.google.android.studio",
+
+        // DevOps, Git, Databases & API Clients
+        "com.docker.docker",
+        "com.postmanlabs.mac",
+        "com.insomnia.app",
+        "com.tinyapp.TablePlus",
+        "com.sequel-ace.sequel-ace",
+        "com.mongodb.compass",
+        "com.github.GitHubClient",
+        "com.sublimemerge",
+        "com.torusknot.SourceTreeNotMAS",
+        "com.axosoft.gitkraken",
+
+        // Microsoft Office & Teams Suite
+        "com.microsoft.Word",
+        "com.microsoft.Excel",
+        "com.microsoft.Powerpoint",
+        "com.microsoft.Outlook",
+        "com.microsoft.onenote.mac",
+        "com.microsoft.teams",
+        "com.microsoft.teams2",
+        "com.microsoft.to-do-mac",
+        "com.microsoft.rdc.macos",
+
+        // Apple iWork & Native Productivity Apps
+        "com.apple.iWork.Pages",
+        "com.apple.iWork.Numbers",
+        "com.apple.iWork.Keynote",
+        "com.apple.Notes",
+        "com.apple.iCal",
+        "com.apple.reminders",
+        "com.apple.mail",
+        "com.apple.TextEdit",
+        "com.apple.Preview",
+        "com.apple.freeform",
+        "org.libreoffice.script",
+
+        // Collaboration, Notes, Design & Project Management
+        "com.tinyspeck.slackmacgap",
+        "us.zoom.xos",
+        "notion.id",
+        "md.obsidian",
+        "com.linear",
+        "com.figma.Desktop",
+        "com.bohemiancoding.sketch3",
+        "com.canva.CanvaDesktop",
+        "com.miro.miro",
+        "com.atlassian.trello",
+        "com.todoist.mac.Todoist",
+        "com.culturedcode.ThingsMac",
+        "com.flexibits.fantastical2.mac",
+        "com.1password.1password"
     ]
 
-    /// Substring keywords that also identify developer/creative tools by bundle ID.
+    /// Substring keywords that also identify developer, creative, and office productivity tools by bundle ID.
     private static let productiveBundleKeywords: [String] = [
-        "xcode", "vscode", "terminal", "iterm", "warp", "jetbrains", "antigravity", "cursor", "zed"
+        "xcode", "vscode", "terminal", "iterm", "warp", "ghostty", "alacritty", "kitty",
+        "jetbrains", "intellij", "pycharm", "webstorm", "goland", "clion", "phpstorm", "rubymine", "datagrip", "android.studio",
+        "antigravity", "cursor", "windsurf", "zed", "sublimetext", "sublimemerge",
+        "docker", "postman", "insomnia", "tableplus", "sequel", "gitkraken", "sourcetree", "githubclient",
+        "gemini", "claude", "openai",
+        "microsoft.word", "microsoft.excel", "microsoft.powerpoint", "microsoft.outlook", "microsoft.onenote", "microsoft.teams", "microsoft.to-do",
+        "iwork.pages", "iwork.numbers", "iwork.keynote", "libreoffice",
+        "apple.notes", "apple.ical", "apple.reminders", "apple.mail", "apple.textedit", "apple.preview", "apple.freeform",
+        "slack", "zoom.xos", "notion", "obsidian", "linear", "figma", "sketch", "canva", "miro", "trello", "todoist", "thingsmac"
     ]
 
     public let engine: WellnessPointEngine

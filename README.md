@@ -39,8 +39,8 @@ Bitz's mood is driven by **Wellness Points (`PTS`)** on a scale from **`0.0` to 
 ### How `PTS` Changes
 | Activity | Condition | `PTS` Delta |
 | :--- | :--- | :--- |
-| **Productive Coding / Dev Work** | Active app is an IDE or terminal (`Antigravity IDE`, `Xcode`, `VS Code`, `Cursor`, `Terminal`, `iTerm2`, `Warp`, `IntelliJ`, `Zed`, `Sublime Text`) | **`+0.5 PTS`** / tick |
-| **Unproductive / Distraction** | Active app is a browser, chat client, or non-dev app (`Safari`, `Firefox`, `WhatsApp`, `Teams`, etc.) | **`-1.5 PTS`** / tick |
+| **Productive Coding & Office Work** | Active app is a Developer IDE/Terminal (`Antigravity IDE`, `Xcode`, `VS Code`, `Cursor`, `Windsurf`, `Zed`, `Terminal`, `iTerm2`, `Warp`, `Ghostty`, `JetBrains`, `Docker`, `Postman`, `TablePlus`), Office Suite (`Word`, `Excel`, `PowerPoint`, `Outlook`, `OneNote`, `Pages`, `Numbers`, `Keynote`, `Notes`, `Calendar`, `Mail`), or Collaboration/Design tool (`Teams`, `Slack`, `Zoom`, `Notion`, `Obsidian`, `Linear`, `Figma`, `Miro`, `Canva`) | **`+0.5 PTS`** / tick |
+| **Unproductive / Distraction** | Active app is a web browser, entertainment app, or non-productivity app (`Safari`, `Firefox`, `Chrome`, `WhatsApp`, etc.) | **`-1.5 PTS`** / tick |
 | **Short Idle (`1 – 10 min`)** | No keyboard or mouse input for `>= 60s` | **Paused (`On Break`)** — no point drain |
 | **Offline Break (`> 10 min`)** | Stepping away from the Mac for more than `10.0` minutes | **`+5.0 PTS` per minute** restored on return |
 | **Thermal Overheat Override** | Apple Silicon CPU die temperature **`> 80.0 °C`** or `ProcessInfo.ThermalState` is `.serious` / `.critical` | Immediate override to **`.overheating`** (`"SYSTEM HOT! > <"`) until cooled |
