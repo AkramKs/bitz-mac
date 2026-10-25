@@ -12,3 +12,5 @@ DerivedData/
 .kittify/encoding-provenance/
 .kittify/sync-state.json
 .worktrees/
+
+.kittify/workspaces/
