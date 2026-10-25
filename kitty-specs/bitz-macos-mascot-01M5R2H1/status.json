@@ -2,9 +2,9 @@
   "event_count": 28,
   "last_event_id": "01M5S737X2DDDZ15E42EGV3VBG",
   "materialized_at": "2026-10-25T09:43:31.490314+00:00",
-  "mission_number": "1",
+  "mission_number": "",
   "mission_slug": "bitz-macos-mascot-01M5R2H1",
-  "mission_type": "software-dev",
+  "mission_type": "",
   "summary": {
     "approved": 0,
     "blocked": 0,
@@ -19,130 +19,67 @@
   "work_packages": {
     "WP01": {
       "actor": "merge",
-      "agent": "antigravity:gemini:reviewer-renata:reviewer",
-      "agent_profile": "__resolved_profile_absent__",
-      "agent_profile_version": "__resolved_profile_version_absent__",
+      "agent": "antigravity:gemini:implementer-ivan:implementer",
       "force_count": 0,
       "lane": "done",
       "last_event_id": "01M5S7359G9XATH19S1J2KGVJR",
       "last_transition_at": "2026-10-25T09:43:28.816988+00:00",
-      "model": "__resolved_model_absent__",
-      "notes": [
-        "WP01 ready for review: 13/13 WellnessPointEngineTests passing, 100% coverage, 0 warnings",
-        "Review passed: Package.swift, BitzRiveControllable, WellnessPointEngine, and 13/13 WellnessPointEngineTests verified with 100% line/func coverage and exact Rive contract SSOT mirror assertions."
-      ],
-      "provider": "__resolved_provider_absent__",
       "review_result": {
         "feedback_path": "/Users/akramkasimi/Documents/bitz-mac/kitty-specs/bitz-macos-mascot-01M5R2H1/tasks/WP01-foundation-and-wellness-engine/review-cycle-1.md",
         "reference": "review-cycle://bitz-macos-mascot-01M5R2H1/WP01-foundation-and-wellness-engine/review-cycle-1.md",
         "reviewer": "user",
         "verdict": "approved"
       },
-      "role": "reviewer",
       "shell_pid": 11060,
-      "shell_pid_created_at": "1792881576.52894",
-      "subtasks": {
-        "T001": "done",
-        "T002": "done",
-        "T003": "done",
-        "T004": "done",
-        "T005": "done"
-      }
+      "shell_pid_created_at": "1792881576.52894"
     },
     "WP02": {
       "actor": "merge",
-      "agent": "antigravity:gemini:reviewer-renata:reviewer",
-      "agent_profile": "__resolved_profile_absent__",
-      "agent_profile_version": "__resolved_profile_version_absent__",
+      "agent": "antigravity:gemini:implementer-ivan:implementer",
       "force_count": 2,
       "lane": "done",
       "last_event_id": "01M5S7365FZS6DSMN33DQTQFCV",
       "last_transition_at": "2026-10-25T09:43:29.711572+00:00",
-      "model": "__resolved_model_absent__",
-      "notes": [
-        "WP02 ready for review: 6/6 ActivityMonitorServiceTests passing, 91% line coverage, 0 forbidden APIs",
-        "Review passed: ActivityTelemetryProviding, SystemActivityTelemetryProvider, ActivityMonitorService, and 6/6 ActivityMonitorServiceTests verified with 91% line coverage and zero forbidden Accessibility/keylogging APIs."
-      ],
-      "provider": "__resolved_provider_absent__",
       "review_result": {
         "feedback_path": "/Users/akramkasimi/Documents/bitz-mac/kitty-specs/bitz-macos-mascot-01M5R2H1/tasks/WP02-activity-monitor-telemetry/review-cycle-1.md",
         "reference": "review-cycle://bitz-macos-mascot-01M5R2H1/WP02-activity-monitor-telemetry/review-cycle-1.md",
         "reviewer": "user",
         "verdict": "approved"
       },
-      "role": "reviewer",
       "shell_pid": 11060,
-      "shell_pid_created_at": "1792881576.52894",
-      "subtasks": {
-        "T006": "done",
-        "T007": "done",
-        "T008": "done",
-        "T009": "done",
-        "T010": "done"
-      }
+      "shell_pid_created_at": "1792881576.52894"
     },
     "WP03": {
       "actor": "merge",
-      "agent": "antigravity:gemini:reviewer-renata:reviewer",
-      "agent_profile": "__resolved_profile_absent__",
-      "agent_profile_version": "__resolved_profile_version_absent__",
+      "agent": "antigravity:gemini:implementer-ivan:implementer",
       "force_count": 2,
       "lane": "done",
       "last_event_id": "01M5S7371QQ2KRW4MS3JHT4B5X",
       "last_transition_at": "2026-10-25T09:43:30.615932+00:00",
-      "model": "__resolved_model_absent__",
-      "notes": [
-        "WP03 ready for review: 23/23 tests passing, MascotOverlayPanel contract verified",
-        "Review passed: MascotOverlayPanel, MascotOverlayView, BitzAppDelegate, BitzApp, and MascotOverlayPanelTests verified against contracts/overlay-window-contract.md."
-      ],
-      "provider": "__resolved_provider_absent__",
       "review_result": {
         "feedback_path": "/Users/akramkasimi/Documents/bitz-mac/kitty-specs/bitz-macos-mascot-01M5R2H1/tasks/WP03-overlay-window-and-rive-view/review-cycle-1.md",
         "reference": "review-cycle://bitz-macos-mascot-01M5R2H1/WP03-overlay-window-and-rive-view/review-cycle-1.md",
         "reviewer": "user",
         "verdict": "approved"
       },
-      "role": "reviewer",
-      "shell_pid": 19535,
-      "shell_pid_created_at": "1792921185.327164",
-      "subtasks": {
-        "T011": "done",
-        "T012": "done",
-        "T013": "done",
-        "T014": "done",
-        "T015": "done"
-      }
+      "shell_pid": 11060,
+      "shell_pid_created_at": "1792881576.52894"
     },
     "WP04": {
       "actor": "merge",
-      "agent": "antigravity:gemini:reviewer-renata:reviewer",
-      "agent_profile": "__resolved_profile_absent__",
-      "agent_profile_version": "__resolved_profile_version_absent__",
+      "agent": "antigravity:gemini:implementer-ivan:implementer",
       "force_count": 2,
       "lane": "done",
       "last_event_id": "01M5S737X2DDDZ15E42EGV3VBG",
       "last_transition_at": "2026-10-25T09:43:31.490314+00:00",
-      "model": "__resolved_model_absent__",
-      "notes": [
-        "WP04 ready for review: living documentation and 23/23 tests verified",
-        "Review passed: docs/ARCHITECTURE.md, docs/STATE_MACHINE.md, docs/ACCEPTANCE_CRITERIA.md synchronized and end-to-end tests verified."
-      ],
-      "provider": "__resolved_provider_absent__",
       "review_result": {
         "feedback_path": "/Users/akramkasimi/Documents/bitz-mac/kitty-specs/bitz-macos-mascot-01M5R2H1/tasks/WP04-living-docs-and-verification/review-cycle-1.md",
         "reference": "review-cycle://bitz-macos-mascot-01M5R2H1/WP04-living-docs-and-verification/review-cycle-1.md",
         "reviewer": "user",
         "verdict": "approved"
       },
-      "role": "reviewer",
-      "shell_pid": 20253,
-      "shell_pid_created_at": "1792921283.664587",
-      "subtasks": {
-        "T016": "done",
-        "T017": "done",
-        "T018": "done",
-        "T019": "done"
-      }
+      "shell_pid": 11060,
+      "shell_pid_created_at": "1792881576.52894"
     }
   }
 }
