@@ -11,5 +11,7 @@
   "purpose_tldr": "Native macOS 14+ transparent click-through Rive desktop mascot driven by wellness and PC thermal state.",
   "slug": "bitz-macos-mascot-01M5R2H1",
   "target_branch": "feat/bitz-macos-mascot",
-  "topology": "coord"
+  "topology": "coord",
+  "vcs": "git",
+  "vcs_locked_at": "2026-10-25T09:14:22.727201+00:00"
 }
