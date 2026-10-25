@@ -10,6 +10,9 @@ requirement_refs:
 planning_base_branch: feat/bitz-macos-mascot
 merge_target_branch: feat/bitz-macos-mascot
 branch_strategy: Planning artifacts for this mission were generated on feat/bitz-macos-mascot. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into feat/bitz-macos-mascot unless the human explicitly redirects the landing branch.
+base_branch: kitty/mission-bitz-macos-mascot-01M5R2H1
+base_commit: 9f9bb34c3ad333d60ae61c8cc920dc47cf31f50f
+created_at: '2026-10-25T09:40:01.925621+00:00'
 subtasks:
 - T016
 - T017
