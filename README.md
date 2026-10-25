@@ -155,6 +155,19 @@ let customMonitor = ActivityMonitorService(
 
 ---
 
+## 🤝 Contributing
+
+We welcome community contributions! To keep `main` stable and secure, we enforce a strict **Ticket First + Pull Request** workflow:
+
+1. **Direct pushes to `main` are disabled.**
+2. **Every Pull Request must be linked to an approved issue ticket** (`Closes #<id>` or `Fixes #<id>`).
+3. Automated CI checks (`Verify Linked Issue / Ticket` and `Swift CI Build & Test`) must pass before merging.
+4. All PRs require review and approval from a maintainer.
+
+For full guidelines and instructions, please read [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
 ## 📄 License
 
 Released as open-source software under the [MIT License](https://opensource.org/licenses/MIT).
