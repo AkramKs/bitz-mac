@@ -85,6 +85,8 @@ public struct MascotOverlayView: View {
                                 .stroke(visorColor, lineWidth: 1.5)
                         )
                         .shadow(color: visorColor.opacity(0.7), radius: 6)
+                        .offset(y: -52)
+                        .zIndex(2)
                 }
 
                 ZStack(alignment: .bottom) {

@@ -1,17 +1,17 @@
 # Bitz the Cyber Cat (`bitz-mac`)
 
 <p align="center">
-  <img src="MascotConcept_Bitz.jpg" alt="Bitz the Cyber Cat Concept Art" width="680" />
+  <img src="docs/bitz-states-preview.png" alt="Bitz the Cyber Cat — Live SwiftUI Desktop Overlay States" width="920" />
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-macOS%2014.0%2B-00F0FF?style=flat-square&logo=apple" alt="macOS 14.0+" />
-  <img src="https://img.shields.io/badge/Swift-5.10%2B-FF007F?style=flat-square&logo=swift" alt="Swift 5.10+" />
+  <img src="https://img.shields.io/badge/SwiftUI-Vector%20Animation-FF007F?style=flat-square&logo=swift" alt="SwiftUI Vector Animation" />
   <img src="https://img.shields.io/badge/Hardware-Apple%20Silicon%20IOHID%20%2B%20Mach-FFB000?style=flat-square" alt="Apple Silicon Telemetry" />
   <img src="https://img.shields.io/badge/Privacy-Zero%20Keylogging-34C759?style=flat-square" alt="Privacy First" />
 </p>
 
-**Bitz the Cyber Cat** is a native, lightweight macOS cyberpunk desktop companion built with **Swift**, **SwiftUI**, and **AppKit**. Bitz sits quietly in the bottom-right corner of your screen in a 100% click-through floating overlay (`NSPanel`), reacting in real time to your **coding focus**, **offline breaks**, and **live Apple Silicon hardware sensors** (CPU die temperature in `°C` and Mach kernel CPU load `%`).
+**Bitz the Cyber Cat** is a native, lightweight macOS cyberpunk desktop companion built with **Swift**, **SwiftUI**, and **AppKit**. Bitz sits quietly in the bottom-right corner of your screen inside a 100% click-through floating overlay (`NSPanel`), rendered with a procedural 60 FPS SwiftUI vector rig (`TimelineView`) that reacts in real time to your **coding focus**, **offline breaks**, and **live Apple Silicon hardware sensors** (CPU die temperature in `°C` and Mach kernel CPU load `%`).
 
 ---
 
