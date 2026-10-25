@@ -1,0 +1,82 @@
+# Bitz macOS Desktop Companion — System Architecture
+
+## 1. Architectural Overview
+
+**Bitz the Cyber Cat** (`bitz-mac`) is a native macOS 14.0+ desktop companion built with **Swift 6** (`swift-tools-version: 6.0`, strict `@MainActor` concurrency), **SwiftUI**, **AppKit**, and **CoreGraphics**.
+
+The system is structured into three cleanly separated layers:
+
+```mermaid
+flowchart TD
+    subgraph Layer1["1. Presentation & Overlay Layer (AppKit + SwiftUI)"]
+        App["BitzApp & BitzAppDelegate"]
+        Panel["MascotOverlayPanel (NSPanel)"]
+        View["MascotOverlayView (250x250 SwiftUI Canvas)"]
+    end
+
+    subgraph Layer2["2. Reactive Domain & Animation Bridge"]
+        Engine["WellnessPointEngine (@MainActor ObservableObject)"]
+        Seam["BitzRiveControllable Protocol Seam"]
+        ProdRive["ProductionRiveController / SpyRiveController"]
+    end
+
+    subgraph Layer3["3. Privacy-Safe System Telemetry"]
+        Monitor["ActivityMonitorService"]
+        Telemetry["ActivityTelemetryProviding / SystemActivityTelemetryProvider"]
+        OS["NSWorkspace + CGEventSource + ProcessInfo.ThermalState"]
+    end
+
+    App --> Panel
+    Panel --> View
+    View --> Engine
+    App --> Engine
+    App --> Monitor
+    Monitor --> Engine
+    Monitor --> Telemetry
+    Telemetry --> OS
+    Engine --> Seam
+    Seam --> ProdRive
+```
+
+---
+
+## 2. Module & File Responsibilities
+
+| Layer | File | Primary Symbols | Responsibility |
+| :--- | :--- | :--- | :--- |
+| **Presentation & Lifecycle** | `src/App/BitzApp.swift` | `BitzApp`, `BitzAppDelegate` | Application lifecycle, `MenuBarExtra` status item (`"Pet Bitz"` trigger), and initialization of `MascotOverlayPanel`, `WellnessPointEngine`, and `ActivityMonitorService`. |
+| **Window Management** | `src/App/Window/MascotOverlayPanel.swift` | `MascotOverlayPanel` | Borderless, transparent, floating, non-activating `NSPanel` with `ignoresMouseEvents = true` anchored at the bottom-right of `NSScreen.main?.visibleFrame`. |
+| **Mascot Canvas** | `src/Views/MascotOverlayView.swift` | `MascotOverlayView` | `250x250` transparent SwiftUI canvas rendering Bitz's cyberpunk silhouette, state-reactive LED visor (`#00F0FF`, `#FF007F`, `#FFB000`, `#FF1E1E`), standby `"ZZZ"` badge, and `"SYSTEM HOT! > <"` thermal warning banner. |
+| **Domain & Rive Bridge** | `src/Services/WellnessPointEngine.swift` | `WellnessPointEngine`, `BitzState`, `BitzRiveControllable`, `ProductionRiveController`, `SpyRiveController` | Evaluates work ticks (`+0.5` / `-1.5`), offline break recovery (`+5.0` pts/min when `> 10.0` min), thermal overrides, and synchronizes Rive `BitzStateMachine` inputs. |
+| **System Telemetry** | `src/Services/ActivityMonitorService.swift` | `ActivityMonitorService`, `ActivityTelemetryProviding`, `SystemActivityTelemetryProvider` | Polls active app bundle identifiers, user idle time (`CGEventSource`), and thermal pressure (`ProcessInfo.ThermalState` / CPU temperature `> 80.0°C`) with coalesced timers. |
+
+---
+
+## 3. Window & Presentation Invariants (`MascotOverlayPanel`)
+
+`MascotOverlayPanel` enforces the desktop overlay contract (`FR-001`, `DIR-001`, `DIR-002`):
+
+| Property | Enforced Value | Architectural Purpose |
+| :--- | :--- | :--- |
+| `styleMask` | `[.nonactivatingPanel, .borderless]` | Removes window chrome and prevents focus stealing. |
+| `level` | `.floating` | Floats above standard desktop windows. |
+| `isOpaque` / `backgroundColor` | `false` / `.clear` | Ensures 100% transparent pixel composition around the mascot. |
+| `hasShadow` | `false` | Eliminates rectangular window shadow artifacts. |
+| `ignoresMouseEvents` | `true` | WindowServer routes 100% of clicks and drags (`0ms` latency) to underlying apps. |
+| `collectionBehavior` | `[.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]` | Persists across Mission Control Spaces and full-screen workspaces. |
+| `canBecomeKey` / `canBecomeMain` | `false` / `false` | Never intercepts keyboard focus from the user's active IDE or terminal. |
+| Frame Geometry | `maxX - 270`, `minY + 20` (`250x250` pt) | Anchors Bitz in the bottom-right corner of `NSScreen.main?.visibleFrame`. |
+| Wallpaper Invariant | Zero calls to `setDesktopImageURL` | Strictly a floating transparent overlay; never modifies the user's desktop wallpaper (`C-001`). |
+
+---
+
+## 4. Concurrency, Performance & Privacy Guarantees
+
+1. **Swift 6 `@MainActor` Isolation (`C-002`)**:
+   - `WellnessPointEngine`, `ActivityMonitorService`, `MascotOverlayPanel`, and `BitzRiveControllable` are isolated to `@MainActor`, eliminating data races between telemetry timers, `@Published` state mutations, and AppKit/SwiftUI view rendering.
+2. **CPU (`< 2%`) & Memory (`< 70MB`) Budgets (`NFR-001`, `NFR-002`, `DIR-003`)**:
+   - `ActivityMonitorService` uses a single main run loop `Timer` with `20%` timer coalescing tolerance (`timer.tolerance = intervalSeconds * 0.2`) and lightweight metadata lookups.
+   - `MascotOverlayPanel` bounds rendering to a single `250x250` buffer (`backing: .buffered`).
+3. **App Sandbox & Privacy Compliance (`C-003`)**:
+   - Zero Accessibility (`AXIsProcessTrusted`, `AXUIElement`) or keylogging (`CGEvent.tapCreate`) APIs are used.
+   - Only `NSWorkspace.shared.frontmostApplication?.bundleIdentifier`, `CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .null)`, and `ProcessInfo.processInfo.thermalState` are read in-memory.
