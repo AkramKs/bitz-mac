@@ -82,7 +82,7 @@ public final class AppleSiliconHardwareSensors {
                 host_statistics(hostPort, HOST_CPU_LOAD_INFO, $0, &size)
             }
         }
-        mach_port_deallocate(mach_task_self_, hostPort)
+        MachCompatibility.deallocateHostPort(hostPort)
         guard result == KERN_SUCCESS else { return nil }
 
         let current = (
