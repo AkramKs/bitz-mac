@@ -109,7 +109,16 @@ private struct BitzMenuBarContentView: View {
                 Text("Active App: \(appName) (\(tag))")
             }
 
-            Text(String(format: "User Idle: %.0fs%@", activityMonitor.lastIdleSeconds, activityMonitor.isOnBreak ? " (Charging ⚡)" : ""))
+            let idleStatusSuffix: String = {
+                if activityMonitor.isOnBreak {
+                    return " (Charging ⚡)"
+                } else if activityMonitor.lastIdleSeconds >= activityMonitor.idleBreakThresholdSeconds && activityMonitor.isWatchingMediaOrDistraction {
+                    return " (Watching Media — Draining PTS)"
+                } else {
+                    return ""
+                }
+            }()
+            Text(String(format: "User Idle: %.0fs%@", activityMonitor.lastIdleSeconds, idleStatusSuffix))
 
             Button("Sample Hardware Sensors Now") {
                 activityMonitor.performSampleTick()

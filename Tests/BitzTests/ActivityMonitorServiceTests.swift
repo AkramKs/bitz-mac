@@ -4,6 +4,9 @@ import XCTest
 @MainActor
 final class MockTelemetryProvider: ActivityTelemetryProviding {
     var bundleID: String? = "com.apple.dt.Xcode"
+    var tabURL: String? = nil
+    var tabTitle: String? = nil
+    var videoPlaying: Bool = false
     var idleSeconds: TimeInterval = 0.0
     var currentThermalState: ProcessInfo.ThermalState = .nominal
     var currentTemperatureCelsius: Double? = 45.0
@@ -11,6 +14,18 @@ final class MockTelemetryProvider: ActivityTelemetryProviding {
 
     func frontmostBundleIdentifier() -> String? {
         bundleID
+    }
+
+    func activeBrowserTabURL() -> String? {
+        tabURL
+    }
+
+    func activeBrowserTabTitle() -> String? {
+        tabTitle
+    }
+
+    func isVideoPlaybackActive() -> Bool {
+        videoPlaying
     }
 
     func secondsSinceLastInput() -> TimeInterval {
@@ -181,6 +196,101 @@ final class ActivityMonitorServiceTests: XCTestCase {
         XCTAssertEqual(engine.currentState, .balanced)
         XCTAssertEqual(spy.floatInputs["visorColor"], 0.0)
         XCTAssertEqual(spy.boolInputs["isStandby"], false)
+    }
+
+    func testWatchingYouTubeOrNetflixHandsFreeDoesNotEnterChargeModeAndContinuesDrainingPoints() {
+        let spy = SpyRiveController()
+        let engine = WellnessPointEngine(initialPoints: 42.0, riveController: spy)
+        let telemetry = MockTelemetryProvider()
+        let service = ActivityMonitorService(
+            engine: engine,
+            telemetry: telemetry,
+            idleBreakThresholdSeconds: 60.0
+        )
+
+        // 1. User opens YouTube (or Netflix) and starts watching -> drains -1.5 PTS while idleSeconds < 60
+        telemetry.bundleID = "org.mozilla.firefox"
+        telemetry.tabURL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        telemetry.tabTitle = "YouTube"
+        telemetry.idleSeconds = 10.0
+        service.performSampleTick()
+        XCTAssertFalse(service.isOnBreak)
+        XCTAssertTrue(service.isWatchingMediaOrDistraction)
+        XCTAssertEqual(engine.currentPoints, 40.5, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .balanced)
+
+        // 2. User stops moving mouse for > 60s (e.g. 65s, 300s, 1800s) while watching YouTube / Netflix:
+        // Must NOT enter .charging mode! Must keep draining -1.5 PTS per tick into .dopamineSad!
+        telemetry.currentDate = telemetry.currentDate.addingTimeInterval(55.0)
+        telemetry.idleSeconds = 65.0
+        service.performSampleTick()
+        XCTAssertFalse(service.isOnBreak)
+        XCTAssertNil(service.breakStartedAt)
+        XCTAssertEqual(engine.currentPoints, 39.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .dopamineSad)
+        XCTAssertEqual(engine.activeSpeechBubbleText, WellnessPointEngine.dopamineSadText)
+
+        // 3. User switches to a film on Netflix and watches for 20 minutes hands-free without moving mouse
+        telemetry.tabURL = "https://www.netflix.com/watch/80057281"
+        telemetry.tabTitle = "Netflix"
+        telemetry.currentDate = telemetry.currentDate.addingTimeInterval(1200.0)
+        telemetry.idleSeconds = 1265.0
+        service.performSampleTick()
+        XCTAssertFalse(service.isOnBreak)
+        XCTAssertNil(service.breakStartedAt)
+        XCTAssertEqual(engine.currentPoints, 37.5, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .dopamineSad)
+
+        // 4. When user finally moves mouse and returns to Xcode, no fake offline break points are awarded
+        telemetry.bundleID = "com.apple.dt.Xcode"
+        telemetry.tabURL = nil
+        telemetry.tabTitle = nil
+        telemetry.idleSeconds = 0.0
+        service.performSampleTick()
+        XCTAssertFalse(service.isOnBreak)
+        XCTAssertEqual(engine.currentPoints, 38.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .balanced)
+    }
+
+    func testActiveVideoPlaybackPreventsChargeModeWhenHandsFree() {
+        let engine = WellnessPointEngine(initialPoints: 41.0)
+        let telemetry = MockTelemetryProvider()
+        let service = ActivityMonitorService(
+            engine: engine,
+            telemetry: telemetry,
+            idleBreakThresholdSeconds: 60.0
+        )
+
+        // Watching video in Safari where tabURL is nil but macOS reports active video playback assertion
+        telemetry.bundleID = "com.apple.Safari"
+        telemetry.videoPlaying = true
+        telemetry.idleSeconds = 120.0
+        service.performSampleTick()
+
+        XCTAssertFalse(service.isOnBreak)
+        XCTAssertTrue(service.isWatchingMediaOrDistraction)
+        XCTAssertEqual(engine.currentPoints, 39.5, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .dopamineSad)
+    }
+
+    func testChromiumSNSSSessionURLExtractionSupportsOtherBrowsers() {
+        var fakeSNSS = Data([0x53, 0x4E, 0x53, 0x53, 0x01, 0x00, 0x00, 0x00])
+        fakeSNSS.append("https://github.com/AkramKs/bitz-mac\0".data(using: .utf8)!)
+        fakeSNSS.append("https://www.netflix.com/watch/80057281\0".data(using: .utf8)!)
+
+        let extracted = BrowserTabTelemetryReader.extractLatestURLFromChromiumSNSS(fakeSNSS)
+        XCTAssertEqual(extracted, "https://www.netflix.com/watch/80057281")
+
+        let engine = WellnessPointEngine(initialPoints: 50.0)
+        let telemetry = MockTelemetryProvider()
+        let service = ActivityMonitorService(engine: engine, telemetry: telemetry)
+        XCTAssertFalse(
+            service.isProductiveBundleID(
+                "com.google.Chrome",
+                activeTabURL: extracted,
+                activeTabTitle: nil
+            )
+        )
     }
 
     func testThermalOverheatingByTemperatureAndThermalStateAndRecovery() {

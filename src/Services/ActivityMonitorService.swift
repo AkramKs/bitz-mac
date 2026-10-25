@@ -3,6 +3,7 @@ import Combine
 import CoreGraphics
 import Darwin
 import Foundation
+import IOKit.pwr_mgt
 
 // MARK: - Real Apple Silicon Hardware Sensor Reader
 
@@ -109,6 +110,71 @@ public final class AppleSiliconHardwareSensors {
         let busyDelta = userDelta + systemDelta + niceDelta
         return (Double(busyDelta) / Double(totalDelta)) * 100.0
     }
+
+    /// Queries macOS Power Management (`IOPMCopyAssertionsByProcess`) to detect whether a browser or
+    /// media player process is currently holding an active display-sleep prevention assertion
+    /// (`PreventUserIdleDisplaySleep` or `NoDisplaySleepAssertion`), indicating active video playback.
+    public static func isDisplaySleepPreventedByMediaPlayback() -> Bool {
+        var assertionsByPID: Unmanaged<CFDictionary>?
+        let status = IOPMCopyAssertionsByProcess(&assertionsByPID)
+        guard status == kIOReturnSuccess,
+              let pidMap = assertionsByPID?.takeRetainedValue() as? [Int: [[String: Any]]] else {
+            return false
+        }
+
+        let displaySleepAssertionTypes: Set<String> = [
+            "PreventUserIdleDisplaySleep",
+            "NoDisplaySleepAssertion"
+        ]
+
+        let ignoredSystemProcesses: Set<String> = [
+            "powerd", "windowserver", "loginwindow", "caffeinate", "amphetamine", "coreaudiod"
+        ]
+
+        let meetingProcessKeywords: [String] = [
+            "zoom", "teams", "slack", "webex", "facetime"
+        ]
+
+        let browserAndMediaProcessKeywords: [String] = [
+            "firefox", "plugin-container", "zen", "waterfox",
+            "chrome", "brave", "edgemac", "microsoft edge", "arc", "thebrowser", "opera", "vivaldi",
+            "safari", "webkit",
+            "vlc", "iina", "quicktime", "tv", "netflix", "prime", "disney", "twitch", "youtube",
+            "plex", "infuse", "mpv", "elmedia", "movist", "crunchyroll", "hulu"
+        ]
+
+        let mediaAssertionNameKeywords: [String] = [
+            "video-playing", "audio-playing", "media playback", "video wake lock",
+            "webkit media", "playing video", "movie", "streaming"
+        ]
+
+        for (_, assertions) in pidMap {
+            for assertion in assertions {
+                let trueType = (assertion["AssertionTrueType"] as? String) ?? ""
+                let assertType = (assertion["AssertType"] as? String) ?? ""
+                guard displaySleepAssertionTypes.contains(trueType) || displaySleepAssertionTypes.contains(assertType) else {
+                    continue
+                }
+                if let level = assertion["AssertLevel"] as? Int, level == 0 {
+                    continue
+                }
+                let processName = ((assertion["Process Name"] as? String) ?? "").lowercased()
+                let assertName = ((assertion["AssertName"] as? String) ?? "").lowercased()
+
+                if ignoredSystemProcesses.contains(processName) {
+                    continue
+                }
+                if meetingProcessKeywords.contains(where: { processName.contains($0) }) {
+                    continue
+                }
+                if browserAndMediaProcessKeywords.contains(where: { processName.contains($0) }) ||
+                   mediaAssertionNameKeywords.contains(where: { assertName.contains($0) }) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
 }
 
 // MARK: - Browser Active Tab Reader (Zero-Permission Firefox mozLz40 Session Reader)
@@ -177,7 +243,10 @@ public enum BrowserTabTelemetryReader {
     }
 
     /// Reads the currently selected tab's `(url, title)` from the user's active Firefox profile.
-    public static func readActiveFirefoxTab() -> (url: String?, title: String?) {
+    /// When `preferStreamingTabWhenVideoPlaying` is `true` (e.g., Firefox holds a `video-playing` power assertion
+    /// while `recovery.jsonlz4` has not yet flushed a recent tab switch or video is in Picture-in-Picture),
+    /// falls back to the most recently accessed open streaming/social tab in the session if the selected tab is not one.
+    public static func readActiveFirefoxTab(preferStreamingTabWhenVideoPlaying: Bool = false) -> (url: String?, title: String?) {
         let fm = FileManager.default
         let profilesDir = fm.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Firefox/Profiles")
@@ -221,7 +290,122 @@ public enum BrowserTabTelemetryReader {
 
         let entryIdx = max(0, min(entries.count - 1, ((tab["index"] as? Int) ?? entries.count) - 1))
         let entry = entries[entryIdx]
-        return (entry["url"] as? String, entry["title"] as? String)
+        let selectedURL = entry["url"] as? String
+        let selectedTitle = entry["title"] as? String
+
+        if preferStreamingTabWhenVideoPlaying &&
+           !ActivityMonitorService.containsDopamineStreamingOrSocialKeyword(url: selectedURL, title: selectedTitle) {
+            var bestStreamingTab: (url: String?, title: String?, lastAccessed: Int64)? = nil
+            for w in windows {
+                guard let wTabs = w["tabs"] as? [[String: Any]] else { continue }
+                for t in wTabs {
+                    guard let tEntries = t["entries"] as? [[String: Any]], !tEntries.isEmpty else { continue }
+                    let tIdx = max(0, min(tEntries.count - 1, ((t["index"] as? Int) ?? tEntries.count) - 1))
+                    let tEntry = tEntries[tIdx]
+                    let tURL = tEntry["url"] as? String
+                    let tTitle = tEntry["title"] as? String
+                    if ActivityMonitorService.containsDopamineStreamingOrSocialKeyword(url: tURL, title: tTitle) {
+                        let accessed = (t["lastAccessed"] as? Int64) ?? Int64((t["lastAccessed"] as? Int) ?? 0)
+                        if bestStreamingTab == nil || accessed > (bestStreamingTab?.lastAccessed ?? -1) {
+                            bestStreamingTab = (tURL, tTitle, accessed)
+                        }
+                    }
+                }
+            }
+            if let found = bestStreamingTab {
+                return (found.url, found.title)
+            }
+        }
+
+        return (selectedURL, selectedTitle)
+    }
+
+    /// Extracts the most recently navigated `http(s)://` URL from a Chromium `SNSS` session buffer.
+    public static func extractLatestURLFromChromiumSNSS(_ data: Data) -> String? {
+        guard !data.isEmpty else { return nil }
+        let tailSize = min(data.count, 65_536)
+        let slice = data.subdata(in: (data.count - tailSize)..<data.count)
+        let ascii = String(decoding: slice, as: UTF8.self)
+
+        var lastValidURL: String? = nil
+        var searchRange = ascii.startIndex..<ascii.endIndex
+        while let range = ascii.range(of: "https://", options: [], range: searchRange) ??
+                          ascii.range(of: "http://", options: [], range: searchRange) {
+            let sub = ascii[range.lowerBound...]
+            var urlChars: [Character] = []
+            for ch in sub {
+                if let scalar = ch.unicodeScalars.first,
+                   scalar.value >= 0x21 && scalar.value <= 0x7E && ch != "\"" && ch != "'" && ch != "<" && ch != ">" {
+                    urlChars.append(ch)
+                } else {
+                    break
+                }
+            }
+            let candidate = String(urlChars)
+            if candidate.count > 10,
+               !candidate.contains("google.com/complete/search"),
+               !candidate.contains("accounts.google.com/RotateCookies"),
+               !candidate.contains("chrome-extension://"),
+               URL(string: candidate)?.host != nil {
+                lastValidURL = candidate
+            }
+            searchRange = range.upperBound..<ascii.endIndex
+        }
+        return lastValidURL
+    }
+
+    /// Reads the latest active tab URL from Chromium-based browsers (Chrome, Brave, Edge, Arc, Opera, Vivaldi)
+    /// without requiring Accessibility or AppleEvents permissions.
+    public static func readActiveChromiumTab(forBundleID bundleID: String) -> (url: String?, title: String?) {
+        let lower = bundleID.lowercased()
+        let fm = FileManager.default
+        let appSupport = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+
+        let relativeBaseDirs: [String]
+        if lower.contains("brave") {
+            relativeBaseDirs = ["BraveSoftware/Brave-Browser"]
+        } else if lower.contains("edgemac") || lower.contains("microsoft.edge") {
+            relativeBaseDirs = ["Microsoft Edge"]
+        } else if lower.contains("thebrowser") || lower.contains("arc") {
+            relativeBaseDirs = ["Arc/User Data"]
+        } else if lower.contains("opera") {
+            relativeBaseDirs = ["com.operasoftware.Opera", "com.operasoftware.OperaGX"]
+        } else if lower.contains("vivaldi") {
+            relativeBaseDirs = ["Vivaldi"]
+        } else {
+            relativeBaseDirs = ["Google/Chrome", "Google/Chrome Canary", "Chromium"]
+        }
+
+        var newestSessionFile: URL? = nil
+        var newestModDate: Date = .distantPast
+
+        for rel in relativeBaseDirs {
+            let baseDir = appSupport.appendingPathComponent(rel)
+            let profileCandidates = ["Default", "Profile 1", "Profile 2", "Profile 3", ""]
+            for prof in profileCandidates {
+                let sessionsDir = prof.isEmpty
+                    ? baseDir.appendingPathComponent("Sessions")
+                    : baseDir.appendingPathComponent(prof).appendingPathComponent("Sessions")
+                guard let files = try? fm.contentsOfDirectory(at: sessionsDir, includingPropertiesForKeys: [.contentModificationDateKey]) else {
+                    continue
+                }
+                for file in files where file.lastPathComponent.hasPrefix("Session_") {
+                    if let attrs = try? fm.attributesOfItem(atPath: file.path),
+                       let modDate = attrs[.modificationDate] as? Date,
+                       modDate > newestModDate {
+                        newestModDate = modDate
+                        newestSessionFile = file
+                    }
+                }
+            }
+        }
+
+        guard let sessionFile = newestSessionFile,
+              let raw = try? Data(contentsOf: sessionFile),
+              let url = extractLatestURLFromChromiumSNSS(raw) else {
+            return (nil, nil)
+        }
+        return (url, nil)
     }
 }
 
@@ -255,6 +439,9 @@ public protocol ActivityTelemetryProviding {
     /// Returns the title of the currently active browser tab, if the frontmost app is a supported browser.
     func activeBrowserTabTitle() -> String?
 
+    /// Returns `true` if a browser or media player is actively playing video and preventing macOS display sleep.
+    func isVideoPlaybackActive() -> Bool
+
     /// Returns the current timestamp for deterministic break duration calculation.
     func now() -> Date
 }
@@ -274,6 +461,10 @@ extension ActivityTelemetryProviding {
 
     public func activeBrowserTabTitle() -> String? {
         nil
+    }
+
+    public func isVideoPlaybackActive() -> Bool {
+        false
     }
 }
 
@@ -321,11 +512,19 @@ public struct SystemActivityTelemetryProvider: ActivityTelemetryProviding {
     }
 
     public func activeBrowserTabURL() -> String? {
-        guard let bundleID = frontmostBundleIdentifier()?.lowercased(),
-              bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") else {
+        guard let bundleID = frontmostBundleIdentifier()?.lowercased() else {
             return nil
         }
-        return BrowserTabTelemetryReader.readActiveFirefoxTab().url
+        if bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") {
+            return BrowserTabTelemetryReader.readActiveFirefoxTab(
+                preferStreamingTabWhenVideoPlaying: isVideoPlaybackActive()
+            ).url
+        }
+        if bundleID.contains("chrome") || bundleID.contains("brave") || bundleID.contains("edgemac") ||
+           bundleID.contains("thebrowser") || bundleID.contains("opera") || bundleID.contains("vivaldi") {
+            return BrowserTabTelemetryReader.readActiveChromiumTab(forBundleID: bundleID).url
+        }
+        return nil
     }
 
     public func activeBrowserTabTitle() -> String? {
@@ -333,7 +532,13 @@ public struct SystemActivityTelemetryProvider: ActivityTelemetryProviding {
               bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") else {
             return nil
         }
-        return BrowserTabTelemetryReader.readActiveFirefoxTab().title
+        return BrowserTabTelemetryReader.readActiveFirefoxTab(
+            preferStreamingTabWhenVideoPlaying: isVideoPlaybackActive()
+        ).title
+    }
+
+    public func isVideoPlaybackActive() -> Bool {
+        AppleSiliconHardwareSensors.isDisplaySleepPreventedByMediaPlayback()
     }
 
     public func now() -> Date {
@@ -477,6 +682,20 @@ public final class ActivityMonitorService: ObservableObject {
         "steampowered.com", "roblox.com", "epicgames.com"
     ]
 
+    /// Native media, video player, streaming, and gaming application bundle ID keywords that represent
+    /// passive entertainment or gaming rather than an offline recharge break.
+    public static let dopamineMediaAndGameBundleKeywords: [String] = [
+        "com.apple.tv", "quicktimeplayer", "org.videolan.vlc", "com.colliderli.iina",
+        "netflix", "primevideo", "disneyplus", "twitch", "youtube", "crunchyroll",
+        "plex", "infuse", "mpv", "elmedia", "movist", "hulu",
+        "steampowered", "valvesoftware.steam", "roblox", "epicgames", "riotgames", "battlenet"
+    ]
+
+    /// Work meeting and collaboration call bundle ID keywords where video/screen sharing is productive work.
+    private static let workMeetingBundleKeywords: [String] = [
+        "zoom.xos", "microsoft.teams", "slack", "webex", "facetime"
+    ]
+
     public let engine: WellnessPointEngine
     public let telemetry: ActivityTelemetryProviding
     public let productiveBundleIDs: Set<String>
@@ -488,6 +707,7 @@ public final class ActivityMonitorService: ObservableObject {
     @Published public private(set) var isOnBreak: Bool = false
     @Published public private(set) var breakStartedAt: Date? = nil
     @Published public private(set) var isOverheatingActive: Bool = false
+    @Published public private(set) var isWatchingMediaOrDistraction: Bool = false
     @Published public var isManualOverrideActive: Bool = false
 
     @Published public private(set) var lastTemperatureCelsius: Double? = nil
@@ -516,11 +736,10 @@ public final class ActivityMonitorService: ObservableObject {
         self.overheatingCPULoadThresholdPercent = overheatingCPULoadThresholdPercent
     }
 
-    /// Returns `true` if the given browser tab URL or title belongs to a streaming or social media platform
-    /// (YouTube, Netflix, Disney+, Twitch, Facebook, Instagram, TikTok, X/Twitter, Reddit, etc.).
-    public func isDopamineStreamingOrSocialTab(url: String?, title: String? = nil) -> Bool {
+    /// Static helper returning `true` if the given browser tab URL or title belongs to a streaming or social media platform.
+    public static func containsDopamineStreamingOrSocialKeyword(url: String?, title: String? = nil) -> Bool {
         if let url = url?.lowercased() {
-            if Self.dopamineStreamingAndSocialKeywords.contains(where: { url.contains($0) }) {
+            if dopamineStreamingAndSocialKeywords.contains(where: { url.contains($0) }) {
                 return true
             }
         }
@@ -533,20 +752,50 @@ public final class ActivityMonitorService: ObservableObject {
         return false
     }
 
+    /// Returns `true` if the given browser tab URL or title belongs to a streaming or social media platform
+    /// (YouTube, Netflix, Disney+, Twitch, Facebook, Instagram, TikTok, X/Twitter, Reddit, etc.).
+    public func isDopamineStreamingOrSocialTab(url: String?, title: String? = nil) -> Bool {
+        Self.containsDopamineStreamingOrSocialKeyword(url: url, title: title)
+    }
+
+    /// Returns `true` if the given bundle identifier belongs to a native streaming, media player, or gaming application.
+    public func isDopamineMediaOrGameBundleID(_ bundleID: String?) -> Bool {
+        guard let lower = bundleID?.lowercased() else { return false }
+        return Self.dopamineMediaAndGameBundleKeywords.contains(where: { lower.contains($0) })
+    }
+
+    /// Returns `true` if the given bundle identifier belongs to a work meeting / video conferencing application.
+    public func isWorkMeetingBundleID(_ bundleID: String?) -> Bool {
+        guard let lower = bundleID?.lowercased() else { return false }
+        return Self.workMeetingBundleKeywords.contains(where: { lower.contains($0) })
+    }
+
     /// Returns `true` if the given bundle identifier (and optional active browser tab URL/title)
     /// represents productive work or research rather than streaming/social media distraction.
-    public func isProductiveBundleID(_ bundleID: String?, activeTabURL: String? = nil, activeTabTitle: String? = nil) -> Bool {
+    public func isProductiveBundleID(
+        _ bundleID: String?,
+        activeTabURL: String? = nil,
+        activeTabTitle: String? = nil,
+        isVideoPlaying: Bool = false
+    ) -> Bool {
         guard let bundleID else { return false }
         if isDopamineStreamingOrSocialTab(url: activeTabURL, title: activeTabTitle) {
+            return false
+        }
+        if isDopamineMediaOrGameBundleID(bundleID) {
             return false
         }
         if let url = activeTabURL, !url.isEmpty {
             return true
         }
+        let lower = bundleID.lowercased()
+        let isBrowser = Self.browserBundleKeywords.contains(where: { lower.contains($0) }) || lower.contains("safari")
+        if isBrowser && isVideoPlaying {
+            return false
+        }
         if productiveBundleIDs.contains(bundleID) {
             return true
         }
-        let lower = bundleID.lowercased()
         if Self.productiveBundleKeywords.contains(where: { lower.contains($0) }) {
             return true
         }
@@ -610,10 +859,17 @@ public final class ActivityMonitorService: ObservableObject {
             lastFrontmostAppName = baseAppName
         }
 
+        let isDopamineTab = isDopamineStreamingOrSocialTab(url: activeTabURL, title: activeTabTitle)
+        let isEntertainmentApp = isDopamineMediaOrGameBundleID(frontmostBundleID)
+        let isVideoPlaying = telemetry.isVideoPlaybackActive() && !isWorkMeetingBundleID(frontmostBundleID)
+        let watchingMediaOrDistraction = isDopamineTab || isEntertainmentApp || isVideoPlaying
+        isWatchingMediaOrDistraction = watchingMediaOrDistraction
+
         let isProductive = isProductiveBundleID(
             frontmostBundleID,
             activeTabURL: activeTabURL,
-            activeTabTitle: activeTabTitle
+            activeTabTitle: activeTabTitle,
+            isVideoPlaying: isVideoPlaying
         )
         lastAppIsProductive = isProductive
 
@@ -632,6 +888,18 @@ public final class ActivityMonitorService: ObservableObject {
         evaluateThermalSample()
 
         if idleSeconds >= idleBreakThresholdSeconds {
+            // When the user is watching YouTube, Netflix, or any video/streaming distraction hands-free
+            // without moving their mouse, do NOT enter Charging Mode — keep draining PTS!
+            if watchingMediaOrDistraction {
+                if isOnBreak {
+                    isOnBreak = false
+                    breakStartedAt = nil
+                }
+                lastAppIsProductive = false
+                engine.evaluateWorkTick(isProductiveApp: false)
+                return
+            }
+
             if !isOnBreak {
                 isOnBreak = true
                 breakStartedAt = currentTime.addingTimeInterval(-idleSeconds)

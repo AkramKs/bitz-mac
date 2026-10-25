@@ -204,6 +204,8 @@ public final class WellnessPointEngine: ObservableObject {
 
         if isProductiveApp {
             continuousWorkMinutes += max(0.0, tickDurationMinutes)
+        } else {
+            continuousWorkMinutes = max(0.0, continuousWorkMinutes - 5.0)
         }
 
         if !isOverheatingOverride {
