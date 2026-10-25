@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+APP_NAME="Bitz"
+BUNDLE_ID="com.bitz.cybercat"
+APP_BUNDLE="$ROOT_DIR/build/${APP_NAME}.app"
+CONTENTS_DIR="$APP_BUNDLE/Contents"
+MACOS_DIR="$CONTENTS_DIR/MacOS"
+RESOURCES_DIR="$CONTENTS_DIR/Resources"
+
+echo "==> Building ${APP_NAME} with Xcode Swift toolchain..."
+/usr/bin/swift build -c debug --product "$APP_NAME"
+BIN_PATH="$(/usr/bin/swift build -c debug --show-bin-path)/${APP_NAME}"
+
+pkill -x "$APP_NAME" 2>/dev/null || true
+
+rm -rf "$APP_BUNDLE"
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+cp "$BIN_PATH" "$MACOS_DIR/$APP_NAME"
+chmod +x "$MACOS_DIR/$APP_NAME"
+
+cat > "$CONTENTS_DIR/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleIdentifier</key>
+    <string>${BUNDLE_ID}</string>
+    <key>CFBundleName</key>
+    <string>${APP_NAME}</string>
+    <key>CFBundleDisplayName</key>
+    <string>Bitz the Cyber Cat</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+EOF
+
+codesign --force --deep --sign - "$APP_BUNDLE"
+
+echo "==> Packaged and signed: $APP_BUNDLE"
+open "$APP_BUNDLE"
+echo "==> Launched ${APP_NAME}.app!"

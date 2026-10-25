@@ -10,6 +10,13 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let activityMonitor: ActivityMonitorService
     public private(set) var overlayPanel: MascotOverlayPanel?
 
+    public override convenience init() {
+        self.init(
+            riveController: ProductionRiveController(),
+            telemetryProvider: SystemActivityTelemetryProvider()
+        )
+    }
+
     public init(
         riveController: ProductionRiveController = ProductionRiveController(),
         telemetryProvider: ActivityTelemetryProviding = SystemActivityTelemetryProvider()
@@ -21,6 +28,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp?.setActivationPolicy(.accessory)
         setupOverlayPanel()
         activityMonitor.startMonitoring()
     }
@@ -44,7 +52,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 }
 
 /// SwiftUI `App` definition providing a lightweight Menu Bar status item for inspecting
-/// Bitz's wellness points and triggering the `"Pet Bitz"` interaction (`FR-006`).
+/// Bitz's wellness points, triggering `"Pet Bitz"`, and testing behavioral states (`FR-006`).
 @MainActor
 public struct BitzApp: App {
     @NSApplicationDelegateAdaptor(BitzAppDelegate.self) public var appDelegate
@@ -53,14 +61,37 @@ public struct BitzApp: App {
 
     public var body: some Scene {
         MenuBarExtra("Bitz", systemImage: "cat.fill") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Bitz the Cyber Cat")
                     .font(.headline)
                 Text("State: \(appDelegate.engine.currentState.rawValue)")
                 Text(String(format: "Wellness: %.1f / 100", appDelegate.engine.currentPoints))
                 Divider()
-                Button("Pet Bitz") {
+                Button("Pet Bitz (<3)") {
                     appDelegate.engine.triggerPetInteraction()
+                }
+                Divider()
+                Text("Preview States")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Super Charged (90 pts - Magenta)") {
+                    appDelegate.engine.setPoints(90.0)
+                }
+                Button("Balanced (50 pts - Cyan)") {
+                    appDelegate.engine.setPoints(50.0)
+                }
+                Button("Overworked (25 pts - Amber)") {
+                    appDelegate.engine.setPoints(25.0)
+                }
+                Button("Burnout / Standby (10 pts - ZZZ)") {
+                    appDelegate.engine.setPoints(10.0)
+                }
+                Button("Thermal Overheat (SYSTEM HOT!)") {
+                    appDelegate.engine.triggerThermalWarning(isOverheating: true)
+                }
+                Divider()
+                Button("Quit Bitz") {
+                    NSApplication.shared.terminate(nil)
                 }
             }
             .padding(8)

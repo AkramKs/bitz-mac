@@ -147,6 +147,7 @@ public final class WellnessPointEngine: ObservableObject {
     @Published public private(set) var currentPoints: Double = 50.0
     @Published public private(set) var currentState: BitzState = .balanced
     @Published public private(set) var activeSpeechBubbleText: String? = nil
+    @Published public private(set) var isPetReactionActive: Bool = false
 
     public let maxPoints: Double = 100.0
     public let minPoints: Double = 0.0
@@ -199,9 +200,23 @@ public final class WellnessPointEngine: ObservableObject {
         }
     }
 
-    /// Fires the Rive `"triggerPet"` interaction input.
+    /// Fires the Rive `"triggerPet"` interaction input and activates a brief `<3` visor reaction.
     public func triggerPetInteraction() {
         riveController?.triggerInput(BitzRiveInputName.triggerPet)
+        isPetReactionActive = true
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            self?.isPetReactionActive = false
+        }
+    }
+
+    /// Sets `currentPoints` directly (clamped to `0.0...100.0`), clears any thermal override,
+    /// and re-evaluates `currentState` and Rive inputs.
+    public func setPoints(_ points: Double) {
+        isOverheatingOverride = false
+        activeSpeechBubbleText = nil
+        currentPoints = min(max(points, minPoints), maxPoints)
+        evaluateState()
     }
 
     /// Evaluates the point-derived `BitzState` from `currentPoints` and synchronizes Rive inputs.

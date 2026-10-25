@@ -10,12 +10,22 @@ let package = Package(
         .library(
             name: "BitzCore",
             targets: ["BitzCore"]
+        ),
+        .executable(
+            name: "Bitz",
+            targets: ["Bitz"]
         )
     ],
     targets: [
         .target(
             name: "BitzCore",
-            path: "src"
+            path: "src",
+            exclude: ["Executable"]
+        ),
+        .executableTarget(
+            name: "Bitz",
+            dependencies: ["BitzCore"],
+            path: "src/Executable"
         ),
         .testTarget(
             name: "BitzTests",
