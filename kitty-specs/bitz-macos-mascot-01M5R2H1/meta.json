@@ -1,4 +1,16 @@
 {
+  "acceptance_history": [
+    {
+      "acceptance_mode": "local",
+      "accepted_at": "2026-10-25T09:43:01.908203+00:00",
+      "accepted_by": "antigravity",
+      "accepted_from_commit": "e20bc95cdec3d8ade7ebcf9cc83caafc10492739"
+    }
+  ],
+  "acceptance_mode": "local",
+  "accepted_at": "2026-10-25T09:43:01.908203+00:00",
+  "accepted_by": "antigravity",
+  "accepted_from_commit": "e20bc95cdec3d8ade7ebcf9cc83caafc10492739",
   "coordination_branch": "kitty/mission-bitz-macos-mascot-01M5R2H1",
   "created_at": "2026-10-24T23:04:26.098985+00:00",
   "flattened": false,
