@@ -307,5 +307,25 @@ final class MascotOverlayPanelTests: XCTestCase {
         let panel = MascotOverlayPanel()
         panel.applyCornerAnchor(.topLeft, on: nil)
         XCTAssertEqual(panel.currentCornerAnchor, .topLeft)
+
+        // Test AvatarPositionStore
+        let suiteName = "BitzPositionStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let posStore = AvatarPositionStore(userDefaults: defaults)
+        XCTAssertEqual(posStore.cornerAnchor, .bottomRight)
+        XCTAssertTrue(posStore.isCornerSelected(.bottomRight))
+
+        var recordedCorner: ScreenCornerAnchor?
+        posStore.onCornerChanged = { recordedCorner = $0 }
+        posStore.selectCorner(.topRight)
+        XCTAssertEqual(posStore.cornerAnchor, .topRight)
+        XCTAssertEqual(recordedCorner, .topRight)
+        XCTAssertTrue(posStore.isCornerSelected(.topRight))
+
+        // Persistence in same suite
+        let restoredPosStore = AvatarPositionStore(userDefaults: defaults)
+        XCTAssertEqual(restoredPosStore.cornerAnchor, .topRight)
     }
 }

@@ -19,6 +19,39 @@ public enum ScreenCornerAnchor: String, CaseIterable, Sendable {
     }
 }
 
+/// `@MainActor` observable store managing the user's selected screen corner anchor,
+/// notification callbacks, and `UserDefaults` persistence (`"avatarCornerAnchor"`).
+@MainActor
+public final class AvatarPositionStore: ObservableObject {
+    public static let defaultCorner: ScreenCornerAnchor = .bottomRight
+    public static let userDefaultsKey: String = "avatarCornerAnchor"
+
+    @Published public private(set) var cornerAnchor: ScreenCornerAnchor
+    private let userDefaults: UserDefaults
+    public var onCornerChanged: ((ScreenCornerAnchor) -> Void)?
+
+    public init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        if let raw = userDefaults.string(forKey: Self.userDefaultsKey),
+           let anchor = ScreenCornerAnchor(rawValue: raw) {
+            self.cornerAnchor = anchor
+        } else {
+            self.cornerAnchor = Self.defaultCorner
+            userDefaults.set(Self.defaultCorner.rawValue, forKey: Self.userDefaultsKey)
+        }
+    }
+
+    public func selectCorner(_ corner: ScreenCornerAnchor) {
+        cornerAnchor = corner
+        userDefaults.set(corner.rawValue, forKey: Self.userDefaultsKey)
+        onCornerChanged?(corner)
+    }
+
+    public func isCornerSelected(_ corner: ScreenCornerAnchor) -> Bool {
+        cornerAnchor == corner
+    }
+}
+
 /// Curated manual opacity presets for the Bitz desktop companion avatar (transparency / see-through mode).
 public enum AvatarOpacityPreset: Double, CaseIterable, Sendable {
     case solid = 1.00
@@ -379,10 +412,11 @@ public final class MascotOverlayPanel: NSPanel {
         repositionOnScreen(of: screen)
     }
 
-    /// Repositions the panel on the specified `screen` (defaulting to `NSScreen.main`)
+    /// Repositions the panel on the specified `screen` (defaulting to current screen or `NSScreen.main`)
     /// using the active `currentScaleFactor` and `currentCornerAnchor`.
-    public func repositionOnScreen(of screen: NSScreen? = NSScreen.main) {
-        let targetFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+    public func repositionOnScreen(of screen: NSScreen? = nil) {
+        let activeScreen = screen ?? self.screen ?? NSScreen.main
+        let targetFrame = activeScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let scaledSize = Self.calculatePanelSize(for: currentScaleFactor, visibleFrame: targetFrame)
         let origin = Self.calculateOrigin(for: targetFrame, panelSize: scaledSize, corner: currentCornerAnchor)
         contentView?.frame = NSRect(origin: .zero, size: scaledSize)

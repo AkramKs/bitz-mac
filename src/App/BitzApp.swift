@@ -11,6 +11,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let activityMonitor: ActivityMonitorService
     public let scaleStore: AvatarScaleStore
     public let opacityStore: AvatarOpacityStore
+    public let positionStore: AvatarPositionStore
     public private(set) var overlayPanel: MascotOverlayPanel?
 
     public override convenience init() {
@@ -18,7 +19,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             riveController: ProductionRiveController(),
             telemetryProvider: SystemActivityTelemetryProvider(),
             scaleStore: AvatarScaleStore(),
-            opacityStore: AvatarOpacityStore()
+            opacityStore: AvatarOpacityStore(),
+            positionStore: AvatarPositionStore()
         )
     }
 
@@ -27,6 +29,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         telemetryProvider: ActivityTelemetryProviding = SystemActivityTelemetryProvider(),
         scaleStore: AvatarScaleStore = AvatarScaleStore(),
         opacityStore: AvatarOpacityStore = AvatarOpacityStore(),
+        positionStore: AvatarPositionStore = AvatarPositionStore(),
         userDefaults: UserDefaults = .standard
     ) {
         self.riveController = riveController
@@ -34,10 +37,14 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.activityMonitor = ActivityMonitorService(engine: self.engine, telemetry: telemetryProvider)
         self.scaleStore = scaleStore
         self.opacityStore = opacityStore
+        self.positionStore = positionStore
         super.init()
 
         self.scaleStore.onScaleChanged = { [weak self] newScale in
             self?.overlayPanel?.applyScaleFactor(newScale)
+        }
+        self.positionStore.onCornerChanged = { [weak self] newCorner in
+            self?.overlayPanel?.applyCornerAnchor(newCorner)
         }
     }
 
@@ -62,6 +69,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         hostingView.frame = NSRect(origin: .zero, size: initialSize)
         panel.contentView = hostingView
         panel.applyScaleFactor(CGFloat(scaleStore.scaleFactor))
+        panel.applyCornerAnchor(positionStore.cornerAnchor)
         panel.repositionOnScreen()
         panel.orderFrontRegardless()
         self.overlayPanel = panel
@@ -76,7 +84,7 @@ private struct BitzMenuBarContentView: View {
     @ObservedObject var activityMonitor: ActivityMonitorService
     @ObservedObject var scaleStore: AvatarScaleStore
     @ObservedObject var opacityStore: AvatarOpacityStore
-    weak var overlayPanel: MascotOverlayPanel?
+    @ObservedObject var positionStore: AvatarPositionStore
 
     @AppStorage("enableManualStateOverrideMenu") private var showManualOverrideMenu: Bool = true
     @State private var launchAtLoginEnabled: Bool = (SMAppService.mainApp.status == .enabled)
@@ -220,11 +228,10 @@ private struct BitzMenuBarContentView: View {
 
             Divider()
             // Corner Positioning Controls
-            let currentCorner = overlayPanel?.currentCornerAnchor ?? .bottomRight
-            Menu("Screen Corner: \(currentCorner.menuTitle)") {
+            Menu("Screen Corner: \(positionStore.cornerAnchor.menuTitle)") {
                 ForEach(ScreenCornerAnchor.allCases, id: \.rawValue) { corner in
-                    Button(currentCorner == corner ? "✓ \(corner.menuTitle)" : corner.menuTitle) {
-                        overlayPanel?.applyCornerAnchor(corner)
+                    Button(positionStore.isCornerSelected(corner) ? "✓ \(corner.menuTitle)" : corner.menuTitle) {
+                        positionStore.selectCorner(corner)
                     }
                 }
             }
@@ -317,7 +324,7 @@ public struct BitzApp: App {
                 activityMonitor: appDelegate.activityMonitor,
                 scaleStore: appDelegate.scaleStore,
                 opacityStore: appDelegate.opacityStore,
-                overlayPanel: appDelegate.overlayPanel
+                positionStore: appDelegate.positionStore
             )
         }
     }
