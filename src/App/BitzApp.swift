@@ -57,6 +57,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 private struct BitzMenuBarContentView: View {
     @ObservedObject var engine: WellnessPointEngine
     @ObservedObject var activityMonitor: ActivityMonitorService
+    @AppStorage("enableManualStateOverrideMenu") private var showManualOverrideMenu: Bool = true
 
     private var thermalStateLabel: String {
         switch activityMonitor.lastThermalState {
@@ -109,34 +110,52 @@ private struct BitzMenuBarContentView: View {
                 engine.triggerPetInteraction()
             }
             Divider()
-            Text("Manual State Override")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Button("Super Charged (90 PTS - Magenta ^ ^)") {
-                engine.setPoints(90.0, continuousWorkMinutes: 10.0)
-            }
-            Button("Balanced (50 PTS - Cyan)") {
-                engine.setPoints(50.0, continuousWorkMinutes: 0.0)
-            }
-            Button("Sad / Dopamine Overload (20 PTS - Purple T T)") {
-                engine.setPoints(20.0, continuousWorkMinutes: 0.0)
-            }
-            Button("Overworked (50m Non-Stop Work - Amber - -)") {
-                engine.setPoints(75.0, continuousWorkMinutes: 50.0)
-            }
-            Button("Burnout (95m Non-Stop Work - X X)") {
-                engine.setPoints(75.0, continuousWorkMinutes: 95.0)
-            }
-            Button("Charging Mode (Idle Away from Keyboard ⚡ Z Z)") {
-                engine.setChargingState(true)
-            }
-            Button("Thermal / CPU Overheat (Cool-Down Action Alert)") {
-                let temp = activityMonitor.lastTemperatureCelsius ?? 86.0
-                let load = activityMonitor.lastCPULoadPercentage ?? 92.0
-                engine.triggerThermalWarning(
-                    isOverheating: true,
-                    actionMessage: String(format: "🔥 %.0f°C (%.0f%% CPU) — CLOSE HEAVY TABS OR APPS TO COOL DOWN!", max(temp, 85.0), max(load, 88.0))
-                )
+            Toggle("Manual State Override", isOn: $showManualOverrideMenu)
+                .onChange(of: showManualOverrideMenu) { _, isEnabled in
+                    if !isEnabled {
+                        activityMonitor.clearManualOverride()
+                    }
+                }
+
+            if showManualOverrideMenu {
+                if activityMonitor.isManualOverrideActive {
+                    Button("Disable Override (Resume Live Sensors)") {
+                        activityMonitor.clearManualOverride()
+                    }
+                }
+                Button("Super Charged (90 PTS - Magenta ^ ^)") {
+                    activityMonitor.isManualOverrideActive = true
+                    engine.setPoints(90.0, continuousWorkMinutes: 10.0)
+                }
+                Button("Balanced (50 PTS - Cyan)") {
+                    activityMonitor.isManualOverrideActive = true
+                    engine.setPoints(50.0, continuousWorkMinutes: 0.0)
+                }
+                Button("Sad / Dopamine Overload (20 PTS - Purple T T)") {
+                    activityMonitor.isManualOverrideActive = true
+                    engine.setPoints(20.0, continuousWorkMinutes: 0.0)
+                }
+                Button("Overworked (50m Non-Stop Work - Amber - -)") {
+                    activityMonitor.isManualOverrideActive = true
+                    engine.setPoints(75.0, continuousWorkMinutes: 50.0)
+                }
+                Button("Burnout (95m Non-Stop Work - X X)") {
+                    activityMonitor.isManualOverrideActive = true
+                    engine.setPoints(75.0, continuousWorkMinutes: 95.0)
+                }
+                Button("Charging Mode (Idle Away from Keyboard ⚡ Z Z)") {
+                    activityMonitor.isManualOverrideActive = true
+                    engine.setChargingState(true)
+                }
+                Button("Thermal / CPU Overheat (Cool-Down Action Alert)") {
+                    activityMonitor.isManualOverrideActive = true
+                    let temp = activityMonitor.lastTemperatureCelsius ?? 86.0
+                    let load = activityMonitor.lastCPULoadPercentage ?? 92.0
+                    engine.triggerThermalWarning(
+                        isOverheating: true,
+                        actionMessage: String(format: "🔥 %.0f°C (%.0f%% CPU) — CLOSE HEAVY TABS OR APPS TO COOL DOWN!", max(temp, 85.0), max(load, 88.0))
+                    )
+                }
             }
             Divider()
             Button("Quit Bitz") {

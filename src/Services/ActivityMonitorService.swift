@@ -322,6 +322,7 @@ public final class ActivityMonitorService: ObservableObject {
     @Published public private(set) var isOnBreak: Bool = false
     @Published public private(set) var breakStartedAt: Date? = nil
     @Published public private(set) var isOverheatingActive: Bool = false
+    @Published public var isManualOverrideActive: Bool = false
 
     @Published public private(set) var lastTemperatureCelsius: Double? = nil
     @Published public private(set) var lastCPULoadPercentage: Double? = nil
@@ -383,13 +384,20 @@ public final class ActivityMonitorService: ObservableObject {
         isMonitoring = false
     }
 
+    /// Clears any manual state override and immediately re-evaluates live hardware and activity sensors.
+    public func clearManualOverride() {
+        isManualOverrideActive = false
+        isOverheatingActive = false
+        engine.triggerThermalWarning(isOverheating: false)
+        engine.setChargingState(false)
+        performSampleTick()
+    }
+
     /// Executes a single telemetry sample cycle:
     /// 1. Samples real CPU die temperature (`°C`), CPU load (`%`), and `ProcessInfo.ThermalState`.
     /// 2. Checks idle time via `secondsSinceLastInput()` for offline break entry/restoration.
     /// 3. Evaluates foreground app bundle identifier when actively working.
     public func performSampleTick() {
-        evaluateThermalSample()
-
         let idleSeconds = telemetry.secondsSinceLastInput()
         lastIdleSeconds = idleSeconds
         let currentTime = telemetry.now()
@@ -399,6 +407,20 @@ public final class ActivityMonitorService: ObservableObject {
         lastFrontmostAppName = telemetry.frontmostApplicationName() ?? frontmostBundleID
         let isProductive = isProductiveBundleID(frontmostBundleID)
         lastAppIsProductive = isProductive
+
+        if isManualOverrideActive {
+            let state = telemetry.thermalState()
+            let tempCelsius = telemetry.cpuTemperatureCelsius()
+            let cpuLoad = telemetry.cpuLoadPercentage()
+            lastThermalState = state
+            lastTemperatureCelsius = tempCelsius
+            lastCPULoadPercentage = cpuLoad
+            engine.latestTemperatureCelsius = tempCelsius
+            engine.latestCPULoadPercentage = cpuLoad
+            return
+        }
+
+        evaluateThermalSample()
 
         if idleSeconds >= idleBreakThresholdSeconds {
             if !isOnBreak {
