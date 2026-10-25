@@ -1,0 +1,32 @@
+name: Swift CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & Test (macOS 14)
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Show Swift & Xcode Version
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Run Swift Tests
+        run: swift test -v
+
+      - name: Build Executable
+        run: swift build -c release --product Bitz -v
