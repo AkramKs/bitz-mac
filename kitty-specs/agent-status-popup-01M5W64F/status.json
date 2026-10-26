@@ -28,7 +28,8 @@
       "last_transition_at": "2026-10-26T13:37:42.086454+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
-        "Ready for review: Implemented AgentModels, AgentDefinition catalog, AgentMonitorService, popup lifetimes, and unit tests"
+        "Ready for review: Implemented AgentModels, AgentDefinition catalog, AgentMonitorService, popup lifetimes, and unit tests",
+        "Review passed: clean models, extensible catalog, popup lifecycle logic and 100% passing tests"
       ],
       "provider": "__resolved_provider_absent__",
       "review_result": {
