@@ -44,6 +44,11 @@
   - Toggle native macOS auto-start at login directly from the Menu Bar.
 - **Menu Bar Control Center (`MenuBarExtra`)**
   - Click the `cat.fill` icon in the macOS Menu Bar to inspect live sensors, pet Bitz (`<3  <3`), change size/opacity/corner, or test states.
+- **AI Coding Agent Detection & Speech-Bubble Popups (`AgentMonitorService`)**
+  - Automatically notices running AI coding agents (**Claude Code**, **Gemini**, **Antigravity**, **Codex / ChatGPT**, **Cursor**, **Windsurf**, **Copilot**, **Aider**, **Goose**, **OpenCode**, **Amp**, **Cline**) via privacy-first process polling and lightweight drop-box event hooks.
+  - Pops up high-contrast speech bubbles when an agent finishes (**`"Claude is done!"`**) or needs your approval (**`"Claude needs approval!"`**).
+  - 1-click Claude Code hook installer directly in the Menu Bar (`~/.claude/settings.json`) with safe automated backup.
+  - Extensible to custom agent processes with per-agent notification toggles in the Menu Bar.
 
 ---
 
