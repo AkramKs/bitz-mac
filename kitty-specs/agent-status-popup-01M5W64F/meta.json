@@ -11,5 +11,7 @@
   "purpose_tldr": "Bitz detects running AI agents (Claude, Gemini, Antigravity, Codex, Cursor, etc.) and shows a popup when they finish or need approval.",
   "slug": "agent-status-popup-01M5W64F",
   "target_branch": "feat/agent-status-popup",
-  "topology": "coord"
+  "topology": "coord",
+  "vcs": "git",
+  "vcs_locked_at": "2026-10-26T13:32:13.459737+00:00"
 }
