@@ -16,39 +16,62 @@ public final class AppleSiliconHardwareSensors {
 
     private var previousCPUTicks: (user: UInt64, system: UInt64, idle: UInt64, nice: UInt64)?
 
-    public init() {}
+    // Cached function pointers and client to avoid expensive dlsym lookups on every tick
+    private typealias CreateFn = @convention(c) (CFAllocator?) -> Unmanaged<AnyObject>?
+    private typealias SetMatchingFn = @convention(c) (AnyObject, CFDictionary) -> Void
+    private typealias CopyServicesFn = @convention(c) (AnyObject) -> Unmanaged<CFArray>?
+    private typealias CopyEventFn = @convention(c) (AnyObject, Int64, Int32, Int64) -> Unmanaged<AnyObject>?
+    private typealias GetFloatFn = @convention(c) (AnyObject, Int32) -> Double
+
+    private var ioKitHandle: UnsafeMutableRawPointer?
+    private var copyServicesFn: CopyServicesFn?
+    private var copyEventFn: CopyEventFn?
+    private var getFloatFn: GetFloatFn?
+    private var ioHIDEventSystemClient: AnyObject?
+
+    public init() {
+        if let handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW) {
+            self.ioKitHandle = handle
+            if let createSym = dlsym(handle, "IOHIDEventSystemClientCreate"),
+               let matchSym = dlsym(handle, "IOHIDEventSystemClientSetMatching"),
+               let servicesSym = dlsym(handle, "IOHIDEventSystemClientCopyServices"),
+               let eventSym = dlsym(handle, "IOHIDServiceClientCopyEvent"),
+               let floatSym = dlsym(handle, "IOHIDEventGetFloatValue") {
+
+                let create = unsafeBitCast(createSym, to: CreateFn.self)
+                let setMatching = unsafeBitCast(matchSym, to: SetMatchingFn.self)
+                self.copyServicesFn = unsafeBitCast(servicesSym, to: CopyServicesFn.self)
+                self.copyEventFn = unsafeBitCast(eventSym, to: CopyEventFn.self)
+                self.getFloatFn = unsafeBitCast(floatSym, to: GetFloatFn.self)
+
+                if let client = create(kCFAllocatorDefault)?.takeRetainedValue() {
+                    let matching: [String: Int] = ["PrimaryUsagePage": 0xff00, "PrimaryUsage": 5]
+                    setMatching(client, matching as CFDictionary)
+                    self.ioHIDEventSystemClient = client
+                }
+            }
+        }
+    }
+
+    deinit {
+        self.ioHIDEventSystemClient = nil
+        self.copyServicesFn = nil
+        self.copyEventFn = nil
+        self.getFloatFn = nil
+        if let handle = ioKitHandle {
+            dlclose(handle)
+        }
+    }
 
     /// Queries Apple Silicon `IOHIDEventSystemClient` thermal sensors (`PrimaryUsagePage: 0xFF00`, `PrimaryUsage: 5`)
     /// and returns the maximum active die/SOC temperature in degrees Celsius.
     public func readMaxDieTemperatureCelsius() -> Double? {
-        guard let handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW) else {
+        guard let client = ioHIDEventSystemClient,
+              let copyServices = copyServicesFn,
+              let copyEvent = copyEventFn,
+              let getFloat = getFloatFn else {
             return nil
         }
-        typealias CreateFn = @convention(c) (CFAllocator?) -> Unmanaged<AnyObject>?
-        typealias SetMatchingFn = @convention(c) (AnyObject, CFDictionary) -> Void
-        typealias CopyServicesFn = @convention(c) (AnyObject) -> Unmanaged<CFArray>?
-        typealias CopyEventFn = @convention(c) (AnyObject, Int64, Int32, Int64) -> Unmanaged<AnyObject>?
-        typealias GetFloatFn = @convention(c) (AnyObject, Int32) -> Double
-
-        guard let createSym = dlsym(handle, "IOHIDEventSystemClientCreate"),
-              let matchSym = dlsym(handle, "IOHIDEventSystemClientSetMatching"),
-              let servicesSym = dlsym(handle, "IOHIDEventSystemClientCopyServices"),
-              let eventSym = dlsym(handle, "IOHIDServiceClientCopyEvent"),
-              let floatSym = dlsym(handle, "IOHIDEventGetFloatValue") else {
-            return nil
-        }
-
-        let create = unsafeBitCast(createSym, to: CreateFn.self)
-        let setMatching = unsafeBitCast(matchSym, to: SetMatchingFn.self)
-        let copyServices = unsafeBitCast(servicesSym, to: CopyServicesFn.self)
-        let copyEvent = unsafeBitCast(eventSym, to: CopyEventFn.self)
-        let getFloat = unsafeBitCast(floatSym, to: GetFloatFn.self)
-
-        guard let client = create(kCFAllocatorDefault)?.takeRetainedValue() else {
-            return nil
-        }
-        let matching: [String: Int] = ["PrimaryUsagePage": 0xff00, "PrimaryUsage": 5]
-        setMatching(client, matching as CFDictionary)
 
         guard let servicesRef = copyServices(client)?.takeRetainedValue() else {
             return nil
