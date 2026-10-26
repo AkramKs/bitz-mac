@@ -1,7 +1,7 @@
 {
-  "event_count": 39,
-  "last_event_id": "01M5W952FNR2FJSGRKXTY79265",
-  "materialized_at": "2026-10-26T14:17:11.925867+00:00",
+  "event_count": 40,
+  "last_event_id": "01M5W95BK3YS8JFXVKRZYD2CKM",
+  "materialized_at": "2026-10-26T14:17:21.251965+00:00",
   "mission_number": "",
   "mission_slug": "agent-status-popup-01M5W64F",
   "mission_type": "",
@@ -11,9 +11,9 @@
     "canceled": 0,
     "claimed": 0,
     "done": 5,
-    "for_review": 1,
+    "for_review": 0,
     "in_progress": 0,
-    "in_review": 0,
+    "in_review": 1,
     "planned": 0
   },
   "work_packages": {
@@ -179,15 +179,15 @@
       "agent_profile": "__resolved_profile_absent__",
       "agent_profile_version": "__resolved_profile_version_absent__",
       "force_count": 0,
-      "lane": "for_review",
-      "last_event_id": "01M5W952FNR2FJSGRKXTY79265",
-      "last_transition_at": "2026-10-26T14:17:11.925867+00:00",
+      "lane": "in_review",
+      "last_event_id": "01M5W95BK3YS8JFXVKRZYD2CKM",
+      "last_transition_at": "2026-10-26T14:17:21.251965+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
         "Ready for review: Implemented AI Agents menu controls, Claude Code hook installer/uninstaller, and updated documentation"
       ],
       "provider": "__resolved_provider_absent__",
-      "role": "implementer",
+      "role": "reviewer",
       "shell_pid": 24118,
       "shell_pid_created_at": "1793011040.900333",
       "subtasks": {
