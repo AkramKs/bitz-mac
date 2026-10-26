@@ -27,6 +27,9 @@
       "last_event_id": "01M5W6VC0XVA2CH1CPZYAJ810W",
       "last_transition_at": "2026-10-26T13:36:56.861756+00:00",
       "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: Implemented AgentModels, AgentDefinition catalog, AgentMonitorService, popup lifetimes, and unit tests"
+      ],
       "provider": "__resolved_provider_absent__",
       "role": "implementer",
       "shell_pid": 24118,
