@@ -23,11 +23,11 @@ public final class AppleSiliconHardwareSensors {
     private typealias CopyEventFn = @convention(c) (AnyObject, Int64, Int32, Int64) -> Unmanaged<AnyObject>?
     private typealias GetFloatFn = @convention(c) (AnyObject, Int32) -> Double
 
-    private var ioKitHandle: UnsafeMutableRawPointer?
-    private var copyServicesFn: CopyServicesFn?
-    private var copyEventFn: CopyEventFn?
-    private var getFloatFn: GetFloatFn?
-    private var ioHIDEventSystemClient: AnyObject?
+    nonisolated(unsafe) private var ioKitHandle: UnsafeMutableRawPointer?
+    nonisolated(unsafe) private var copyServicesFn: CopyServicesFn?
+    nonisolated(unsafe) private var copyEventFn: CopyEventFn?
+    nonisolated(unsafe) private var getFloatFn: GetFloatFn?
+    nonisolated(unsafe) private var ioHIDEventSystemClient: AnyObject?
 
     public init() {
         if let handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW) {
@@ -53,7 +53,7 @@ public final class AppleSiliconHardwareSensors {
         }
     }
 
-    deinit {
+    nonisolated deinit {
         self.ioHIDEventSystemClient = nil
         self.copyServicesFn = nil
         self.copyEventFn = nil
