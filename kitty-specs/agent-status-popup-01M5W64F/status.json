@@ -1,7 +1,7 @@
 {
-  "event_count": 12,
-  "last_event_id": "01M5W6XZ1GAVNADJJ64HNTMEQP",
-  "materialized_at": "2026-10-26T13:38:21.872069+00:00",
+  "event_count": 14,
+  "last_event_id": "01M5W817M41HGE7NQAYAMA76DJ",
+  "materialized_at": "2026-10-26T13:57:37.539407+00:00",
   "mission_number": "",
   "mission_slug": "agent-status-popup-01M5W64F",
   "mission_type": "",
@@ -12,9 +12,9 @@
     "claimed": 0,
     "done": 1,
     "for_review": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "in_review": 0,
-    "planned": 5
+    "planned": 4
   },
   "work_packages": {
     "WP01": {
@@ -50,11 +50,14 @@
       }
     },
     "WP02": {
-      "actor": "finalize-tasks",
+      "actor": "antigravity",
+      "agent": "antigravity",
       "force_count": 0,
-      "lane": "planned",
-      "last_event_id": "01M5W6CF8SD6GV20JE6Y1TMSR6",
-      "last_transition_at": "2026-10-26T13:28:48.665889+00:00"
+      "lane": "in_progress",
+      "last_event_id": "01M5W817M41HGE7NQAYAMA76DJ",
+      "last_transition_at": "2026-10-26T13:57:37.539407+00:00",
+      "shell_pid": 24118,
+      "shell_pid_created_at": "1793011040.900333"
     },
     "WP03": {
       "actor": "finalize-tasks",
