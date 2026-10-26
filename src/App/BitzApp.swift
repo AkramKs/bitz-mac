@@ -167,6 +167,7 @@ private struct BitzMenuBarContentView: View {
             Button("Pet Bitz (<3)") {
                 engine.triggerPetInteraction()
             }
+            .keyboardShortcut("p", modifiers: .command)
 
             Divider()
             // See-Through / Opacity Controls
@@ -204,11 +205,13 @@ private struct BitzMenuBarContentView: View {
                 Button("Smaller (-10%)") {
                     scaleStore.stepDown()
                 }
+                .keyboardShortcut("-", modifiers: .command)
                 .disabled(!scaleStore.canStepDown)
 
                 Button("Larger (+10%)") {
                     scaleStore.stepUp()
                 }
+                .keyboardShortcut("+", modifiers: .command)
                 .disabled(!scaleStore.canStepUp)
             }
 
@@ -216,6 +219,7 @@ private struct BitzMenuBarContentView: View {
                 Button("Reset Size (100% — 250×250 pt)") {
                     scaleStore.resetToDefault()
                 }
+                .keyboardShortcut("0", modifiers: .command)
             }
 
             Menu("Size Presets (\(scaleStore.percentageInt)%)") {
@@ -304,6 +308,7 @@ private struct BitzMenuBarContentView: View {
             Button("Quit Bitz") {
                 NSApplication.shared.terminate(nil)
             }
+            .keyboardShortcut("q", modifiers: .command)
         }
         .padding(8)
     }
