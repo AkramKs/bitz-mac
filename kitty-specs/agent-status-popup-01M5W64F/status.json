@@ -60,7 +60,8 @@
       "last_transition_at": "2026-10-26T14:00:30.812108+00:00",
       "model": "__resolved_model_absent__",
       "notes": [
-        "Ready for review: Implemented ProcessAgentAdapter with CPU heuristic and unit tests"
+        "Ready for review: Implemented ProcessAgentAdapter with CPU heuristic and unit tests",
+        "Review passed: ProcessAgentAdapter cleanly handles started, working, done transitions with zero new permissions"
       ],
       "provider": "__resolved_provider_absent__",
       "review_result": {
