@@ -24,6 +24,7 @@
   "purpose_context": "Users run AI coding agents in the background. Bitz should notice any popular agent working and pop up a speech bubble when it is done or waiting for approval, via process detection plus per-agent hooks/log watchers, with no Accessibility permissions and user-defined custom agents. Tracks GitHub issue #1.",
   "purpose_tldr": "Bitz detects running AI agents (Claude, Gemini, Antigravity, Codex, Cursor, etc.) and shows a popup when they finish or need approval.",
   "slug": "agent-status-popup-01M5W64F",
+  "status_phase": "1",
   "target_branch": "feat/agent-status-popup",
   "topology": "coord",
   "vcs": "git",
