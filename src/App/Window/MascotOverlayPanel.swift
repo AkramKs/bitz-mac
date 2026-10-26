@@ -308,6 +308,7 @@ public final class MascotOverlayPanel: NSPanel {
 
     public private(set) var currentScaleFactor: CGFloat = CGFloat(AvatarScaleStore.defaultScaleFactor)
     public private(set) var currentCornerAnchor: ScreenCornerAnchor = .bottomRight
+    private var screenParametersObserverToken: (any NSObjectProtocol)?
 
     public init(
         contentRect: NSRect = NSRect(
@@ -342,7 +343,7 @@ public final class MascotOverlayPanel: NSPanel {
             .stationary
         ]
 
-        NotificationCenter.default.addObserver(
+        self.screenParametersObserverToken = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
@@ -350,6 +351,12 @@ public final class MascotOverlayPanel: NSPanel {
             Task { @MainActor [weak self] in
                 self?.repositionOnScreen()
             }
+        }
+    }
+
+    isolated deinit {
+        if let screenParametersObserverToken {
+            NotificationCenter.default.removeObserver(screenParametersObserverToken)
         }
     }
 

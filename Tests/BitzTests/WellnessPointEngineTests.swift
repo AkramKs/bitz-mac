@@ -255,4 +255,222 @@ final class WellnessPointEngineTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(wakingEngine.currentPoints, 69.5)
         XCTAssertEqual(wakingEngine.continuousWorkMinutes, 0.0)
     }
+
+    // MARK: - Edge Case Tests (Milestone 3 / F11 & F12)
+
+    // Scenario 1: NaN / Non-Finite Points Sanitization
+    func testNaNInitialPointsDoesNotPoisonEngineAndFallsBackToDefaultPoints() {
+        let engineNaN = WellnessPointEngine(initialPoints: Double.nan)
+        XCTAssertFalse(engineNaN.currentPoints.isNaN)
+        XCTAssertEqual(engineNaN.currentPoints, WellnessPointEngine.defaultPoints)
+        XCTAssertEqual(engineNaN.currentState, .balanced)
+
+        let engineInf = WellnessPointEngine(initialPoints: Double.infinity)
+        XCTAssertFalse(engineInf.currentPoints.isNaN)
+        XCTAssertEqual(engineInf.currentPoints, WellnessPointEngine.defaultPoints)
+        XCTAssertEqual(engineInf.currentState, .balanced)
+
+        let engineNegInf = WellnessPointEngine(initialPoints: -Double.infinity)
+        XCTAssertFalse(engineNegInf.currentPoints.isNaN)
+        XCTAssertEqual(engineNegInf.currentPoints, WellnessPointEngine.defaultPoints)
+        XCTAssertEqual(engineNegInf.currentState, .balanced)
+    }
+
+    func testSetPointsWithNonFiniteValuesSafelySanitizesToDefault() {
+        let engine = WellnessPointEngine(initialPoints: 85.0)
+        XCTAssertEqual(engine.currentPoints, 85.0)
+        XCTAssertEqual(engine.currentState, .superCharged)
+
+        engine.setPoints(Double.nan)
+        XCTAssertFalse(engine.currentPoints.isNaN)
+        XCTAssertEqual(engine.currentPoints, WellnessPointEngine.defaultPoints)
+        XCTAssertEqual(engine.currentState, .balanced)
+
+        engine.setPoints(Double.infinity)
+        XCTAssertFalse(engine.currentPoints.isNaN)
+        XCTAssertEqual(engine.currentPoints, WellnessPointEngine.defaultPoints)
+        XCTAssertEqual(engine.currentState, .balanced)
+    }
+
+    func testStateForPointsWithNonFiniteAndOutOfRangePoints() {
+        XCTAssertEqual(WellnessPointEngine.state(forPoints: Double.nan), .balanced)
+        XCTAssertEqual(WellnessPointEngine.state(forPoints: Double.infinity), .balanced)
+        XCTAssertEqual(WellnessPointEngine.state(forPoints: -Double.infinity), .balanced)
+        XCTAssertEqual(WellnessPointEngine.state(forPoints: 105.0), .superCharged)
+        XCTAssertEqual(WellnessPointEngine.state(forPoints: -15.0), .dopamineSad)
+    }
+
+    // Scenario 2: NaN / Non-Finite Work Tick Duration Sanitization
+    func testEvaluateWorkTickWithNaNDurationDoesNotCorruptWorkStreak() {
+        let engine = WellnessPointEngine(initialPoints: 60.0, initialContinuousWorkMinutes: 20.0)
+        XCTAssertEqual(engine.continuousWorkMinutes, 20.0)
+
+        engine.evaluateWorkTick(isProductiveApp: true, tickDurationMinutes: Double.nan)
+        XCTAssertFalse(engine.continuousWorkMinutes.isNaN)
+        XCTAssertEqual(engine.continuousWorkMinutes, 20.0, accuracy: 0.0001)
+        XCTAssertFalse(engine.currentPoints.isNaN)
+        XCTAssertEqual(engine.currentPoints, 60.5, accuracy: 0.0001)
+
+        engine.evaluateWorkTick(isProductiveApp: true, tickDurationMinutes: Double.infinity)
+        XCTAssertFalse(engine.continuousWorkMinutes.isNaN)
+        XCTAssertEqual(engine.continuousWorkMinutes, 20.0, accuracy: 0.0001)
+    }
+
+    func testEvaluateWorkTickWithNegativeDurationClampsToZero() {
+        let engine = WellnessPointEngine(initialPoints: 60.0, initialContinuousWorkMinutes: 20.0)
+        engine.evaluateWorkTick(isProductiveApp: true, tickDurationMinutes: -15.0)
+        XCTAssertEqual(engine.continuousWorkMinutes, 20.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentPoints, 60.5, accuracy: 0.0001)
+    }
+
+    func testApplyOfflineBreakWithNonFiniteOrNegativeMinutesDoesNotCorruptState() {
+        let engine = WellnessPointEngine(initialPoints: 30.0, initialContinuousWorkMinutes: 25.0)
+
+        engine.applyOfflineBreak(minutes: Double.nan)
+        XCTAssertFalse(engine.currentPoints.isNaN)
+        XCTAssertEqual(engine.currentPoints, 30.0)
+        XCTAssertEqual(engine.continuousWorkMinutes, 25.0)
+
+        engine.applyOfflineBreak(minutes: -10.0)
+        XCTAssertEqual(engine.currentPoints, 30.0)
+        XCTAssertEqual(engine.continuousWorkMinutes, 25.0)
+
+        engine.applyOfflineBreak(minutes: Double.infinity)
+        XCTAssertFalse(engine.currentPoints.isNaN)
+        XCTAssertEqual(engine.currentPoints, 30.0)
+        XCTAssertEqual(engine.continuousWorkMinutes, 25.0)
+    }
+
+    // Scenario 3: Clock Skew / Backward Time Jump Clamping
+    func testPersistenceWithBackwardClockSkewClampsToZeroElapsed() {
+        let suite = "BitzTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let now = Date().timeIntervalSince1970
+        defaults.set(35.0, forKey: WellnessPointEngine.pointsUserDefaultsKey)
+        defaults.set(15.0, forKey: WellnessPointEngine.workMinutesUserDefaultsKey)
+        // Saved 30 seconds ahead in the future (within maxFutureTimestampSkewSeconds of 60s)
+        // simulating a minor NTP clock skew backward
+        defaults.set(now + 30.0, forKey: WellnessPointEngine.lastSavedTimeUserDefaultsKey)
+
+        let engine = WellnessPointEngine(userDefaults: defaults)
+        // elapsedSec = max(0.0, now - lastTimestamp) -> 0.0. Break is not awarded (< 2.0 min).
+        XCTAssertEqual(engine.currentPoints, 35.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.continuousWorkMinutes, 15.0, accuracy: 0.0001)
+    }
+
+    // Scenario 4: Epoch Zero (0.0) Timestamp Persistence Rejection
+    func testPersistenceRejectsEpochZeroTimestampAndDoesNotGrantFiftyFourYearBreak() {
+        let suite = "BitzTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set(25.0, forKey: WellnessPointEngine.pointsUserDefaultsKey)
+        defaults.set(45.0, forKey: WellnessPointEngine.workMinutesUserDefaultsKey)
+        // Corrupted / zero timestamp
+        defaults.set(0.0, forKey: WellnessPointEngine.lastSavedTimeUserDefaultsKey)
+
+        let engine = WellnessPointEngine(userDefaults: defaults)
+        // Pre-hardened code would award 100.0 points and set fatigue to 0.0!
+        // Hardened code must reject timestamp < minimumValidTimestamp, preserving stored values without spurious break.
+        XCTAssertEqual(engine.currentPoints, 25.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.continuousWorkMinutes, 45.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.currentState, .overworked)
+    }
+
+    // Scenario 5: Future Timestamp Persistence Rejection
+    func testPersistenceRejectsFutureTimestampBeyondAllowedSkew() {
+        let suite = "BitzTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let now = Date().timeIntervalSince1970
+        defaults.set(30.0, forKey: WellnessPointEngine.pointsUserDefaultsKey)
+        defaults.set(20.0, forKey: WellnessPointEngine.workMinutesUserDefaultsKey)
+        // Corrupted future timestamp (e.g. 1 day in the future)
+        defaults.set(now + 86400.0, forKey: WellnessPointEngine.lastSavedTimeUserDefaultsKey)
+
+        let engine = WellnessPointEngine(userDefaults: defaults)
+        // Must reject future timestamp > now + 60s, preserving stored points and work streak
+        XCTAssertEqual(engine.currentPoints, 30.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.continuousWorkMinutes, 20.0, accuracy: 0.0001)
+    }
+
+    // Scenario 8: Overheating Rive State Complete Synchronization
+    func testOverheatingRiveStateFullySynchronizedFromBurnout() {
+        let spy = SpyRiveController()
+        let engine = WellnessPointEngine(initialPoints: 10.0, initialContinuousWorkMinutes: 95.0, riveController: spy)
+        XCTAssertEqual(engine.currentState, .burnout)
+        XCTAssertEqual(spy.floatInputs["speedMultiplier"], 0.0)
+        XCTAssertEqual(spy.boolInputs["isStandby"], true)
+        XCTAssertEqual(spy.boolInputs["isGlitching"], false)
+
+        // Transition from .burnout to .overheating
+        engine.triggerThermalWarning(isOverheating: true)
+        XCTAssertEqual(engine.currentState, .overheating)
+        // Pre-hardened code omitted setting speedMultiplier and isStandby in case .overheating!
+        // As a result, speedMultiplier stayed at 0.0 and isStandby stayed at true.
+        // Hardened code sets speedMultiplier = 2.5 and isStandby = false.
+        XCTAssertEqual(spy.floatInputs["speedMultiplier"], 2.5)
+        XCTAssertEqual(spy.floatInputs["visorColor"], BitzVisorColor.red)
+        XCTAssertEqual(spy.boolInputs["isGlitching"], true)
+        XCTAssertEqual(spy.boolInputs["isStandby"], false)
+    }
+
+    // Scenario 9: Charging Rive State Speed Alignment
+    func testChargingRiveStateSpeedMultiplierMatchesStateMachineSpecification() {
+        let spy = SpyRiveController()
+        let engine = WellnessPointEngine(riveController: spy)
+
+        engine.setChargingState(true)
+        XCTAssertEqual(engine.currentState, .charging)
+        // Pre-hardened code set speedMultiplier to 0.5.
+        // Hardened code aligns with docs/STATE_MACHINE.md:50: speedMultiplier = 0.6.
+        XCTAssertEqual(spy.floatInputs["speedMultiplier"], 0.6)
+        XCTAssertEqual(spy.floatInputs["visorColor"], BitzVisorColor.green)
+        XCTAssertEqual(spy.boolInputs["isStandby"], true)
+        XCTAssertEqual(spy.boolInputs["isGlitching"], false)
+    }
+
+    // Scenario 10: Pet Interaction Rapid Burst Debounce & Cancellation
+    func testRapidPetInteractionDebouncesAndCancelsPreviousDismissal() async {
+        let engine = WellnessPointEngine()
+        XCTAssertFalse(engine.isPetReactionActive)
+
+        // First tap at t=0
+        engine.triggerPetInteraction()
+        XCTAssertTrue(engine.isPetReactionActive)
+
+        // Wait 1.0 second, then tap again
+        try? await Task.sleep(for: .seconds(1.0))
+        XCTAssertTrue(engine.isPetReactionActive)
+        engine.triggerPetInteraction()
+
+        // Wait another 1.2 seconds (t = 2.2s total from start).
+        // On pre-hardened code, Task 1 expired at t=2.0s and set isPetReactionActive = false!
+        // On hardened code, Task 1 was cancelled by tap 2, so the reaction remains active until t=3.0s.
+        try? await Task.sleep(for: .seconds(1.2))
+        XCTAssertTrue(engine.isPetReactionActive, "Pet reaction should still be active because second tap reset the 2-second timer")
+
+        // Wait remaining 1.0 second (t = 3.2s total) -> now reaction finishes
+        try? await Task.sleep(for: .seconds(1.0))
+        XCTAssertFalse(engine.isPetReactionActive, "Pet reaction should dismiss after 2 seconds from the LAST tap")
+    }
+
+    // Scenario 11: Test Suite Isolation (F12)
+    func testEnginePersistenceUsesIsolatedUserDefaultsSuiteWithoutStandardLeakage() {
+        let originalStandard = UserDefaults.standard.object(forKey: WellnessPointEngine.pointsUserDefaultsKey)
+        let suite = "BitzTests.Isolation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set(77.0, forKey: WellnessPointEngine.pointsUserDefaultsKey)
+        let engine = WellnessPointEngine(userDefaults: defaults)
+        XCTAssertEqual(engine.currentPoints, 77.0)
+
+        // Verify standard was not modified by initializing or persisting the engine with custom suite
+        let afterStandard = UserDefaults.standard.object(forKey: WellnessPointEngine.pointsUserDefaultsKey)
+        XCTAssertEqual(originalStandard as? Double, afterStandard as? Double)
+    }
 }

@@ -393,4 +393,95 @@ final class ActivityMonitorServiceTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(engine.currentPoints, 90.0)
         XCTAssertEqual(engine.continuousWorkMinutes, 0.0)
     }
+
+    // MARK: - Edge Case Tests (Milestone 3 / F11 & F12)
+
+    // Scenario 6: Sleep & Wake Break Double-Counting Prevention
+    func testSleepAndWakeBreakDoubleCountingPrevention() {
+        let engine = WellnessPointEngine(initialPoints: 20.0, initialContinuousWorkMinutes: 40.0)
+        let telemetry = MockTelemetryProvider()
+        let service = ActivityMonitorService(
+            engine: engine,
+            telemetry: telemetry,
+            idleBreakThresholdSeconds: 60.0
+        )
+
+        telemetry.currentDate = Date(timeIntervalSince1970: 1_710_000_000)
+
+        // 1. User is idle for 65s -> enters charging break (+0.5 PTS for charging tick)
+        telemetry.idleSeconds = 65.0
+        service.performSampleTick()
+        XCTAssertTrue(service.isOnBreak)
+        XCTAssertNotNil(service.breakStartedAt)
+        XCTAssertEqual(engine.currentPoints, 20.5, accuracy: 0.0001)
+
+        // 2. Machine goes to sleep at t=0
+        service.handleSystemSleepOrLock()
+
+        // 3. Machine sleeps for 10 minutes (600s)
+        telemetry.currentDate = telemetry.currentDate.addingTimeInterval(600.0)
+        telemetry.idleSeconds = 0.0
+        telemetry.bundleID = "com.apple.dt.Xcode"
+
+        // 4. Wake machine: awards 10 min * 5 pts/min = +50 pts (20.5 + 50 = 70.5)
+        // In pre-hardened code, isOnBreak remained true and breakStartedAt was not cleared.
+        // The internal performSampleTick() call inside handleSystemWakeOrUnlock would then
+        // process `if isOnBreak` and award a SECOND break of (600s / 60) * 5 = +50 pts,
+        // ballooning points to 100.0!
+        // In hardened code, handleSystemWakeOrUnlock resets isOnBreak = false and breakStartedAt = nil,
+        // so the subsequent performSampleTick only treats this as a regular productive work tick (+0.5).
+        service.handleSystemWakeOrUnlock()
+
+        XCTAssertFalse(service.isOnBreak)
+        XCTAssertNil(service.breakStartedAt)
+        // 20.5 + 50.0 (offline break) + 0.5 (productive work tick in performSampleTick) = 71.0 pts (not 100.0)
+        XCTAssertEqual(engine.currentPoints, 71.0, accuracy: 0.0001)
+        XCTAssertEqual(engine.continuousWorkMinutes, 0.0833, accuracy: 0.01)
+    }
+
+    // Scenario 7: Successive Sleep Notifications Timestamp Preservation
+    func testSuccessiveSleepNotificationsPreserveInitialSleepTimestamp() {
+        let engine = WellnessPointEngine(initialPoints: 20.0)
+        let telemetry = MockTelemetryProvider()
+        let service = ActivityMonitorService(engine: engine, telemetry: telemetry)
+
+        let initialSleepTime = Date(timeIntervalSince1970: 1_710_000_000)
+        telemetry.currentDate = initialSleepTime
+
+        // 1. Screen sleeps first (e.g. screensDidSleepNotification)
+        service.handleSystemSleepOrLock()
+
+        // 2. 10 minutes later, the system goes to sleep (e.g. willSleepNotification)
+        telemetry.currentDate = initialSleepTime.addingTimeInterval(600.0) // +10 min
+        // In pre-hardened code, this overwrote sleepRecordedAt to initialSleepTime + 600s.
+        service.handleSystemSleepOrLock()
+
+        // 3. 5 minutes later (total 15 minutes since screen sleep), user wakes machine
+        telemetry.currentDate = initialSleepTime.addingTimeInterval(900.0) // +15 min total
+        service.handleSystemWakeOrUnlock()
+
+        // Hardened code preserves initialSleepTime, granting 15 minutes of break (+75 pts -> 95.0 pts).
+        // Pre-hardened code would only have granted 5 minutes (+25 pts -> 45.0 pts) because sleepRecordedAt was overwritten.
+        XCTAssertGreaterThanOrEqual(engine.currentPoints, 95.0)
+    }
+
+    // Scenario 3: Clock Skew / Backward Time Jump Clamping in ActivityMonitorService
+    func testSleepWakeWithNegativeElapsedClockSkewDoesNotAwardBreak() {
+        let engine = WellnessPointEngine(initialPoints: 30.0, initialContinuousWorkMinutes: 40.0)
+        let telemetry = MockTelemetryProvider()
+        let service = ActivityMonitorService(engine: engine, telemetry: telemetry)
+
+        telemetry.currentDate = Date(timeIntervalSince1970: 1_710_000_500)
+        service.handleSystemSleepOrLock()
+
+        // System clock stepped backward during sleep by 10 minutes (e.g. NTP sync)
+        telemetry.currentDate = Date(timeIntervalSince1970: 1_710_000_500 - 600.0)
+        service.handleSystemWakeOrUnlock()
+
+        // Should clamp elapsed to 0.0 and NOT award negative or spurious break
+        // Points should remain at initial points + 0.5 for productive tick = 30.5
+        XCTAssertEqual(engine.currentPoints, 30.5, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(engine.continuousWorkMinutes, 40.0)
+        XCTAssertFalse(service.isOnBreak)
+    }
 }

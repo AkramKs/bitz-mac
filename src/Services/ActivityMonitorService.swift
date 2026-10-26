@@ -466,6 +466,9 @@ public protocol ActivityTelemetryProviding {
     /// Returns the title of the currently active browser tab, if the frontmost app is a supported browser.
     func activeBrowserTabTitle() -> String?
 
+    /// Returns the URL and title of the currently active browser tab as a single tuple, if available.
+    func activeBrowserTab() -> (url: String?, title: String?)
+
     /// Returns `true` if a browser or media player is actively playing video and preventing macOS display sleep.
     func isVideoPlaybackActive() -> Bool
 
@@ -488,6 +491,10 @@ extension ActivityTelemetryProviding {
 
     public func activeBrowserTabTitle() -> String? {
         nil
+    }
+
+    public func activeBrowserTab() -> (url: String?, title: String?) {
+        (activeBrowserTabURL(), activeBrowserTabTitle())
     }
 
     public func isVideoPlaybackActive() -> Bool {
@@ -538,38 +545,31 @@ public struct SystemActivityTelemetryProvider: ActivityTelemetryProviding {
         AppleSiliconHardwareSensors.shared.readSystemCPULoadPercentage()
     }
 
-    public func activeBrowserTabURL() -> String? {
+    public func activeBrowserTab() -> (url: String?, title: String?) {
         guard let bundleID = frontmostBundleIdentifier()?.lowercased() else {
-            return nil
+            return (nil, nil)
         }
         if bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") {
             return BrowserTabTelemetryReader.readActiveFirefoxTab(
                 preferStreamingTabWhenVideoPlaying: isVideoPlaybackActive()
-            ).url
+            )
         }
         if bundleID.contains("chrome") || bundleID.contains("brave") || bundleID.contains("edgemac") ||
            bundleID.contains("thebrowser") || bundleID.contains("opera") || bundleID.contains("vivaldi") {
-            return BrowserTabTelemetryReader.readActiveChromiumTab(forBundleID: bundleID).url
+            return BrowserTabTelemetryReader.readActiveChromiumTab(forBundleID: bundleID)
         }
         if bundleID.contains("safari") {
-            return BrowserTabTelemetryReader.readActiveSafariTab().url
+            return BrowserTabTelemetryReader.readActiveSafariTab()
         }
-        return nil
+        return (nil, nil)
+    }
+
+    public func activeBrowserTabURL() -> String? {
+        activeBrowserTab().url
     }
 
     public func activeBrowserTabTitle() -> String? {
-        guard let bundleID = frontmostBundleIdentifier()?.lowercased() else {
-            return nil
-        }
-        if bundleID.contains("firefox") || bundleID.contains("zen") || bundleID.contains("waterfox") {
-            return BrowserTabTelemetryReader.readActiveFirefoxTab(
-                preferStreamingTabWhenVideoPlaying: isVideoPlaybackActive()
-            ).title
-        }
-        if bundleID.contains("safari") {
-            return BrowserTabTelemetryReader.readActiveSafariTab().title
-        }
-        return nil
+        activeBrowserTab().title
     }
 
     public func isVideoPlaybackActive() -> Bool {
@@ -901,7 +901,7 @@ public final class ActivityMonitorService: ObservableObject {
         performSampleTick()
 
         let timer = Timer(timeInterval: intervalSeconds, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 self?.performSampleTick()
             }
         }
@@ -916,7 +916,7 @@ public final class ActivityMonitorService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 self?.handleSystemSleepOrLock()
             }
         }
@@ -925,7 +925,7 @@ public final class ActivityMonitorService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 self?.handleSystemWakeOrUnlock()
             }
         }
@@ -934,7 +934,7 @@ public final class ActivityMonitorService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 self?.handleSystemSleepOrLock()
             }
         }
@@ -943,7 +943,7 @@ public final class ActivityMonitorService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 self?.handleSystemWakeOrUnlock()
             }
         }
@@ -952,7 +952,9 @@ public final class ActivityMonitorService: ObservableObject {
 
     /// Handles system or display going to sleep / screen lock.
     public func handleSystemSleepOrLock() {
-        sleepRecordedAt = telemetry.now()
+        if sleepRecordedAt == nil {
+            sleepRecordedAt = telemetry.now()
+        }
     }
 
     /// Handles system or display wake / unlock, restoring points for offline breaks (> 2.0 min).
@@ -963,6 +965,8 @@ public final class ActivityMonitorService: ObservableObject {
         if elapsedMinutes > 2.0 {
             engine.applyOfflineBreak(minutes: elapsedMinutes)
         }
+        isOnBreak = false
+        breakStartedAt = nil
         performSampleTick()
     }
 
@@ -997,8 +1001,9 @@ public final class ActivityMonitorService: ObservableObject {
         let currentTime = telemetry.now()
 
         let frontmostBundleID = telemetry.frontmostBundleIdentifier()
-        let activeTabURL = telemetry.activeBrowserTabURL()
-        let activeTabTitle = telemetry.activeBrowserTabTitle()
+        let activeTab = telemetry.activeBrowserTab()
+        let activeTabURL = activeTab.url
+        let activeTabTitle = activeTab.title
         lastFrontmostBundleID = frontmostBundleID
 
         let baseAppName = telemetry.frontmostApplicationName() ?? frontmostBundleID ?? "Unknown"

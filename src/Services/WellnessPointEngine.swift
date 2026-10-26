@@ -151,11 +151,27 @@ public final class WellnessPointEngine: ObservableObject {
     public static let burnoutWarningText = "BURNOUT! STEP AWAY FOR 5 MIN TO RECHARGE 💤"
     public static let chargingStatusText = "CHARGING ENERGY... ⚡"
 
+    public static let defaultPoints: Double = 50.0
+    public static let minimumValidTimestamp: Double = 1_704_067_200.0 // 2024-01-01T00:00:00Z
+    public static let maxFutureTimestampSkewSeconds: Double = 60.0
+
     public static let productiveTickDelta: Double = 0.5
     public static let unproductiveTickDelta: Double = -1.5
     public static let chargingTickDelta: Double = 0.5
     public static let offlineBreakMinThresholdMinutes: Double = 2.0
     public static let offlineBreakPointsPerMinute: Double = 5.0
+
+    /// Sanitizes points into `[0.0, 100.0]`. If `points` is non-finite (`NaN` or `Infinity`), falls back to `defaultPoints` (50.0).
+    public static func sanitizePoints(_ points: Double) -> Double {
+        guard points.isFinite else { return defaultPoints }
+        return min(max(points, 0.0), 100.0)
+    }
+
+    /// Sanitizes work or break minutes to be non-negative and finite. If non-finite or negative, returns 0.0.
+    public static func sanitizeWorkMinutes(_ minutes: Double) -> Double {
+        guard minutes.isFinite else { return 0.0 }
+        return max(0.0, minutes)
+    }
 
     /// UserDefaults persistence keys.
     public static let pointsUserDefaultsKey = "bitz_current_points"
@@ -183,6 +199,7 @@ public final class WellnessPointEngine: ObservableObject {
     private var isOverheatingOverride: Bool = false
     private var customOverheatingMessage: String? = nil
     private var isChargingOverride: Bool = false
+    private var petReactionTask: Task<Void, Never>?
 
     public init(
         initialPoints: Double? = nil,
@@ -200,7 +217,7 @@ public final class WellnessPointEngine: ObservableObject {
         } else if let stored = storedPointsObj as? Double {
             resolvedPoints = stored
         } else {
-            resolvedPoints = 50.0
+            resolvedPoints = Self.defaultPoints
         }
 
         let storedMinutesObj = userDefaults?.object(forKey: Self.workMinutesUserDefaultsKey)
@@ -213,19 +230,24 @@ public final class WellnessPointEngine: ObservableObject {
             resolvedMinutes = 0.0
         }
 
-        let clamped = min(max(resolvedPoints, minPoints), maxPoints)
+        let clamped = Self.sanitizePoints(resolvedPoints)
         self.currentPoints = clamped
-        self.continuousWorkMinutes = max(0.0, resolvedMinutes)
+        self.continuousWorkMinutes = Self.sanitizeWorkMinutes(resolvedMinutes)
         self.lastTickWasProductive = clamped >= 40.0
         evaluateState()
 
         // Check elapsed time since last save if restoring from disk
         if initialPoints == nil,
            let lastTimestamp = userDefaults?.object(forKey: Self.lastSavedTimeUserDefaultsKey) as? Double {
-            let elapsedSec = Date().timeIntervalSince1970 - lastTimestamp
-            let elapsedMin = elapsedSec / 60.0
-            if elapsedMin > Self.offlineBreakMinThresholdMinutes {
-                applyOfflineBreak(minutes: elapsedMin)
+            let now = Date().timeIntervalSince1970
+            if lastTimestamp.isFinite &&
+               lastTimestamp >= Self.minimumValidTimestamp &&
+               lastTimestamp <= (now + Self.maxFutureTimestampSkewSeconds) {
+                let elapsedSec = max(0.0, now - lastTimestamp)
+                let elapsedMin = elapsedSec / 60.0
+                if elapsedMin > Self.offlineBreakMinThresholdMinutes {
+                    applyOfflineBreak(minutes: elapsedMin)
+                }
             }
         }
         persistState()
@@ -247,13 +269,15 @@ public final class WellnessPointEngine: ObservableObject {
             isChargingOverride = false
         }
         lastTickWasProductive = isProductiveApp
+
+        let safeTickDuration = (tickDurationMinutes.isFinite && tickDurationMinutes >= 0.0) ? tickDurationMinutes : 0.0
         let delta = isProductiveApp ? Self.productiveTickDelta : Self.unproductiveTickDelta
-        currentPoints = min(max(currentPoints + delta, minPoints), maxPoints)
+        currentPoints = Self.sanitizePoints(currentPoints + delta)
 
         if isProductiveApp {
-            continuousWorkMinutes += max(0.0, tickDurationMinutes)
+            continuousWorkMinutes = Self.sanitizeWorkMinutes(continuousWorkMinutes + safeTickDuration)
         } else {
-            continuousWorkMinutes = max(0.0, continuousWorkMinutes - 5.0)
+            continuousWorkMinutes = Self.sanitizeWorkMinutes(continuousWorkMinutes - 5.0)
         }
 
         if !isOverheatingOverride {
@@ -267,8 +291,8 @@ public final class WellnessPointEngine: ObservableObject {
     public func setChargingState(_ isCharging: Bool) {
         isChargingOverride = isCharging
         if isCharging {
-            currentPoints = min(max(currentPoints + Self.chargingTickDelta, minPoints), maxPoints)
-            continuousWorkMinutes = max(0.0, continuousWorkMinutes - 5.0)
+            currentPoints = Self.sanitizePoints(currentPoints + Self.chargingTickDelta)
+            continuousWorkMinutes = Self.sanitizeWorkMinutes(continuousWorkMinutes - 5.0)
         }
         if !isOverheatingOverride {
             evaluateState()
@@ -280,6 +304,13 @@ public final class WellnessPointEngine: ObservableObject {
     /// and resets continuous work fatigue (`continuousWorkMinutes = 0`).
     public func applyOfflineBreak(minutes: Double) {
         isChargingOverride = false
+        guard minutes.isFinite && minutes >= 0.0 else {
+            if !isOverheatingOverride {
+                evaluateState()
+            }
+            persistState()
+            return
+        }
         guard minutes > Self.offlineBreakMinThresholdMinutes else {
             if !isOverheatingOverride {
                 evaluateState()
@@ -288,7 +319,7 @@ public final class WellnessPointEngine: ObservableObject {
             return
         }
         let restoredPoints = minutes * Self.offlineBreakPointsPerMinute
-        currentPoints = min(max(currentPoints + restoredPoints, minPoints), maxPoints)
+        currentPoints = Self.sanitizePoints(currentPoints + restoredPoints)
         continuousWorkMinutes = 0.0
         if !isOverheatingOverride {
             evaluateState()
@@ -315,8 +346,10 @@ public final class WellnessPointEngine: ObservableObject {
     public func triggerPetInteraction() {
         riveController?.triggerInput(BitzRiveInputName.triggerPet)
         isPetReactionActive = true
-        Task { @MainActor [weak self] in
+        petReactionTask?.cancel()
+        petReactionTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
             self?.isPetReactionActive = false
         }
     }
@@ -327,9 +360,9 @@ public final class WellnessPointEngine: ObservableObject {
         isOverheatingOverride = false
         customOverheatingMessage = nil
         isChargingOverride = false
-        let clamped = min(max(points, minPoints), maxPoints)
+        let clamped = Self.sanitizePoints(points)
         self.currentPoints = clamped
-        self.continuousWorkMinutes = max(0.0, continuousWorkMinutes)
+        self.continuousWorkMinutes = Self.sanitizeWorkMinutes(continuousWorkMinutes)
         self.lastTickWasProductive = clamped >= 40.0
         evaluateState()
         persistState()
@@ -389,8 +422,9 @@ public final class WellnessPointEngine: ObservableObject {
     /// - `40.0..<80.0`: `.balanced`
     /// - `< 40.0`: `.dopamineSad` (too much YouTube / Netflix / distraction)
     public static func state(forPoints points: Double) -> BitzState {
-        switch points {
-        case 80.0...100.0:
+        let safePoints = Self.sanitizePoints(points)
+        switch safePoints {
+        case 80.0...:
             return .superCharged
         case 40.0..<80.0:
             return .balanced
@@ -435,14 +469,16 @@ public final class WellnessPointEngine: ObservableObject {
             rive.setInput(BitzRiveInputName.isGlitching, value: false)
 
         case .charging:
-            rive.setInput(BitzRiveInputName.speedMultiplier, value: Float(0.5))
+            rive.setInput(BitzRiveInputName.speedMultiplier, value: Float(0.6))
             rive.setInput(BitzRiveInputName.visorColor, value: BitzVisorColor.green)
             rive.setInput(BitzRiveInputName.isStandby, value: true)
             rive.setInput(BitzRiveInputName.isGlitching, value: false)
 
         case .overheating:
-            rive.setInput(BitzRiveInputName.isGlitching, value: true)
+            rive.setInput(BitzRiveInputName.speedMultiplier, value: Float(2.5))
             rive.setInput(BitzRiveInputName.visorColor, value: BitzVisorColor.red)
+            rive.setInput(BitzRiveInputName.isGlitching, value: true)
+            rive.setInput(BitzRiveInputName.isStandby, value: false)
         }
     }
 }
