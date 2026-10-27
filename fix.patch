@@ -1,0 +1,11 @@
+--- src/App/Window/MascotOverlayPanel.swift
++++ src/App/Window/MascotOverlayPanel.swift
+@@ -354,7 +354,7 @@
+         }
+     }
+
+-    isolated deinit {
++    deinit {
+         if let screenParametersObserverToken {
+             NotificationCenter.default.removeObserver(screenParametersObserverToken)
+         }

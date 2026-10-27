@@ -354,7 +354,7 @@ public final class MascotOverlayPanel: NSPanel {
         }
     }
 
-    isolated deinit {
+    deinit {
         if let screenParametersObserverToken {
             NotificationCenter.default.removeObserver(screenParametersObserverToken)
         }
