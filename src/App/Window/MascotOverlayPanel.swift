@@ -308,7 +308,7 @@ public final class MascotOverlayPanel: NSPanel {
 
     public private(set) var currentScaleFactor: CGFloat = CGFloat(AvatarScaleStore.defaultScaleFactor)
     public private(set) var currentCornerAnchor: ScreenCornerAnchor = .bottomRight
-    private var screenParametersObserverToken: (any NSObjectProtocol)?
+    nonisolated(unsafe) private var screenParametersObserverToken: (any NSObjectProtocol)?
 
     public init(
         contentRect: NSRect = NSRect(
