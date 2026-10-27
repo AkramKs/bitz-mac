@@ -16,39 +16,51 @@ public final class AppleSiliconHardwareSensors {
 
     private var previousCPUTicks: (user: UInt64, system: UInt64, idle: UInt64, nice: UInt64)?
 
-    public init() {}
+    // MARK: - Cached Pointers and Functions
+    typealias CreateFn = @convention(c) (CFAllocator?) -> Unmanaged<AnyObject>?
+    typealias SetMatchingFn = @convention(c) (AnyObject, CFDictionary) -> Void
+    typealias CopyServicesFn = @convention(c) (AnyObject) -> Unmanaged<CFArray>?
+    typealias CopyEventFn = @convention(c) (AnyObject, Int64, Int32, Int64) -> Unmanaged<AnyObject>?
+    typealias GetFloatFn = @convention(c) (AnyObject, Int32) -> Double
+
+    private var cachedClient: AnyObject?
+    private var copyServices: CopyServicesFn?
+    private var copyEvent: CopyEventFn?
+    private var getFloat: GetFloatFn?
+
+    public init() {
+        // Cache IOHID pointers so we don't dlopen / dlsym every 5 seconds.
+        if let handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW) {
+            if let createSym = dlsym(handle, "IOHIDEventSystemClientCreate"),
+               let matchSym = dlsym(handle, "IOHIDEventSystemClientSetMatching"),
+               let servicesSym = dlsym(handle, "IOHIDEventSystemClientCopyServices"),
+               let eventSym = dlsym(handle, "IOHIDServiceClientCopyEvent"),
+               let floatSym = dlsym(handle, "IOHIDEventGetFloatValue") {
+
+                let create = unsafeBitCast(createSym, to: CreateFn.self)
+                let setMatching = unsafeBitCast(matchSym, to: SetMatchingFn.self)
+                self.copyServices = unsafeBitCast(servicesSym, to: CopyServicesFn.self)
+                self.copyEvent = unsafeBitCast(eventSym, to: CopyEventFn.self)
+                self.getFloat = unsafeBitCast(floatSym, to: GetFloatFn.self)
+
+                if let client = create(kCFAllocatorDefault)?.takeRetainedValue() {
+                    let matching: [String: Int] = ["PrimaryUsagePage": 0xff00, "PrimaryUsage": 5]
+                    setMatching(client, matching as CFDictionary)
+                    self.cachedClient = client
+                }
+            }
+        }
+    }
 
     /// Queries Apple Silicon `IOHIDEventSystemClient` thermal sensors (`PrimaryUsagePage: 0xFF00`, `PrimaryUsage: 5`)
     /// and returns the maximum active die/SOC temperature in degrees Celsius.
     public func readMaxDieTemperatureCelsius() -> Double? {
-        guard let handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW) else {
+        guard let client = cachedClient,
+              let copyServices = copyServices,
+              let copyEvent = copyEvent,
+              let getFloat = getFloat else {
             return nil
         }
-        typealias CreateFn = @convention(c) (CFAllocator?) -> Unmanaged<AnyObject>?
-        typealias SetMatchingFn = @convention(c) (AnyObject, CFDictionary) -> Void
-        typealias CopyServicesFn = @convention(c) (AnyObject) -> Unmanaged<CFArray>?
-        typealias CopyEventFn = @convention(c) (AnyObject, Int64, Int32, Int64) -> Unmanaged<AnyObject>?
-        typealias GetFloatFn = @convention(c) (AnyObject, Int32) -> Double
-
-        guard let createSym = dlsym(handle, "IOHIDEventSystemClientCreate"),
-              let matchSym = dlsym(handle, "IOHIDEventSystemClientSetMatching"),
-              let servicesSym = dlsym(handle, "IOHIDEventSystemClientCopyServices"),
-              let eventSym = dlsym(handle, "IOHIDServiceClientCopyEvent"),
-              let floatSym = dlsym(handle, "IOHIDEventGetFloatValue") else {
-            return nil
-        }
-
-        let create = unsafeBitCast(createSym, to: CreateFn.self)
-        let setMatching = unsafeBitCast(matchSym, to: SetMatchingFn.self)
-        let copyServices = unsafeBitCast(servicesSym, to: CopyServicesFn.self)
-        let copyEvent = unsafeBitCast(eventSym, to: CopyEventFn.self)
-        let getFloat = unsafeBitCast(floatSym, to: GetFloatFn.self)
-
-        guard let client = create(kCFAllocatorDefault)?.takeRetainedValue() else {
-            return nil
-        }
-        let matching: [String: Int] = ["PrimaryUsagePage": 0xff00, "PrimaryUsage": 5]
-        setMatching(client, matching as CFDictionary)
 
         guard let servicesRef = copyServices(client)?.takeRetainedValue() else {
             return nil
@@ -111,6 +123,32 @@ public final class AppleSiliconHardwareSensors {
         return (Double(busyDelta) / Double(totalDelta)) * 100.0
     }
 
+    private static let displaySleepAssertionTypes: Set<String> = [
+        "PreventUserIdleDisplaySleep",
+        "NoDisplaySleepAssertion"
+    ]
+
+    private static let ignoredSystemProcesses: Set<String> = [
+        "powerd", "windowserver", "loginwindow", "caffeinate", "amphetamine", "coreaudiod"
+    ]
+
+    private static let meetingProcessKeywords: [String] = [
+        "zoom", "teams", "slack", "webex", "facetime"
+    ]
+
+    private static let browserAndMediaProcessKeywords: [String] = [
+        "firefox", "plugin-container", "zen", "waterfox",
+        "chrome", "brave", "edgemac", "microsoft edge", "arc", "thebrowser", "opera", "vivaldi",
+        "safari", "webkit",
+        "vlc", "iina", "quicktime", "tv", "netflix", "prime", "disney", "twitch", "youtube",
+        "plex", "infuse", "mpv", "elmedia", "movist", "crunchyroll", "hulu"
+    ]
+
+    private static let mediaAssertionNameKeywords: [String] = [
+        "video-playing", "audio-playing", "media playback", "video wake lock",
+        "webkit media", "playing video", "movie", "streaming"
+    ]
+
     /// Queries macOS Power Management (`IOPMCopyAssertionsByProcess`) to detect whether a browser or
     /// media player process is currently holding an active display-sleep prevention assertion
     /// (`PreventUserIdleDisplaySleep` or `NoDisplaySleepAssertion`), indicating active video playback.
@@ -122,37 +160,11 @@ public final class AppleSiliconHardwareSensors {
             return false
         }
 
-        let displaySleepAssertionTypes: Set<String> = [
-            "PreventUserIdleDisplaySleep",
-            "NoDisplaySleepAssertion"
-        ]
-
-        let ignoredSystemProcesses: Set<String> = [
-            "powerd", "windowserver", "loginwindow", "caffeinate", "amphetamine", "coreaudiod"
-        ]
-
-        let meetingProcessKeywords: [String] = [
-            "zoom", "teams", "slack", "webex", "facetime"
-        ]
-
-        let browserAndMediaProcessKeywords: [String] = [
-            "firefox", "plugin-container", "zen", "waterfox",
-            "chrome", "brave", "edgemac", "microsoft edge", "arc", "thebrowser", "opera", "vivaldi",
-            "safari", "webkit",
-            "vlc", "iina", "quicktime", "tv", "netflix", "prime", "disney", "twitch", "youtube",
-            "plex", "infuse", "mpv", "elmedia", "movist", "crunchyroll", "hulu"
-        ]
-
-        let mediaAssertionNameKeywords: [String] = [
-            "video-playing", "audio-playing", "media playback", "video wake lock",
-            "webkit media", "playing video", "movie", "streaming"
-        ]
-
         for (_, assertions) in pidMap {
             for assertion in assertions {
                 let trueType = (assertion["AssertionTrueType"] as? String) ?? ""
                 let assertType = (assertion["AssertType"] as? String) ?? ""
-                guard displaySleepAssertionTypes.contains(trueType) || displaySleepAssertionTypes.contains(assertType) else {
+                guard AppleSiliconHardwareSensors.displaySleepAssertionTypes.contains(trueType) || AppleSiliconHardwareSensors.displaySleepAssertionTypes.contains(assertType) else {
                     continue
                 }
                 if let level = assertion["AssertLevel"] as? Int, level == 0 {
@@ -161,14 +173,14 @@ public final class AppleSiliconHardwareSensors {
                 let processName = ((assertion["Process Name"] as? String) ?? "").lowercased()
                 let assertName = ((assertion["AssertName"] as? String) ?? "").lowercased()
 
-                if ignoredSystemProcesses.contains(processName) {
+                if AppleSiliconHardwareSensors.ignoredSystemProcesses.contains(processName) {
                     continue
                 }
-                if meetingProcessKeywords.contains(where: { processName.contains($0) }) {
+                if AppleSiliconHardwareSensors.meetingProcessKeywords.contains(where: { processName.contains($0) }) {
                     continue
                 }
-                if browserAndMediaProcessKeywords.contains(where: { processName.contains($0) }) ||
-                   mediaAssertionNameKeywords.contains(where: { assertName.contains($0) }) {
+                if AppleSiliconHardwareSensors.browserAndMediaProcessKeywords.contains(where: { processName.contains($0) }) ||
+                   AppleSiliconHardwareSensors.mediaAssertionNameKeywords.contains(where: { assertName.contains($0) }) {
                     return true
                 }
             }
