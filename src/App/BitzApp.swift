@@ -167,6 +167,8 @@ private struct BitzMenuBarContentView: View {
             Button("Pet Bitz (<3)") {
                 engine.triggerPetInteraction()
             }
+            .accessibilityLabel("Pet Bitz")
+            .keyboardShortcut("p")
 
             Divider()
             // See-Through / Opacity Controls
@@ -304,6 +306,7 @@ private struct BitzMenuBarContentView: View {
             Button("Quit Bitz") {
                 NSApplication.shared.terminate(nil)
             }
+            .keyboardShortcut("q")
         }
         .padding(8)
     }
