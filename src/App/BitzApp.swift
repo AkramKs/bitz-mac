@@ -279,50 +279,22 @@ private struct BitzMenuBarContentView: View {
                 Divider()
                 Menu("Claude Code Hooks") {
                     Button("Install Hook to ~/.claude/settings.json") {
-                        let path = ("~/.claude/settings.json" as NSString).expandingTildeInPath
-                        let url = URL(fileURLWithPath: path)
-                        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-                        _ = try? AgentHookInstaller.backupFile(at: url)
-                        var existing: [String: Any] = [:]
-                        if let data = try? Data(contentsOf: url),
-                           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                            existing = dict
-                        }
-                        var hooks = existing["hooks"] as? [String: Any] ?? [:]
-                        let snippet = AgentHookInstaller.claudeSettingsSnippet()
-                        if let newHooks = snippet["hooks"] as? [String: Any] {
-                            for (k, v) in newHooks { hooks[k] = v }
-                        }
-                        existing["hooks"] = hooks
-                        if let outData = try? JSONSerialization.data(withJSONObject: existing, options: .prettyPrinted) {
-                            do {
-                                try outData.write(to: url)
-                                hookActionMessage = "Claude Code hooks installed!"
-                            } catch {
-                                hookActionMessage = "Failed to save hooks: \(error.localizedDescription)"
-                            }
+                        let url = URL(fileURLWithPath: ("~/.claude/settings.json" as NSString).expandingTildeInPath)
+                        do {
+                            try AgentHookInstaller.updateSettingsFile(at: url, AgentHookInstaller.installClaudeHooks)
+                            hookActionMessage = "Claude Code hooks installed!"
+                        } catch {
+                            hookActionMessage = "Failed to save hooks: \(error.localizedDescription)"
                         }
                     }
 
                     Button("Uninstall Hook") {
-                        let path = ("~/.claude/settings.json" as NSString).expandingTildeInPath
-                        let url = URL(fileURLWithPath: path)
-                        _ = try? AgentHookInstaller.backupFile(at: url)
-                        if let data = try? Data(contentsOf: url),
-                           var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                           var hooks = dict["hooks"] as? [String: Any] {
-                            hooks.removeValue(forKey: "Stop")
-                            hooks.removeValue(forKey: "PermissionRequest")
-                            hooks.removeValue(forKey: "Notification")
-                            dict["hooks"] = hooks
-                            if let outData = try? JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted) {
-                                do {
-                                    try outData.write(to: url)
-                                    hookActionMessage = "Claude Code hooks uninstalled."
-                                } catch {
-                                    hookActionMessage = "Failed to uninstall: \(error.localizedDescription)"
-                                }
-                            }
+                        let url = URL(fileURLWithPath: ("~/.claude/settings.json" as NSString).expandingTildeInPath)
+                        do {
+                            try AgentHookInstaller.updateSettingsFile(at: url, AgentHookInstaller.uninstallClaudeHooks)
+                            hookActionMessage = "Claude Code hooks uninstalled."
+                        } catch {
+                            hookActionMessage = "Failed to uninstall: \(error.localizedDescription)"
                         }
                     }
                 }
