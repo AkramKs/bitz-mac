@@ -6,8 +6,8 @@ This report documents the signaling capabilities and local filesystem / process 
 
 | Agent | Signal Channel | Supported States | Status |
 | :--- | :--- | :--- | :--- |
-| **Claude Code** | Hooks in `~/.claude/settings.json` (`Stop`, `Notification`) | `.started`, `.working`, `.needsApproval`, `.done` | Direct drop-box hook supported |
-| **Antigravity (Agy)** | Workspace transcript logs in `<appDataDir>/brain/<id>/...` | `.working`, `.needsApproval` (WAITING_USER_INPUT), `.done` | Log watcher adapter supported |
+| **Claude Code** | Hooks in `~/.claude/settings.json` (`Stop`, `PermissionRequest`, `Notification`) | `.started`, `.working`, `.needsApproval`, `.done` | Implemented via `DropboxAgentAdapter` + `AgentHookInstaller` |
+| **Antigravity (Agy)** | Workspace transcript logs in `~/.gemini/antigravity/brain/*/transcript.jsonl` | `.working`, `.needsApproval` (`ask_question`), `.done` | Implemented via `AntigravityTranscriptAdapter` |
 | **Codex CLI / ChatGPT** | Config notify hook in `~/.codex/config.toml` | `.started`, `.done` | Drop-box hook supported |
 | **Gemini CLI** | Process execution & session telemetry | `.started`, `.working` (CPU > 1%), `.done` | Baseline process adapter (fallback) |
 | **Cursor** | Editor state logs in `~/Library/Application Support/Cursor` | `.started`, `.working`, `.done` | Process adapter + Log watcher |
@@ -20,8 +20,11 @@ This report documents the signaling capabilities and local filesystem / process 
 - **Decision**: Uses `ProcessAgentAdapter` baseline.
 
 ### S2: Antigravity IDE (Agy)
-- Writes session execution events to disk. User input / tool confirmation checkpoints emit status markers (`WAITING_USER_INPUT` / `needsApproval`).
-- **Decision**: `LogWatcherAgentAdapter` monitors configured log directories for structured state transitions.
+- Writes real-time session execution events to `~/.gemini/antigravity/brain/<conversation-id>/.system_generated/logs/transcript.jsonl`.
+- `USER_INPUT` triggers `.working` ("Antigravity is working...").
+- Tool calls invoking `ask_question` trigger `.needsApproval` ("Antigravity needs input!").
+- Terminal `PLANNER_RESPONSE` events with `status: "DONE"` and empty `tool_calls` trigger `.done` ("Antigravity is done!").
+- **Decision**: Implemented via `AntigravityTranscriptAdapter`, which dynamically tracks the active session directory and streams incremental transcript line updates without requiring special permissions.
 
 ### S3: OpenAI Codex CLI
 - Supports notification hook command execution on task completion.

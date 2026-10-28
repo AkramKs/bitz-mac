@@ -10,27 +10,41 @@ public struct AgentHookInstaller {
 
     public static func dropEventScript(agentID: String, agentName: String, kind: String, message: String) -> String {
         let dir = DropboxAgentAdapter.defaultDirectoryURL.path
+        let cleanID = agentID.replacingOccurrences(of: "'", with: "")
+        let cleanName = agentName.replacingOccurrences(of: "'", with: "")
+        let cleanKind = kind.replacingOccurrences(of: "'", with: "")
+        let cleanMessage = message.replacingOccurrences(of: "'", with: "")
         return """
-        mkdir -p '\(dir)' && ts=$(date -u +%Y-%m-%dT%H:%M:%SZ) && id=$(uuidgen | tr '[:upper:]' '[:lower:]') && cat << 'EOF' > '\(dir)/'$id.json
-        {"id":"$id","agentID":"\(agentID)","agentName":"\(agentName)","kind":"\(kind)","message":"\(message)","timestamp":"$ts"}
-        EOF
+        mkdir -p '\(dir)' && id=$(uuidgen | tr '[:upper:]' '[:lower:]') && ts=$(date -u +%Y-%m-%dT%H:%M:%SZ) && printf '{"id":"%s","agentID":"%s","agentName":"%s","kind":"%s","message":"%s","timestamp":"%s"}\\n' "$id" '\(cleanID)' '\(cleanName)' '\(cleanKind)' '\(cleanMessage)' "$ts" > '\(dir)/'$id.json
         """
     }
 
     /// Generates Claude Code notification/stop hooks snippet for ~/.claude/settings.json
     public static func claudeSettingsSnippet() -> [String: Any] {
-        let doneCommand = "mkdir -p '\(DropboxAgentAdapter.defaultDirectoryURL.path)' && ts=$(date -u +%Y-%m-%dT%H:%M:%SZ) && id=$(uuidgen) && echo '{\"agentID\":\"claude\",\"agentName\":\"Claude\",\"kind\":\"done\",\"message\":\"Claude is done!\",\"timestamp\":\"'\"$ts\"'\"}' > '\(DropboxAgentAdapter.defaultDirectoryURL.path)/'\"$id\".json"
+        let dir = DropboxAgentAdapter.defaultDirectoryURL.path
+        let doneCommand = "mkdir -p '\(dir)' && id=$(uuidgen | tr '[:upper:]' '[:lower:]') && ts=$(date -u +%Y-%m-%dT%H:%M:%SZ) && printf '{\"id\":\"%s\",\"agentID\":\"%s\",\"agentName\":\"%s\",\"kind\":\"%s\",\"message\":\"%s\",\"timestamp\":\"%s\"}\\n' \"$id\" \"claude\" \"Claude\" \"done\" \"Claude is done!\" \"$ts\" > '\(dir)/'$id.json"
 
-        let approvalCommand = "mkdir -p '\(DropboxAgentAdapter.defaultDirectoryURL.path)' && ts=$(date -u +%Y-%m-%dT%H:%M:%SZ) && id=$(uuidgen) && echo '{\"agentID\":\"claude\",\"agentName\":\"Claude\",\"kind\":\"needsApproval\",\"message\":\"Claude needs approval!\",\"timestamp\":\"'\"$ts\"'\"}' > '\(DropboxAgentAdapter.defaultDirectoryURL.path)/'\"$id\".json"
+        let approvalCommand = "mkdir -p '\(dir)' && id=$(uuidgen | tr '[:upper:]' '[:lower:]') && ts=$(date -u +%Y-%m-%dT%H:%M:%SZ) && printf '{\"id\":\"%s\",\"agentID\":\"%s\",\"agentName\":\"%s\",\"kind\":\"%s\",\"message\":\"%s\",\"timestamp\":\"%s\"}\\n' \"$id\" \"claude\" \"Claude\" \"needsApproval\" \"Claude needs approval!\" \"$ts\" > '\(dir)/'$id.json"
+
+        let stopHook: [String: Any] = [
+            "matcher": "",
+            "hooks": [
+                ["type": "command", "command": doneCommand]
+            ]
+        ]
+
+        let approvalHook: [String: Any] = [
+            "matcher": "",
+            "hooks": [
+                ["type": "command", "command": approvalCommand]
+            ]
+        ]
 
         return [
             "hooks": [
-                "Stop": [
-                    ["type": "command", "command": doneCommand]
-                ],
-                "Notification": [
-                    ["type": "command", "command": approvalCommand]
-                ]
+                "Stop": [stopHook],
+                "PermissionRequest": [approvalHook],
+                "Notification": [approvalHook]
             ]
         ]
     }

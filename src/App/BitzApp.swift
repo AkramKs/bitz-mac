@@ -43,7 +43,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         // Wire agent detection adapters
         let processAdapter = ProcessAgentAdapter()
         let dropboxAdapter = DropboxAgentAdapter()
-        self.agentMonitor = AgentMonitorService(adapters: [processAdapter, dropboxAdapter])
+        let antigravityAdapter = AntigravityTranscriptAdapter()
+        self.agentMonitor = AgentMonitorService(adapters: [processAdapter, dropboxAdapter, antigravityAdapter])
 
         super.init()
 
@@ -278,6 +279,7 @@ private struct BitzMenuBarContentView: View {
                     Button("Install Hook to ~/.claude/settings.json") {
                         let path = ("~/.claude/settings.json" as NSString).expandingTildeInPath
                         let url = URL(fileURLWithPath: path)
+                        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                         _ = try? AgentHookInstaller.backupFile(at: url)
                         var existing: [String: Any] = [:]
                         if let data = try? Data(contentsOf: url),
@@ -291,8 +293,12 @@ private struct BitzMenuBarContentView: View {
                         }
                         existing["hooks"] = hooks
                         if let outData = try? JSONSerialization.data(withJSONObject: existing, options: .prettyPrinted) {
-                            try? outData.write(to: url)
-                            hookActionMessage = "Claude Code hooks installed!"
+                            do {
+                                try outData.write(to: url)
+                                hookActionMessage = "Claude Code hooks installed!"
+                            } catch {
+                                hookActionMessage = "Failed to save hooks: \(error.localizedDescription)"
+                            }
                         }
                     }
 
@@ -304,11 +310,16 @@ private struct BitzMenuBarContentView: View {
                            var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                            var hooks = dict["hooks"] as? [String: Any] {
                             hooks.removeValue(forKey: "Stop")
+                            hooks.removeValue(forKey: "PermissionRequest")
                             hooks.removeValue(forKey: "Notification")
                             dict["hooks"] = hooks
                             if let outData = try? JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted) {
-                                try? outData.write(to: url)
-                                hookActionMessage = "Claude Code hooks uninstalled."
+                                do {
+                                    try outData.write(to: url)
+                                    hookActionMessage = "Claude Code hooks uninstalled."
+                                } catch {
+                                    hookActionMessage = "Failed to uninstall: \(error.localizedDescription)"
+                                }
                             }
                         }
                     }

@@ -32,6 +32,32 @@ public struct AgentEvent: Codable, Sendable, Equatable, Identifiable {
         self.message = message
         self.timestamp = timestamp
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case agentID
+        case agentName
+        case kind
+        case message
+        case timestamp
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let uuidString = try? container.decode(String.self, forKey: .id),
+           let parsedUUID = UUID(uuidString: uuidString) {
+            self.id = parsedUUID
+        } else if let uuid = try? container.decode(UUID.self, forKey: .id) {
+            self.id = uuid
+        } else {
+            self.id = UUID()
+        }
+        self.agentID = try container.decode(String.self, forKey: .agentID)
+        self.agentName = try container.decode(String.self, forKey: .agentName)
+        self.kind = try container.decode(AgentEventKind.self, forKey: .kind)
+        self.message = try? container.decode(String.self, forKey: .message)
+        self.timestamp = (try? container.decode(Date.self, forKey: .timestamp)) ?? Date()
+    }
 }
 
 /// Metadata and matching rules for an AI agent.
