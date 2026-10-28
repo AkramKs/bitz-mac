@@ -197,7 +197,8 @@ public struct MascotOverlayView: View {
     }
 
     public var body: some View {
-        TimelineView(.animation) { timeline in
+        // 30 fps is plenty for breathing/blink; the uncapped display rate cost ~25-30% of a core at idle (#10)
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             let breathOffset = sin(t * 2.8 * animationSpeedMultiplier) * (engine.currentState == .burnout ? 0.0 : 4.5)
             let glitchOffsetX = engine.currentState == .overheating ? sin(t * 45.0) * 3.0 : 0.0
