@@ -89,15 +89,18 @@ public struct MascotOverlayView: View {
     @ObservedObject public var engine: WellnessPointEngine
     @ObservedObject public var scaleStore: AvatarScaleStore
     @ObservedObject public var opacityStore: AvatarOpacityStore
+    @ObservedObject public var agentMonitor: AgentMonitorService
 
     public init(
         engine: WellnessPointEngine,
         scaleStore: AvatarScaleStore = AvatarScaleStore(),
-        opacityStore: AvatarOpacityStore = AvatarOpacityStore()
+        opacityStore: AvatarOpacityStore = AvatarOpacityStore(),
+        agentMonitor: AgentMonitorService = AgentMonitorService()
     ) {
         self.engine = engine
         self.scaleStore = scaleStore
         self.opacityStore = opacityStore
+        self.agentMonitor = agentMonitor
     }
 
     /// Returns the RGB color values (`red`, `green`, `blue`) matching the current `BitzState` visor color.
@@ -152,6 +155,47 @@ public struct MascotOverlayView: View {
         engine.currentState == .burnout || engine.currentState == .charging
     }
 
+    private func agentPopupColor(for kind: AgentEventKind) -> Color {
+        switch kind {
+        case .needsApproval:
+            return Color.yellow
+        case .done:
+            return Color.green
+        case .started, .working:
+            return Color.cyan
+        }
+    }
+
+    private func agentPopupBackground(for kind: AgentEventKind) -> Color {
+        switch kind {
+        case .needsApproval:
+            return Color(red: 0.85, green: 0.45, blue: 0.05).opacity(0.96)
+        case .done:
+            return Color(red: 0.05, green: 0.65, blue: 0.35).opacity(0.96)
+        case .started, .working:
+            return Color(red: 0.12, green: 0.45, blue: 0.85).opacity(0.96)
+        }
+    }
+
+    private func agentBubbleView(for popup: AgentPopupState) -> some View {
+        let strokeColor = agentPopupColor(for: popup.kind)
+        let bgColor = agentPopupBackground(for: popup.kind)
+        return Text(popup.text)
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.75)
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .frame(maxWidth: 236)
+            .background(RoundedRectangle(cornerRadius: 8).fill(bgColor))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(strokeColor, lineWidth: 1.5))
+            .shadow(color: strokeColor.opacity(0.7), radius: 6)
+            .offset(y: isLoafPosture ? -30 : -50)
+            .zIndex(3)
+    }
+
     public var body: some View {
         TimelineView(.animation) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
@@ -167,7 +211,10 @@ public struct MascotOverlayView: View {
                 Spacer(minLength: 0)
 
                 // Speech Bubble Notification (always 100% solid contrast for legibility)
-                if let speechText = engine.activeSpeechBubbleText {
+                // Priority: Agent Monitor active popup takes precedence over wellness text (T016)
+                if let agentPopup = agentMonitor.activePopup {
+                    agentBubbleView(for: agentPopup)
+                } else if let speechText = engine.activeSpeechBubbleText {
                     Text(speechText)
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .multilineTextAlignment(.center)

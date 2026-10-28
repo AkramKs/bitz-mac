@@ -44,6 +44,11 @@
   - Toggle native macOS auto-start at login directly from the Menu Bar.
 - **Menu Bar Control Center (`MenuBarExtra`)**
   - Click the `cat.fill` icon in the macOS Menu Bar to inspect live sensors, pet Bitz (`<3  <3`), change size/opacity/corner, or test states.
+- **AI Coding Agent Detection & Speech-Bubble Popups (`AgentMonitorService`)**
+  - Automatically notices running AI coding agents (**Claude Code**, **Gemini**, **Antigravity**, **Codex / ChatGPT**, **Cursor**, **Windsurf**, **Copilot**, **Aider**, **Goose**, **OpenCode**, **Amp**, **Cline**) via privacy-first process polling and lightweight drop-box event hooks.
+  - Pops up high-contrast speech bubbles when an agent finishes (**`"Claude is done!"`**) or needs your approval (**`"Claude needs approval!"`**).
+  - 1-click Claude Code hook installer directly in the Menu Bar (`~/.claude/settings.json`) with safe automated backup.
+  - Extensible to custom agent processes with per-agent notification toggles in the Menu Bar.
 
 ---
 
@@ -92,20 +97,65 @@ bitz-mac/
 │   │       └── MascotOverlayPanel.swift       # Click-through, non-activating floating NSPanel with corner math
 │   ├── Executable/
 │   │   └── main.swift                         # Native macOS app entry point (BitzApp.main())
+│   ├── Models/
+│   │   └── AgentModels.swift                  # AgentDefinition, AgentEvent, AgentEventKind & AgentPopupState
 │   ├── Services/
 │   │   ├── WellnessPointEngine.swift          # Reactive PTS state engine, work streak & break persistence
-│   │   └── ActivityMonitorService.swift       # Apple Silicon hardware sensors (IOHID + Mach) & telemetry
+│   │   ├── ActivityMonitorService.swift       # Apple Silicon hardware sensors (IOHID + Mach) & telemetry
+│   │   ├── AgentMonitorService.swift          # Central agent coordinator, popup states & catalog
+│   │   ├── ProcessAgentAdapter.swift          # Polling running processes and bundle IDs
+│   │   ├── DropboxAgentAdapter.swift          # Real-time JSON event drop-box directory watcher
+│   │   ├── AntigravityTranscriptAdapter.swift  # Live Antigravity session transcript stream monitor
+│   │   ├── LogWatcherAgentAdapter.swift       # Generic log file keyword monitor (approval / done)
+│   │   └── AgentHookInstaller.swift           # Claude Code & CLI shell hook generator & backup manager
 │   └── Views/
-│       └── MascotOverlayView.swift            # Vector cat rig, LED visor, trot cycles & ambient particles
+│       └── MascotOverlayView.swift            # Vector cat rig, LED visor, trot cycles & speech bubble popups
 ├── Tests/
-│   └── BitzTests/                             # 33 deterministic XCTest unit tests
+│   └── BitzTests/                             # 66 deterministic XCTest unit tests
 │       ├── WellnessPointEngineTests.swift
 │       ├── ActivityMonitorServiceTests.swift
-│       └── MascotOverlayPanelTests.swift
+│       ├── MascotOverlayPanelTests.swift
+│       ├── AgentMonitorServiceTests.swift
+│       ├── ProcessAgentAdapterTests.swift
+│       ├── DropboxAgentAdapterTests.swift
+│       ├── AntigravityTranscriptAdapterTests.swift
+│       ├── LogWatcherAgentAdapterTests.swift
+│       └── AgentHookInstallerTests.swift
 └── docs/
     ├── ARCHITECTURE.md                        # Layered system architecture & invariants
     ├── STATE_MACHINE.md                       # 7-state emotional machine & Rive contract
-    └── ACCEPTANCE_CRITERIA.md                 # Requirements traceability & test matrix
+    ├── ACCEPTANCE_CRITERIA.md                 # Requirements traceability & test matrix
+    └── agent-research.md                      # AI agent signaling research & adapter specifications
+```
+
+---
+
+## 🤖 AI Coding Agent Detection & Hooks
+
+Bitz features multi-channel signaling to monitor your AI coding companions without stealing focus or requiring Accessibility permissions:
+
+### Supported Agents & Signal Channels
+| Agent | Signal Channel | Supported Signals | Integration Details |
+| :--- | :--- | :--- | :--- |
+| **Claude Code** | Drop-box hooks in `~/.claude/settings.json` | `.started`, `.working`, `.needsApproval`, `.done` | 1-click install via Menu Bar (`Stop` & `PermissionRequest` hooks) |
+| **Antigravity** | Live session transcript monitoring (`transcript.jsonl`) | `.working`, `.needsApproval`, `.done` | Automatic via `AntigravityTranscriptAdapter` monitoring `~/.gemini/antigravity/brain/` |
+| **Codex CLI / ChatGPT** | Drop-box event script or `notify` config | `.started`, `.done` | Drop-box JSON files written to `Bitz/agent-events/` |
+| **Cursor / Windsurf / Copilot** | Process & bundle ID detection | `.started`, `.working` (focus PTS boost) | Automatically detected as active productive developer apps |
+| **Custom Agents** | User-defined processes & bundle IDs | `.started`, `.working`, `.done` | Configurable in Menu Bar or programmatically in `AgentMonitorService` |
+
+### Drop-Box Event Format
+Any third-party script or agent can trigger Bitz speech bubbles by dropping a `.json` file into:
+`~/Library/Application Support/Bitz/agent-events/`
+
+```json
+{
+  "id": "e461239c-703a-4ef4-8c88-e3251c86dbd1",
+  "agentID": "claude",
+  "agentName": "Claude",
+  "kind": "done",
+  "message": "Claude is done!",
+  "timestamp": "2026-10-28T12:00:00Z"
+}
 ```
 
 ---
