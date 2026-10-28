@@ -23,14 +23,16 @@ public final class AppleSiliconHardwareSensors {
     typealias CopyEventFn = @convention(c) (AnyObject, Int64, Int32, Int64) -> Unmanaged<AnyObject>?
     typealias GetFloatFn = @convention(c) (AnyObject, Int32) -> Double
 
-    private var cachedClient: AnyObject?
-    private var copyServices: CopyServicesFn?
-    private var copyEvent: CopyEventFn?
-    private var getFloat: GetFloatFn?
+    nonisolated(unsafe) private var ioKitHandle: UnsafeMutableRawPointer?
+    nonisolated(unsafe) private var cachedClient: AnyObject?
+    nonisolated(unsafe) private var copyServices: CopyServicesFn?
+    nonisolated(unsafe) private var copyEvent: CopyEventFn?
+    nonisolated(unsafe) private var getFloat: GetFloatFn?
 
     public init() {
         // Cache IOHID pointers so we don't dlopen / dlsym every 5 seconds.
         if let handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW) {
+            self.ioKitHandle = handle
             if let createSym = dlsym(handle, "IOHIDEventSystemClientCreate"),
                let matchSym = dlsym(handle, "IOHIDEventSystemClientSetMatching"),
                let servicesSym = dlsym(handle, "IOHIDEventSystemClientCopyServices"),
@@ -49,6 +51,16 @@ public final class AppleSiliconHardwareSensors {
                     self.cachedClient = client
                 }
             }
+        }
+    }
+
+    deinit {
+        self.cachedClient = nil
+        self.copyServices = nil
+        self.copyEvent = nil
+        self.getFloat = nil
+        if let handle = ioKitHandle {
+            dlclose(handle)
         }
     }
 
