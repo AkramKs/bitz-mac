@@ -107,6 +107,7 @@ private struct BitzMenuBarContentView: View {
     @State private var newAgentName: String = ""
     @State private var newAgentProcess: String = ""
     @State private var hookActionMessage: String? = nil
+    @State private var isHookActionError: Bool = false
 
     private var thermalStateLabel: String {
         switch activityMonitor.lastThermalState {
@@ -283,8 +284,10 @@ private struct BitzMenuBarContentView: View {
                         do {
                             try AgentHookInstaller.updateSettingsFile(at: url, AgentHookInstaller.installClaudeHooks)
                             hookActionMessage = "Claude Code hooks installed!"
+                            isHookActionError = false
                         } catch {
                             hookActionMessage = "Failed to save hooks: \(error.localizedDescription)"
+                            isHookActionError = true
                         }
                     }
 
@@ -293,8 +296,10 @@ private struct BitzMenuBarContentView: View {
                         do {
                             try AgentHookInstaller.updateSettingsFile(at: url, AgentHookInstaller.uninstallClaudeHooks)
                             hookActionMessage = "Claude Code hooks uninstalled."
+                            isHookActionError = false
                         } catch {
                             hookActionMessage = "Failed to uninstall: \(error.localizedDescription)"
+                            isHookActionError = true
                         }
                     }
                 }
@@ -302,7 +307,7 @@ private struct BitzMenuBarContentView: View {
                 if let msg = hookActionMessage {
                     Text(msg)
                         .font(.caption2)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(isHookActionError ? .red : .green)
                 }
             }
 
@@ -340,26 +345,37 @@ private struct BitzMenuBarContentView: View {
                     activityMonitor.isManualOverrideActive = true
                     engine.setPoints(90.0, continuousWorkMinutes: 10.0)
                 }
+                .accessibilityLabel("Super Charged (90 PTS - Magenta)")
+
                 Button("Balanced (50 PTS - Cyan)") {
                     activityMonitor.isManualOverrideActive = true
                     engine.setPoints(50.0, continuousWorkMinutes: 0.0)
                 }
+
                 Button("Sad / Dopamine Overload (20 PTS - Purple T T)") {
                     activityMonitor.isManualOverrideActive = true
                     engine.setPoints(20.0, continuousWorkMinutes: 0.0)
                 }
+                .accessibilityLabel("Sad or Dopamine Overload (20 PTS - Purple)")
+
                 Button("Overworked (50m Non-Stop Work - Amber - -)") {
                     activityMonitor.isManualOverrideActive = true
                     engine.setPoints(75.0, continuousWorkMinutes: 50.0)
                 }
+                .accessibilityLabel("Overworked (50 minutes Non-Stop Work - Amber)")
+
                 Button("Burnout (95m Non-Stop Work - X X)") {
                     activityMonitor.isManualOverrideActive = true
                     engine.setPoints(75.0, continuousWorkMinutes: 95.0)
                 }
+                .accessibilityLabel("Burnout (95 minutes Non-Stop Work)")
+
                 Button("Charging Mode (Idle Away from Keyboard ⚡ Z Z)") {
                     activityMonitor.isManualOverrideActive = true
                     engine.setChargingState(true)
                 }
+                .accessibilityLabel("Charging Mode (Idle Away from Keyboard)")
+
                 Button("Thermal / CPU Overheat (Cool-Down Action Alert)") {
                     activityMonitor.isManualOverrideActive = true
                     let temp = activityMonitor.lastTemperatureCelsius ?? 86.0
