@@ -11,7 +11,7 @@ flowchart TD
     subgraph Layer1["1. Presentation & Overlay Layer (AppKit + SwiftUI)"]
         App["BitzApp & BitzAppDelegate"]
         Panel["MascotOverlayPanel (NSPanel)"]
-        View["MascotOverlayView (250x250 SwiftUI Canvas)"]
+        View["MascotOverlayView (250x250 SwiftUI Canvas + Speech Bubble)"]
     end
 
     subgraph Layer2["2. Reactive Domain & Animation Bridge"]
@@ -20,7 +20,15 @@ flowchart TD
         ProdRive["ProductionRiveController / SpyRiveController"]
     end
 
-    subgraph Layer3["3. Privacy-Safe System Telemetry"]
+    subgraph Layer3["3. AI Coding Agent Detection Subsystem"]
+        AgentMgr["AgentMonitorService (@MainActor ObservableObject)"]
+        ProcAdapt["ProcessAgentAdapter (AppKit + Darwin)"]
+        DropAdapt["DropboxAgentAdapter (FSEvents/DispatchSource)"]
+        AgyAdapt["AntigravityTranscriptAdapter (Transcript Stream)"]
+        LogAdapt["LogWatcherAgentAdapter (Log Keyword Stream)"]
+    end
+
+    subgraph Layer4["4. Privacy-Safe System Telemetry"]
         Monitor["ActivityMonitorService"]
         Telemetry["ActivityTelemetryProviding / SystemActivityTelemetryProvider"]
         OS["NSWorkspace + CGEventSource + ProcessInfo.ThermalState"]
@@ -29,11 +37,17 @@ flowchart TD
     App --> Panel
     Panel --> View
     View --> Engine
+    View --> AgentMgr
     App --> Engine
     App --> Monitor
+    App --> AgentMgr
     Monitor --> Engine
     Monitor --> Telemetry
     Telemetry --> OS
+    AgentMgr --> ProcAdapt
+    AgentMgr --> DropAdapt
+    AgentMgr --> AgyAdapt
+    AgentMgr --> LogAdapt
     Engine --> Seam
     Seam --> ProdRive
 ```
@@ -49,6 +63,9 @@ flowchart TD
 | **Mascot Canvas** | `src/Views/MascotOverlayView.swift` | `MascotOverlayView` | `250x250` base transparent SwiftUI canvas (scaled proportionally by `scaleStore.scaleFactor`) rendering Bitz's cyberpunk silhouette, state-reactive LED visor (`#00F0FF`, `#FF007F`, `#9D4EDD`, `#FFB000`, `#00FF88`, `#FF1E1E`), standby `"ZZZ"` badge, and `"SYSTEM HOT! > <"` thermal warning banner. |
 | **Domain & Rive Bridge** | `src/Services/WellnessPointEngine.swift` | `WellnessPointEngine`, `BitzState`, `BitzRiveControllable`, `ProductionRiveController`, `SpyRiveController` | Evaluates work ticks (`+0.5` / `-1.5`), offline break recovery (`+5.0` pts/min when `> 2.0` min), thermal overrides, and synchronizes Rive `BitzStateMachine` inputs (`speedMultiplier = 0.6` for `.charging`, `2.5` for `.overheating` with `isStandby = false`). Hardened against non-finite values and clock skew. |
 | **System Telemetry** | `src/Services/ActivityMonitorService.swift` | `ActivityMonitorService`, `ActivityTelemetryProviding`, `SystemActivityTelemetryProvider` | Polls active app bundle identifiers, user idle time (`CGEventSource`), browser tab metadata via single-lookup `activeBrowserTab()`, and thermal pressure (`ProcessInfo.ThermalState` / CPU temperature `> 80.0°C`) with coalesced timers and synchronous `MainActor.assumeIsolated` notification handling. |
+| **Agent Coordination** | `src/Services/AgentMonitorService.swift`, `src/Models/AgentModels.swift` | `AgentMonitorService`, `AgentDefinition`, `AgentEvent`, `AgentPopupState` | Central orchestrator for agent adapters, catalog persistence, and speech bubble display prioritization (giving `.needsApproval` and `.done` precedence over routine wellness text). |
+| **Agent Adapters** | `src/Services/DropboxAgentAdapter.swift`, `src/Services/AntigravityTranscriptAdapter.swift`, `src/Services/ProcessAgentAdapter.swift`, `src/Services/LogWatcherAgentAdapter.swift` | `DropboxAgentAdapter`, `AntigravityTranscriptAdapter`, `ProcessAgentAdapter`, `LogWatcherAgentAdapter` | Pluggable adapters monitoring drop-box JSON files (`FSEvents`), Antigravity session transcript streams, running processes, and keyword logs. |
+| **Agent Hook Installer** | `src/Services/AgentHookInstaller.swift` | `AgentHookInstaller` | Safe, reversible generator for Claude Code `Stop`/`PermissionRequest` hooks in `~/.claude/settings.json` and CLI scripts with automated backups. |
 
 ---
 

@@ -12,6 +12,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let scaleStore: AvatarScaleStore
     public let opacityStore: AvatarOpacityStore
     public let positionStore: AvatarPositionStore
+    public let agentMonitor: AgentMonitorService
     public private(set) var overlayPanel: MascotOverlayPanel?
 
     public override convenience init() {
@@ -38,6 +39,13 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.scaleStore = scaleStore
         self.opacityStore = opacityStore
         self.positionStore = positionStore
+
+        // Wire agent detection adapters
+        let processAdapter = ProcessAgentAdapter()
+        let dropboxAdapter = DropboxAgentAdapter()
+        let antigravityAdapter = AntigravityTranscriptAdapter()
+        self.agentMonitor = AgentMonitorService(adapters: [processAdapter, dropboxAdapter, antigravityAdapter])
+
         super.init()
 
         self.scaleStore.onScaleChanged = { [weak self] newScale in
@@ -52,10 +60,12 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         NSApp?.setActivationPolicy(.accessory)
         setupOverlayPanel()
         activityMonitor.startMonitoring()
+        agentMonitor.startMonitoring()
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
         activityMonitor.stopMonitoring()
+        agentMonitor.stopMonitoring()
         engine.persistState()
     }
 
@@ -63,7 +73,12 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     /// hosting `MascotOverlayView` at the user's persisted `scaleStore.scaleFactor`.
     public func setupOverlayPanel() {
         let panel = MascotOverlayPanel()
-        let rootView = MascotOverlayView(engine: engine, scaleStore: scaleStore, opacityStore: opacityStore)
+        let rootView = MascotOverlayView(
+            engine: engine,
+            scaleStore: scaleStore,
+            opacityStore: opacityStore,
+            agentMonitor: agentMonitor
+        )
         let hostingView = NSHostingView(rootView: rootView)
         let initialSize = MascotOverlayPanel.calculatePanelSize(for: CGFloat(scaleStore.scaleFactor))
         hostingView.frame = NSRect(origin: .zero, size: initialSize)
@@ -85,9 +100,13 @@ private struct BitzMenuBarContentView: View {
     @ObservedObject var scaleStore: AvatarScaleStore
     @ObservedObject var opacityStore: AvatarOpacityStore
     @ObservedObject var positionStore: AvatarPositionStore
+    @ObservedObject var agentMonitor: AgentMonitorService
 
     @AppStorage("enableManualStateOverrideMenu") private var showManualOverrideMenu: Bool = true
     @State private var launchAtLoginEnabled: Bool = (SMAppService.mainApp.status == .enabled)
+    @State private var newAgentName: String = ""
+    @State private var newAgentProcess: String = ""
+    @State private var hookActionMessage: String? = nil
 
     private var thermalStateLabel: String {
         switch activityMonitor.lastThermalState {
@@ -238,6 +257,83 @@ private struct BitzMenuBarContentView: View {
                 }
             }
 
+            Divider()
+            // AI Agents Submenu
+            Menu("AI Coding Agents (\(agentMonitor.activeAgents.count) Active)") {
+                Toggle("Show Agent Status Popups", isOn: $agentMonitor.popupsEnabled)
+
+                Divider()
+                Text("Monitored Agents:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                ForEach(agentMonitor.catalog) { agent in
+                    Toggle(agent.displayName, isOn: Binding(
+                        get: { agent.isEnabled },
+                        set: { isEnabled in
+                            agentMonitor.setAgentEnabled(id: agent.id, isEnabled: isEnabled)
+                        }
+                    ))
+                }
+
+                Divider()
+                Menu("Claude Code Hooks") {
+                    Button("Install Hook to ~/.claude/settings.json") {
+                        let path = ("~/.claude/settings.json" as NSString).expandingTildeInPath
+                        let url = URL(fileURLWithPath: path)
+                        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                        _ = try? AgentHookInstaller.backupFile(at: url)
+                        var existing: [String: Any] = [:]
+                        if let data = try? Data(contentsOf: url),
+                           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            existing = dict
+                        }
+                        var hooks = existing["hooks"] as? [String: Any] ?? [:]
+                        let snippet = AgentHookInstaller.claudeSettingsSnippet()
+                        if let newHooks = snippet["hooks"] as? [String: Any] {
+                            for (k, v) in newHooks { hooks[k] = v }
+                        }
+                        existing["hooks"] = hooks
+                        if let outData = try? JSONSerialization.data(withJSONObject: existing, options: .prettyPrinted) {
+                            do {
+                                try outData.write(to: url)
+                                hookActionMessage = "Claude Code hooks installed!"
+                            } catch {
+                                hookActionMessage = "Failed to save hooks: \(error.localizedDescription)"
+                            }
+                        }
+                    }
+
+                    Button("Uninstall Hook") {
+                        let path = ("~/.claude/settings.json" as NSString).expandingTildeInPath
+                        let url = URL(fileURLWithPath: path)
+                        _ = try? AgentHookInstaller.backupFile(at: url)
+                        if let data = try? Data(contentsOf: url),
+                           var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                           var hooks = dict["hooks"] as? [String: Any] {
+                            hooks.removeValue(forKey: "Stop")
+                            hooks.removeValue(forKey: "PermissionRequest")
+                            hooks.removeValue(forKey: "Notification")
+                            dict["hooks"] = hooks
+                            if let outData = try? JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted) {
+                                do {
+                                    try outData.write(to: url)
+                                    hookActionMessage = "Claude Code hooks uninstalled."
+                                } catch {
+                                    hookActionMessage = "Failed to uninstall: \(error.localizedDescription)"
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let msg = hookActionMessage {
+                    Text(msg)
+                        .font(.caption2)
+                        .foregroundStyle(.green)
+                }
+            }
+
             Toggle("Launch at Login", isOn: Binding(
                 get: { launchAtLoginEnabled },
                 set: { shouldEnable in
@@ -327,7 +423,8 @@ public struct BitzApp: App {
                 activityMonitor: appDelegate.activityMonitor,
                 scaleStore: appDelegate.scaleStore,
                 opacityStore: appDelegate.opacityStore,
-                positionStore: appDelegate.positionStore
+                positionStore: appDelegate.positionStore,
+                agentMonitor: appDelegate.agentMonitor
             )
         }
     }

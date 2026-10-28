@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BitzAgentDropboxEvent",
+  "description": "Schema for event payload files dropped into ~/Library/Application Support/Bitz/agent-events/",
+  "type": "object",
+  "required": ["agentID", "agentName", "kind", "timestamp"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Optional unique identifier for this event."
+    },
+    "agentID": {
+      "type": "string",
+      "description": "Unique identifier of the agent (e.g., 'claude', 'gemini', 'codex')."
+    },
+    "agentName": {
+      "type": "string",
+      "description": "Display name of the agent (e.g., 'Claude', 'Gemini')."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["started", "working", "needsApproval", "done"],
+      "description": "Lifecycle transition kind."
+    },
+    "message": {
+      "type": "string",
+      "description": "Contextual display text (e.g. 'Waiting for approval', 'All done')."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when the event was generated."
+    }
+  },
+  "additionalProperties": false
+}
