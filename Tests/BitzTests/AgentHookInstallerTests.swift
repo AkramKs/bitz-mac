@@ -294,4 +294,56 @@ final class AgentHookInstallerTests: XCTestCase {
         XCTAssertEqual(backups.count, 2)
         XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? Int, 0o600)
     }
+
+    func testFindFirstDuplicateKeyDirectly() {
+        let cases: [(String, String?)] = [
+            (#"{"a": 1, "a": 2}"#, "a"),
+            (#"{"a": 1, "b": 2}"#, nil),
+            (#"{"permissions": {"allow": ["Bash(ls:*)"]}, "permissions": {"deny": ["Read(./.env)"]}}"#, "permissions"),
+            (#"{"a": {"b": 1, "b": 2}}"#, "b"),
+            (#"{"a": {"x": 1}, "b": {"x": 2}}"#, nil),
+            (#"{"arr": ["x", "x"]}"#, nil),
+            (#"{"arr": [{"x": 1, "x": 2}]}"#, "x"),
+            (#"{"foo": "{\"foo\": 1, \"foo\": 2}"}"#, nil),
+            (#"{"escaped\"quote": 1, "escaped\"quote": 2}"#, "escaped\"quote"),
+            (#"{"\u0061": 1, "a": 2}"#, "a"),
+            (#"{}"#, nil),
+            (#"{"emptyArr": [], "emptyObj": {}}"#, nil)
+        ]
+
+        for (json, expected) in cases {
+            guard let data = json.data(using: .utf8) else {
+                XCTFail("Failed to convert \(json) to data")
+                continue
+            }
+            let duplicate = AgentHookInstaller.findFirstDuplicateKey(in: data)
+            XCTAssertEqual(duplicate, expected, "Failed for JSON: \(json)")
+        }
+    }
+
+    func testDuplicateKeySettingsAbortWithoutWriting() throws {
+        let file = tempDir.appendingPathComponent("settings.json")
+        let duplicateSamples = [
+            #"{"permissions": {"allow": ["Bash(ls:*)"]}, "permissions": {"deny": ["Read(./.env)"]}}"#,
+            #"{"hooks": {"Stop": [], "Stop": []}}"#,
+            #"{"arr": [{"key": 1, "key": 2}]}"#,
+            #"{"nested": {"foo": 1, "foo": 2}}"#,
+            #"{"escaped\"key": 1, "escaped\"key": 2}"#,
+            #"{"\u0061": 1, "a": 2}"#
+        ]
+
+        for original in duplicateSamples {
+            try original.write(to: file, atomically: true, encoding: .utf8)
+
+            for transform in [AgentHookInstaller.installClaudeHooks, AgentHookInstaller.uninstallClaudeHooks] {
+                XCTAssertThrowsError(try AgentHookInstaller.updateSettingsFile(at: file, transform), original) { error in
+                    XCTAssertTrue(error.localizedDescription.contains("settings.json"), error.localizedDescription)
+                    XCTAssertTrue(error.localizedDescription.contains("duplicate key"), error.localizedDescription)
+                }
+            }
+            XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), original)
+        }
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: tempDir.path), ["settings.json"])
+    }
 }

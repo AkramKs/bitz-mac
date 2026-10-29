@@ -103,6 +103,9 @@ public struct AgentHookInstaller {
             guard let object = parsed as? [String: Any] else {
                 throw SettingsFormatError(errorDescription: "\(url.lastPathComponent) isn't a JSON object, so nothing was changed. Fix or remove it and try again.")
             }
+            if let duplicateKey = findFirstDuplicateKey(in: data) {
+                throw SettingsFormatError(errorDescription: "\(url.lastPathComponent) contains duplicate key \"\(duplicateKey)\", so nothing was changed. Fix or remove it and try again.")
+            }
             settings = object
         }
         let updated = try transform(settings)
@@ -156,6 +159,72 @@ public struct AgentHookInstaller {
 
     private static func groupHasBitzCommand(_ entry: Any) -> Bool {
         ((entry as? [String: Any])?["hooks"] as? [Any])?.contains(where: isBitzCommand) ?? false
+    }
+
+    /// Scans raw JSON data for duplicate keys within any JSON object scope.
+    /// Returns the first duplicate key found, or nil if all object keys are unique.
+    public static func findFirstDuplicateKey(in data: Data) -> String? {
+        enum Container {
+            case object(keys: Set<String>, expectingKey: Bool)
+            case array
+        }
+
+        let bytes = Array(data)
+        var stack: [Container] = []
+        var i = 0
+
+        while i < bytes.count {
+            let b = bytes[i]
+            switch b {
+            case 0x7B: // "{"
+                stack.append(.object(keys: [], expectingKey: true))
+                i += 1
+            case 0x7D: // "}"
+                if !stack.isEmpty { stack.removeLast() }
+                i += 1
+            case 0x5B: // "["
+                stack.append(.array)
+                i += 1
+            case 0x5D: // "]"
+                if !stack.isEmpty { stack.removeLast() }
+                i += 1
+            case 0x2C: // ","
+                if case .object(let keys, _) = stack.last {
+                    stack[stack.count - 1] = .object(keys: keys, expectingKey: true)
+                }
+                i += 1
+            case 0x22: // "\""
+                var j = i + 1
+                while j < bytes.count {
+                    if bytes[j] == 0x5C { // "\"
+                        j += 2
+                    } else if bytes[j] == 0x22 {
+                        break
+                    } else {
+                        j += 1
+                    }
+                }
+                guard j < bytes.count else { return nil }
+
+                let stringData = data.subdata(in: (data.startIndex + i)..<(data.startIndex + j + 1))
+                let str = (try? JSONSerialization.jsonObject(with: stringData, options: .fragmentsAllowed) as? String)
+                    ?? String(decoding: bytes[(i + 1)..<j], as: UTF8.self)
+
+                if case .object(var keys, let expectingKey) = stack.last {
+                    if expectingKey {
+                        if keys.contains(str) {
+                            return str
+                        }
+                        keys.insert(str)
+                        stack[stack.count - 1] = .object(keys: keys, expectingKey: false)
+                    }
+                }
+                i = j + 1
+            default:
+                i += 1
+            }
+        }
+        return nil
     }
 
     /// Backs up a target file before modification.
