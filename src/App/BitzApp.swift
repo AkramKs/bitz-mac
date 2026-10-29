@@ -12,8 +12,14 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let scaleStore: AvatarScaleStore
     public let opacityStore: AvatarOpacityStore
     public let positionStore: AvatarPositionStore
+    public let displayStore: DisplayPreferenceStore
     public let agentMonitor: AgentMonitorService
-    public private(set) var overlayPanel: MascotOverlayPanel?
+    public private(set) var overlayPanels: [MascotOverlayPanel] = []
+    public var overlayPanel: MascotOverlayPanel? { overlayPanels.first }
+
+    nonisolated(unsafe) private var screenParametersObserverToken: (any NSObjectProtocol)?
+    nonisolated(unsafe) private var appActivationObserverToken: (any NSObjectProtocol)?
+    private var screenReconfigTask: Task<Void, Never>?
 
     public override convenience init() {
         self.init(
@@ -21,7 +27,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             telemetryProvider: SystemActivityTelemetryProvider(),
             scaleStore: AvatarScaleStore(),
             opacityStore: AvatarOpacityStore(),
-            positionStore: AvatarPositionStore()
+            positionStore: AvatarPositionStore(),
+            displayStore: DisplayPreferenceStore()
         )
     }
 
@@ -31,6 +38,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         scaleStore: AvatarScaleStore = AvatarScaleStore(),
         opacityStore: AvatarOpacityStore = AvatarOpacityStore(),
         positionStore: AvatarPositionStore = AvatarPositionStore(),
+        displayStore: DisplayPreferenceStore = DisplayPreferenceStore(),
         userDefaults: UserDefaults = .standard
     ) {
         self.riveController = riveController
@@ -39,6 +47,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.scaleStore = scaleStore
         self.opacityStore = opacityStore
         self.positionStore = positionStore
+        self.displayStore = displayStore
 
         // Wire agent detection adapters
         let processAdapter = ProcessAgentAdapter()
@@ -49,10 +58,44 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         super.init()
 
         self.scaleStore.onScaleChanged = { [weak self] newScale in
-            self?.overlayPanel?.applyScaleFactor(newScale)
+            self?.overlayPanels.forEach { $0.applyScaleFactor(newScale) }
         }
         self.positionStore.onCornerChanged = { [weak self] newCorner in
-            self?.overlayPanel?.applyCornerAnchor(newCorner)
+            self?.overlayPanels.forEach { $0.applyCornerAnchor(newCorner) }
+        }
+        self.displayStore.onDisplayPreferenceChanged = { [weak self] in
+            self?.syncOverlayPanels()
+        }
+
+        self.screenParametersObserverToken = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleScreenParametersChangedDebounced()
+            }
+        }
+
+        self.appActivationObserverToken = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.displayStore.targetMode == .followActive else { return }
+                self.syncOverlayPanels()
+            }
+        }
+    }
+
+    deinit {
+        screenReconfigTask?.cancel()
+        if let token = screenParametersObserverToken {
+            NotificationCenter.default.removeObserver(token)
+        }
+        if let token = appActivationObserverToken {
+            NSWorkspace.shared.notificationCenter.removeObserver(token)
         }
     }
 
@@ -69,9 +112,66 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         engine.persistState()
     }
 
-    /// Instantiates and positions the borderless, click-through `MascotOverlayPanel`
-    /// hosting `MascotOverlayView` at the user's persisted `scaleStore.scaleFactor`.
+    /// Instantiates and positions the borderless, click-through `MascotOverlayPanel`(s)
+    /// hosting `MascotOverlayView` according to the active `displayStore.targetMode`.
     public func setupOverlayPanel() {
+        syncOverlayPanels()
+    }
+
+    /// Synchronizes overlay panels across screens based on `displayStore.targetMode`.
+    public func syncOverlayPanels() {
+        displayStore.refreshConnectedScreens()
+
+        if displayStore.targetMode == .allDisplays {
+            let screens = NSScreen.screens
+            while overlayPanels.count > screens.count {
+                let panel = overlayPanels.removeLast()
+                panel.orderOut(nil)
+            }
+            for (index, screen) in screens.enumerated() {
+                let panel: MascotOverlayPanel
+                if index < overlayPanels.count {
+                    panel = overlayPanels[index]
+                } else {
+                    panel = createConfiguredPanel()
+                    overlayPanels.append(panel)
+                }
+                panel.assignedScreen = screen
+                panel.applyScaleFactor(CGFloat(scaleStore.scaleFactor), on: screen)
+                panel.applyCornerAnchor(positionStore.cornerAnchor, on: screen)
+                panel.orderFrontRegardless()
+            }
+        } else {
+            let targetScreen = displayStore.resolveScreen()
+            while overlayPanels.count > 1 {
+                let panel = overlayPanels.removeLast()
+                panel.orderOut(nil)
+            }
+            let panel: MascotOverlayPanel
+            if let existing = overlayPanels.first {
+                panel = existing
+            } else {
+                panel = createConfiguredPanel()
+                overlayPanels.append(panel)
+            }
+            panel.assignedScreen = targetScreen
+            panel.applyScaleFactor(CGFloat(scaleStore.scaleFactor), on: targetScreen)
+            panel.applyCornerAnchor(positionStore.cornerAnchor, on: targetScreen)
+            panel.orderFrontRegardless()
+        }
+    }
+
+    /// Debounces display change notifications to prevent stutter and layout flashes.
+    public func handleScreenParametersChangedDebounced() {
+        screenReconfigTask?.cancel()
+        screenReconfigTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            self?.syncOverlayPanels()
+        }
+    }
+
+    private func createConfiguredPanel() -> MascotOverlayPanel {
         let panel = MascotOverlayPanel()
         let rootView = MascotOverlayView(
             engine: engine,
@@ -83,11 +183,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         let initialSize = MascotOverlayPanel.calculatePanelSize(for: CGFloat(scaleStore.scaleFactor))
         hostingView.frame = NSRect(origin: .zero, size: initialSize)
         panel.contentView = hostingView
-        panel.applyScaleFactor(CGFloat(scaleStore.scaleFactor))
-        panel.applyCornerAnchor(positionStore.cornerAnchor)
-        panel.repositionOnScreen()
-        panel.orderFrontRegardless()
-        self.overlayPanel = panel
+        return panel
     }
 }
 
@@ -100,6 +196,7 @@ private struct BitzMenuBarContentView: View {
     @ObservedObject var scaleStore: AvatarScaleStore
     @ObservedObject var opacityStore: AvatarOpacityStore
     @ObservedObject var positionStore: AvatarPositionStore
+    @ObservedObject var displayStore: DisplayPreferenceStore
     @ObservedObject var agentMonitor: AgentMonitorService
 
     @AppStorage("enableManualStateOverrideMenu") private var showManualOverrideMenu: Bool = true
@@ -258,6 +355,36 @@ private struct BitzMenuBarContentView: View {
             }
 
             Divider()
+            // Display & Multi-Monitor Placement Controls
+            Menu("Display: \(displayStore.summaryTitle)") {
+                Button(displayStore.targetMode == .primary ? "✓ Primary Screen" : "Primary Screen") {
+                    displayStore.selectMode(.primary)
+                }
+
+                Button(displayStore.targetMode == .followActive ? "✓ Follow Active Screen" : "Follow Active Screen") {
+                    displayStore.selectMode(.followActive)
+                }
+
+                Button(displayStore.targetMode == .allDisplays ? "✓ All Screens" : "All Screens") {
+                    displayStore.selectMode(.allDisplays)
+                }
+
+                if !displayStore.connectedScreens.isEmpty {
+                    Divider()
+                    Text("Connected Displays:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    ForEach(displayStore.connectedScreens) { screen in
+                        let isSelected = (displayStore.targetMode == .specific && displayStore.targetDisplayID == screen.id)
+                        Button(isSelected ? "✓ \(screen.name)" : screen.name) {
+                            displayStore.selectSpecificDisplay(id: screen.id, name: screen.name)
+                        }
+                    }
+                }
+            }
+
+            Divider()
             // AI Agents Submenu
             Menu("AI Coding Agents (\(agentMonitor.activeAgents.count) Active)") {
                 Toggle("Show Agent Status Popups", isOn: $agentMonitor.popupsEnabled)
@@ -396,6 +523,7 @@ public struct BitzApp: App {
                 scaleStore: appDelegate.scaleStore,
                 opacityStore: appDelegate.opacityStore,
                 positionStore: appDelegate.positionStore,
+                displayStore: appDelegate.displayStore,
                 agentMonitor: appDelegate.agentMonitor
             )
         }
