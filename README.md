@@ -15,6 +15,41 @@
 
 ---
 
+## 🚀 Quick Install
+
+### Install via Homebrew (Recommended)
+
+Install Bitz with a single command via [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask akramks/tap/bitz
+```
+
+Or tap and install:
+
+```bash
+brew tap akramks/tap
+brew install --cask bitz
+```
+
+To update Bitz in the future:
+```bash
+brew upgrade --cask bitz
+```
+
+### Direct Download (.DMG)
+
+1. Download the latest `Bitz.dmg` from the [GitHub Releases](https://github.com/AkramKs/bitz-mac/releases/latest) page.
+2. Open `Bitz.dmg` and drag `Bitz.app` into your **Applications** folder.
+3. Launch `Bitz.app` from `/Applications` or Spotlight (`Cmd + Space`).
+
+> **Note on macOS Gatekeeper**: Because Bitz is distributed outside the Mac App Store and built open-source without an Apple Developer ID certificate, macOS may show a prompt on first open. Simply right-click (or Control-click) `Bitz.app` in `/Applications` and select **Open**, or run:
+> ```bash
+> xattr -cr /Applications/Bitz.app
+> ```
+
+---
+
 ## ✨ Key Features
 
 - **100% Click-Through Desktop Overlay (`MascotOverlayPanel`)**
@@ -160,50 +195,13 @@ Any third-party script or agent can trigger Bitz speech bubbles by dropping a `.
 
 ---
 
-## 🚀 Installation & Getting Started
+## 🛠️ Build from Source & Local Development
 
-### Install via Homebrew (Recommended)
-
-Install Bitz with a single command via [Homebrew](https://brew.sh):
-
-```bash
-brew install --cask akramks/tap/bitz
-```
-
-Or add the tap first and install:
-
-```bash
-brew tap akramks/tap
-brew install --cask bitz
-```
-
-To update Bitz in the future:
-```bash
-brew upgrade --cask bitz
-```
-
----
-
-### Direct Download (.DMG)
-
-1. Download the latest `Bitz.dmg` from the [GitHub Releases](https://github.com/AkramKs/bitz-mac/releases/latest) page.
-2. Open `Bitz.dmg` and drag `Bitz.app` into your **Applications** folder.
-3. Launch `Bitz.app` from `/Applications` or Spotlight (`Cmd + Space`).
-
-> **Note on macOS Gatekeeper**: Because Bitz is distributed outside the Mac App Store and built open-source without an Apple Developer ID certificate, macOS may show a prompt on first open. Simply right-click (or Control-click) `Bitz.app` in `/Applications` and select **Open**, or run:
-> ```bash
-> xattr -cr /Applications/Bitz.app
-> ```
-
----
-
-### Build from Source
-
-#### Requirements
+### Requirements
 - **macOS 14.0 (Sonoma)** or later (Apple Silicon recommended for on-die `IOHIDEventSystemClient` temperature sensors)
 - **Xcode 15.4+** / Xcode Command Line Tools (`/usr/bin/swift`)
 
-#### 1. Build, Package & Launch `Bitz.app`
+### 1. Build, Package & Launch `Bitz.app`
 Run the included packaging script to compile the executable, bundle `build/Bitz.app` with its `LSUIElement` `Info.plist`, ad-hoc sign it, and launch it:
 
 ```bash
