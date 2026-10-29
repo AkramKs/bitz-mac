@@ -19,36 +19,108 @@ public enum ScreenCornerAnchor: String, CaseIterable, Sendable {
     }
 }
 
+/// Mascot positioning mode: either locked to a predefined screen corner or placed freeform.
+public enum MascotPositionMode: Equatable, Sendable {
+    case corner(ScreenCornerAnchor)
+    case freeform(x: CGFloat, y: CGFloat)
+}
+
 /// `@MainActor` observable store managing the user's selected screen corner anchor,
-/// notification callbacks, and `UserDefaults` persistence (`"avatarCornerAnchor"`).
+/// freeform drag-and-drop position coordinates, interactivity toggles, and `UserDefaults` persistence.
 @MainActor
 public final class AvatarPositionStore: ObservableObject {
     public static let defaultCorner: ScreenCornerAnchor = .bottomRight
     public static let userDefaultsKey: String = "avatarCornerAnchor"
+    public static let isFreeformKey: String = "avatarIsFreeformMode"
+    public static let customPositionXKey: String = "avatarCustomPositionX"
+    public static let customPositionYKey: String = "avatarCustomPositionY"
 
+    @Published public private(set) var positionMode: MascotPositionMode
     @Published public private(set) var cornerAnchor: ScreenCornerAnchor
+    @Published public private(set) var customOrigin: NSPoint?
+    @Published public var isPositionUnlocked: Bool = false
+    @Published public var isModifierHeld: Bool = false
+    @Published public var isDragging: Bool = false
+
     private let userDefaults: UserDefaults
+
     public var onCornerChanged: ((ScreenCornerAnchor) -> Void)?
+    public var onCustomPositionChanged: ((NSPoint) -> Void)?
+    public var onPositionModeChanged: ((MascotPositionMode) -> Void)?
+    public var onInteractivityToggled: ((Bool) -> Void)?
+
+    public var isInteractivityEnabled: Bool {
+        isPositionUnlocked || isModifierHeld
+    }
+
+    public var isFreeform: Bool {
+        if case .freeform = positionMode { return true }
+        return false
+    }
+
+    public var formattedPositionSummary: String {
+        isFreeform ? "Freeform (Custom)" : cornerAnchor.menuTitle
+    }
 
     public init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
-        if let raw = userDefaults.string(forKey: Self.userDefaultsKey),
-           let anchor = ScreenCornerAnchor(rawValue: raw) {
-            self.cornerAnchor = anchor
+
+        let storedCornerRaw = userDefaults.string(forKey: Self.userDefaultsKey)
+        let resolvedCorner = storedCornerRaw.flatMap { ScreenCornerAnchor(rawValue: $0) } ?? Self.defaultCorner
+        self.cornerAnchor = resolvedCorner
+
+        let isFreeform = userDefaults.bool(forKey: Self.isFreeformKey)
+        let storedX = userDefaults.object(forKey: Self.customPositionXKey) as? Double
+        let storedY = userDefaults.object(forKey: Self.customPositionYKey) as? Double
+
+        if isFreeform, let storedX, let storedY {
+            let point = NSPoint(x: CGFloat(storedX), y: CGFloat(storedY))
+            self.customOrigin = point
+            self.positionMode = .freeform(x: CGFloat(storedX), y: CGFloat(storedY))
         } else {
-            self.cornerAnchor = Self.defaultCorner
-            userDefaults.set(Self.defaultCorner.rawValue, forKey: Self.userDefaultsKey)
+            self.customOrigin = nil
+            self.positionMode = .corner(resolvedCorner)
+            userDefaults.set(resolvedCorner.rawValue, forKey: Self.userDefaultsKey)
         }
     }
 
     public func selectCorner(_ corner: ScreenCornerAnchor) {
+        positionMode = .corner(corner)
         cornerAnchor = corner
+        customOrigin = nil
         userDefaults.set(corner.rawValue, forKey: Self.userDefaultsKey)
+        userDefaults.set(false, forKey: Self.isFreeformKey)
         onCornerChanged?(corner)
+        onPositionModeChanged?(positionMode)
+    }
+
+    public func setCustomPosition(_ point: NSPoint) {
+        positionMode = .freeform(x: point.x, y: point.y)
+        customOrigin = point
+        userDefaults.set(true, forKey: Self.isFreeformKey)
+        userDefaults.set(Double(point.x), forKey: Self.customPositionXKey)
+        userDefaults.set(Double(point.y), forKey: Self.customPositionYKey)
+        onCustomPositionChanged?(point)
+        onPositionModeChanged?(positionMode)
+    }
+
+    public func resetToDefaultCorner() {
+        selectCorner(Self.defaultCorner)
     }
 
     public func isCornerSelected(_ corner: ScreenCornerAnchor) -> Bool {
-        cornerAnchor == corner
+        !isFreeform && cornerAnchor == corner
+    }
+
+    public func togglePositionLock() {
+        isPositionUnlocked.toggle()
+        onInteractivityToggled?(isInteractivityEnabled)
+    }
+
+    public func setModifierHeld(_ held: Bool) {
+        guard isModifierHeld != held else { return }
+        isModifierHeld = held
+        onInteractivityToggled?(isInteractivityEnabled)
     }
 }
 
@@ -308,6 +380,7 @@ public final class MascotOverlayPanel: NSPanel {
 
     public private(set) var currentScaleFactor: CGFloat = CGFloat(AvatarScaleStore.defaultScaleFactor)
     public private(set) var currentCornerAnchor: ScreenCornerAnchor = .bottomRight
+    public private(set) var customOrigin: NSPoint?
     public var assignedScreen: NSScreen?
     public var debounceInterval: TimeInterval = 0.25
     private var screenReconfigTask: Task<Void, Never>?
@@ -325,6 +398,15 @@ public final class MascotOverlayPanel: NSPanel {
             backing: .buffered,
             defer: false
         )
+
+        let isFreeform = UserDefaults.standard.bool(forKey: AvatarPositionStore.isFreeformKey)
+        let storedX = UserDefaults.standard.object(forKey: AvatarPositionStore.customPositionXKey) as? Double
+        let storedY = UserDefaults.standard.object(forKey: AvatarPositionStore.customPositionYKey) as? Double
+        if isFreeform, let storedX, let storedY {
+            self.customOrigin = NSPoint(x: CGFloat(storedX), y: CGFloat(storedY))
+        } else {
+            self.customOrigin = nil
+        }
 
         if let rawCorner = UserDefaults.standard.string(forKey: Self.cornerAnchorUserDefaultsKey),
            let anchor = ScreenCornerAnchor(rawValue: rawCorner) {
@@ -394,6 +476,52 @@ public final class MascotOverlayPanel: NSPanel {
         return NSSize(width: side, height: side)
     }
 
+    /// Constrains `origin` so the panel stays strictly inside `visibleFrame`,
+    /// with magnetic edge snapping within `snapThreshold` of screen edges and standard margins.
+    public static func clampOriginToVisibleFrame(
+        _ origin: NSPoint,
+        panelSize: NSSize,
+        visibleFrame: NSRect,
+        snapThreshold: CGFloat = 20.0,
+        margin: CGFloat = 20.0
+    ) -> NSPoint {
+        let minX = visibleFrame.minX
+        let maxX = max(minX, visibleFrame.maxX - panelSize.width)
+        let minY = visibleFrame.minY
+        let maxY = max(minY, visibleFrame.maxY - panelSize.height)
+
+        var clampedX = min(max(origin.x, minX), maxX)
+        var clampedY = min(max(origin.y, minY), maxY)
+
+        // Magnetic edge snapping for horizontal axis (with margin or directly against edge)
+        if abs(clampedX - (minX + margin)) <= snapThreshold {
+            clampedX = minX + margin
+        } else if abs(clampedX - (maxX - margin)) <= snapThreshold {
+            clampedX = maxX - margin
+        } else if abs(clampedX - minX) <= snapThreshold {
+            clampedX = minX
+        } else if abs(clampedX - maxX) <= snapThreshold {
+            clampedX = maxX
+        }
+
+        // Magnetic edge snapping for vertical axis (with margin or directly against edge)
+        if abs(clampedY - (minY + margin)) <= snapThreshold {
+            clampedY = minY + margin
+        } else if abs(clampedY - (maxY - margin)) <= snapThreshold {
+            clampedY = maxY - margin
+        } else if abs(clampedY - minY) <= snapThreshold {
+            clampedY = minY
+        } else if abs(clampedY - maxY) <= snapThreshold {
+            clampedY = maxY
+        }
+
+        // Guarantee final snapped point never overflows screen visibleFrame
+        clampedX = min(max(clampedX, minX), maxX)
+        clampedY = min(max(clampedY, minY), maxY)
+
+        return NSPoint(x: clampedX, y: clampedY)
+    }
+
     /// Computes the origin for the requested corner anchor within the given screen `visibleFrame`.
     public static func calculateOrigin(
         for visibleFrame: NSRect,
@@ -430,15 +558,26 @@ public final class MascotOverlayPanel: NSPanel {
         repositionOnScreen(of: screen)
     }
 
-    /// Updates `currentCornerAnchor`, persists to `UserDefaults`, and re-anchors the panel on `screen`.
+    /// Updates `currentCornerAnchor`, clears custom freeform position, persists to `UserDefaults`, and re-anchors the panel on `screen`.
     public func applyCornerAnchor(_ corner: ScreenCornerAnchor, on screen: NSScreen? = NSScreen.main) {
+        self.customOrigin = nil
         self.currentCornerAnchor = corner
         UserDefaults.standard.set(corner.rawValue, forKey: Self.cornerAnchorUserDefaultsKey)
+        UserDefaults.standard.set(false, forKey: AvatarPositionStore.isFreeformKey)
+        repositionOnScreen(of: screen)
+    }
+
+    /// Sets custom freeform origin, updates assigned screen if provided, and repositions the panel.
+    public func applyCustomOrigin(_ origin: NSPoint, on screen: NSScreen? = nil) {
+        self.customOrigin = origin
+        if let screen {
+            self.assignedScreen = screen
+        }
         repositionOnScreen(of: screen)
     }
 
     /// Repositions the panel on the specified `screen` (defaulting to assigned screen, current screen, or `NSScreen.main`)
-    /// using the active `currentScaleFactor` and `currentCornerAnchor`.
+    /// using either `customOrigin` (if freeform placement is active) or `currentCornerAnchor`.
     public func repositionOnScreen(of screen: NSScreen? = nil) {
         if let screen {
             self.assignedScreen = screen
@@ -446,7 +585,14 @@ public final class MascotOverlayPanel: NSPanel {
         let activeScreen = screen ?? assignedScreen ?? self.screen ?? NSScreen.main
         let targetFrame = activeScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let scaledSize = Self.calculatePanelSize(for: currentScaleFactor, visibleFrame: targetFrame)
-        let origin = Self.calculateOrigin(for: targetFrame, panelSize: scaledSize, corner: currentCornerAnchor)
+
+        let origin: NSPoint
+        if let customOrigin {
+            origin = Self.clampOriginToVisibleFrame(customOrigin, panelSize: scaledSize, visibleFrame: targetFrame)
+        } else {
+            origin = Self.calculateOrigin(for: targetFrame, panelSize: scaledSize, corner: currentCornerAnchor)
+        }
+
         contentView?.frame = NSRect(origin: .zero, size: scaledSize)
         contentView?.needsDisplay = true
         setFrame(NSRect(origin: origin, size: scaledSize), display: true)
