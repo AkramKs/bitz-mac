@@ -1,6 +1,8 @@
 {
+  "accept_commit": "925d1a40a4b49e1fce856230e7ef07d73e6b48f3",
   "acceptance_history": [
     {
+      "accept_commit": "925d1a40a4b49e1fce856230e7ef07d73e6b48f3",
       "acceptance_mode": "pr",
       "accepted_at": "2026-10-29T14:07:00.646917+00:00",
       "accepted_by": "akramkasimi",
