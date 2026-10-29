@@ -62,6 +62,13 @@ public protocol TelemetryDataProviding: Sendable {
     func fetchNetworkTelemetry(elapsedSeconds: Double) -> NetworkTelemetry
     func fetchBatteryTelemetry() -> BatteryTelemetry?
     func fetchDisplayTelemetry() -> DisplayTelemetry?
+    func fetchDisplayFPSTelemetry(screen: NSScreen?) -> FPSTelemetry
+}
+
+extension TelemetryDataProviding {
+    public func fetchDisplayFPSTelemetry(screen: NSScreen? = nil) -> FPSTelemetry {
+        FPSTelemetry(currentFPS: 60.0, targetFPS: 60.0)
+    }
 }
 
 // MARK: - Production macOS Telemetry Data Provider
@@ -199,11 +206,20 @@ public final class SystemTelemetryDataProvider: TelemetryDataProviding, @uncheck
 
     public func fetchDisplayTelemetry() -> DisplayTelemetry? {
         guard let screen = NSScreen.main else { return nil }
-        let name = screen.localizedName
+        let name = screen.localizedName.isEmpty ? "Display" : screen.localizedName
         let frame = screen.frame
         let resolution = "\(Int(frame.width))×\(Int(frame.height))"
         let refreshRate = screen.maximumFramesPerSecond > 0 ? Double(screen.maximumFramesPerSecond) : 60.0
         return DisplayTelemetry(name: name, resolution: resolution, refreshRate: refreshRate)
+    }
+
+    public func fetchDisplayFPSTelemetry(screen: NSScreen? = nil) -> FPSTelemetry {
+        guard let s = screen ?? NSScreen.main else {
+            return FPSTelemetry(currentFPS: 60.0, targetFPS: 60.0, screenName: "Display")
+        }
+        let fps = s.maximumFramesPerSecond > 0 ? Double(s.maximumFramesPerSecond) : 60.0
+        let name = s.localizedName.isEmpty ? "Display" : s.localizedName
+        return FPSTelemetry(currentFPS: fps, targetFPS: fps, screenName: name)
     }
 }
 
@@ -335,6 +351,7 @@ public final class TelemetryDashboardService: ObservableObject {
     private weak var agentMonitor: AgentMonitorService?
     private weak var activityMonitor: ActivityMonitorService?
     private weak var engine: WellnessPointEngine?
+    private weak var displayStore: DisplayPreferenceStore?
 
     private var sampleTask: Task<Void, Never>?
     private var carouselTask: Task<Void, Never>?
@@ -390,6 +407,8 @@ public final class TelemetryDashboardService: ObservableObject {
     }
 
     deinit {
+        sampleTask?.cancel()
+        carouselTask?.cancel()
         if let o = menuBeginTrackingObserver {
             NotificationCenter.default.removeObserver(o)
         }
@@ -401,11 +420,13 @@ public final class TelemetryDashboardService: ObservableObject {
     public func bindDependencies(
         agentMonitor: AgentMonitorService,
         activityMonitor: ActivityMonitorService,
-        engine: WellnessPointEngine
+        engine: WellnessPointEngine,
+        displayStore: DisplayPreferenceStore? = nil
     ) {
         self.agentMonitor = agentMonitor
         self.activityMonitor = activityMonitor
         self.engine = engine
+        self.displayStore = displayStore
     }
 
     public func start() {
@@ -493,8 +514,9 @@ public final class TelemetryDashboardService: ObservableObject {
             provider.fetchBatteryTelemetry()
         }.value
 
+        let currentScreen = displayStore?.resolveScreen() ?? NSScreen.main
         let disp = provider.fetchDisplayTelemetry()
-        let fps = fpsTracker.snapshot()
+        let fps = provider.fetchDisplayFPSTelemetry(screen: currentScreen)
 
         // Gather agent metrics from bound AgentMonitorService
         let activeAgentIDs = agentMonitor?.activeAgents ?? []

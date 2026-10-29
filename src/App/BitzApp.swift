@@ -77,7 +77,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.telemetryDashboard.bindDependencies(
             agentMonitor: self.agentMonitor,
             activityMonitor: self.activityMonitor,
-            engine: self.engine
+            engine: self.engine,
+            displayStore: self.displayStore
         )
 
         super.init()
@@ -609,7 +610,7 @@ struct BitzMenuBarContentView: View {
 
             if telemetrySettings.isMetricEnabled(.fps) {
                 let fps = telemetryDashboard.snapshot.fps
-                Text("🐾 Mascot FPS: \(fps.formattedSummary)")
+                Text("🖥️ Screen FPS: \(fps.formattedSummary)")
             }
 
             if telemetrySettings.isMetricEnabled(.cpu) {
