@@ -207,6 +207,9 @@ public final class AppleSiliconHardwareSensors {
 /// without requiring Accessibility or AppleEvents permissions.
 @MainActor
 public enum BrowserTabTelemetryReader {
+    /// Cached chromium browser profile folder names to avoid repeated array allocation during fast path sampling.
+    private static let chromiumProfileCandidates: [String] = ["Default", "Profile 1", "Profile 2", "Profile 3", ""]
+
     /// Decompresses a Mozilla `mozLz40\0` LZ4 block into raw JSON `Data`.
     public static func decompressMozLZ4(_ data: Data) -> Data? {
         guard data.count > 12 else { return nil }
@@ -405,8 +408,7 @@ public enum BrowserTabTelemetryReader {
 
         for rel in relativeBaseDirs {
             let baseDir = appSupport.appendingPathComponent(rel)
-            let profileCandidates = ["Default", "Profile 1", "Profile 2", "Profile 3", ""]
-            for prof in profileCandidates {
+            for prof in chromiumProfileCandidates {
                 let sessionsDir = prof.isEmpty
                     ? baseDir.appendingPathComponent("Sessions")
                     : baseDir.appendingPathComponent(prof).appendingPathComponent("Sessions")
@@ -755,6 +757,12 @@ public final class ActivityMonitorService: ObservableObject {
         "zoom.xos", "microsoft.teams", "slack", "webex", "facetime"
     ]
 
+    /// Browser tab title keywords indicating a streaming or social media distraction.
+    private static let dopamineTitleKeywords: [String] = [
+        "youtube", "netflix", "twitch", "disney+", "prime video",
+        "instagram", "facebook", "tiktok", "reddit"
+    ]
+
     public let engine: WellnessPointEngine
     public let telemetry: ActivityTelemetryProviding
     public let productiveBundleIDs: Set<String>
@@ -851,8 +859,7 @@ public final class ActivityMonitorService: ObservableObject {
             }
         }
         if let title = title?.lowercased() {
-            let titleKeywords = ["youtube", "netflix", "twitch", "disney+", "prime video", "instagram", "facebook", "tiktok", "reddit"]
-            if titleKeywords.contains(where: { title.contains($0) }) {
+            if ActivityMonitorService.dopamineTitleKeywords.contains(where: { title.contains($0) }) {
                 return true
             }
         }
