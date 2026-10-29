@@ -456,19 +456,21 @@ public struct MascotOverlayView: View {
                     let hudBorderColor = hasWarning ? Color.orange : visorColor
 
                     Text(hudText)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
                         .foregroundStyle(hudBorderColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
                         .background(
-                            Capsule()
-                                .fill(Color(red: 0.06, green: 0.06, blue: 0.08).opacity(0.88))
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(Color(red: 0.05, green: 0.06, blue: 0.08).opacity(0.92))
                         )
                         .overlay(
-                            Capsule()
-                                .stroke(hudBorderColor.opacity(hasWarning ? 0.9 : 0.6), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 7)
+                                .stroke(hudBorderColor.opacity(hasWarning ? 0.95 : 0.65), lineWidth: 1.2)
                         )
-                        .shadow(color: hudBorderColor.opacity(0.4), radius: 4)
+                        .shadow(color: hudBorderColor.opacity(0.35), radius: 5)
                         .padding(.bottom, 4)
                         .opacity(max(0.6, opacityStore.opacityFactor))
                 } else {
