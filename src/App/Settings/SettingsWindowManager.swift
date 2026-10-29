@@ -36,11 +36,12 @@ public final class SettingsWindowManager: NSObject, ObservableObject, NSWindowDe
 
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 500),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 680, height: 580),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
+        window.minSize = NSSize(width: 640, height: 520)
         window.center()
         window.title = "Bitz Settings"
         window.contentViewController = hostingController
