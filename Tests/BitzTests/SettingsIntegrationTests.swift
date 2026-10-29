@@ -6,14 +6,9 @@ import XCTest
 @MainActor
 final class SettingsIntegrationTests: XCTestCase {
 
-    override func tearDown() async throws {
-        await MainActor.run {
-            SettingsWindowManager.shared.closeSettingsWindow()
-        }
-        try await super.tearDown()
-    }
-
     func testSettingsWindowCreationAndOverlayPanelInvariants() {
+        defer { SettingsWindowManager.shared.closeSettingsWindow() }
+
         let suiteName = "SettingsIntegrationTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -91,6 +86,8 @@ final class SettingsIntegrationTests: XCTestCase {
     }
 
     func testSettingsWindowReopenReusesExistingWindowInstance() {
+        defer { SettingsWindowManager.shared.closeSettingsWindow() }
+
         let suiteName = "SettingsReopenTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
