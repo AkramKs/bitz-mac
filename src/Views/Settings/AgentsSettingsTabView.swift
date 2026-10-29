@@ -13,36 +13,67 @@ public struct AgentsSettingsTabView: View {
     }
 
     public var body: some View {
-        Form {
-            // MARK: - Notifications Section
-            Section("Status Popups") {
-                Toggle("Show Agent Status Speech Bubbles", isOn: $agentMonitor.popupsEnabled)
-                Text("Displays an alert speech bubble when a background AI coding agent finishes a task or requires human approval.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        VStack(alignment: .leading, spacing: 18) {
+            // Section 1: Notifications
+            settingsCard(title: "Agent Notifications & Alerts", systemImage: "bubble.left.and.bubble.right.fill") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Show Agent Speech Bubbles", isOn: $agentMonitor.popupsEnabled)
 
-            // MARK: - Monitored Agents Catalog
-            Section("Monitored Agents (\(agentMonitor.activeAgents.count) Active)") {
-                ForEach(agentMonitor.catalog) { agent in
-                    Toggle(agent.displayName, isOn: Binding(
-                        get: { agent.isEnabled },
-                        set: { isEnabled in
-                            agentMonitor.setAgentEnabled(id: agent.id, isEnabled: isEnabled)
-                        }
-                    ))
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text("Displays a floating alert bubble when a background AI agent completes a task or requests human confirmation.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
-            // MARK: - Claude Code Hooks Integration
-            Section("Claude Code Integration Hooks") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Install hooks to ~/.claude/settings.json for precise, instant completion and approval alerts without process polling delays.")
+            // Section 2: Monitored Agents Catalog
+            settingsCard(title: "Monitored AI Agents (\(agentMonitor.activeAgents.count) Active)", systemImage: "cpu.fill") {
+                VStack(spacing: 8) {
+                    ForEach(agentMonitor.catalog) { agent in
+                        HStack {
+                            Image(systemName: agentIcon(for: agent.displayName))
+                                .foregroundStyle(agentColor(for: agent.displayName))
+                                .frame(width: 24)
+
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(agent.displayName)
+                                    .font(.subheadline.bold())
+                                if agentMonitor.activeAgents.contains(agent.id) {
+                                    Text("Active • Running")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green)
+                                }
+                            }
+
+                            Spacer()
+
+                            Toggle("", isOn: Binding(
+                                get: { agent.isEnabled },
+                                set: { isEnabled in
+                                    agentMonitor.setAgentEnabled(id: agent.id, isEnabled: isEnabled)
+                                }
+                            ))
+                            .labelsHidden()
+                        }
+                        if agent.id != agentMonitor.catalog.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+            }
+
+            // Section 3: Claude Code Integration
+            settingsCard(title: "Claude Code Hook Integration", systemImage: "terminal.fill") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Install notification hooks to `~/.claude/settings.json` for real-time task completions and tool-use approval popups.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 12) {
-                        Button("Install Claude Hook") {
+                        Button {
                             let url = URL(fileURLWithPath: ("~/.claude/settings.json" as NSString).expandingTildeInPath)
                             do {
                                 try AgentHookInstaller.updateSettingsFile(at: url, AgentHookInstaller.installClaudeHooks)
@@ -52,9 +83,11 @@ public struct AgentsSettingsTabView: View {
                                 hookActionMessage = "Failed to install hooks: \(error.localizedDescription)"
                                 isHookActionError = true
                             }
+                        } label: {
+                            Label("Install Hook", systemImage: "arrow.down.doc.fill")
                         }
 
-                        Button("Uninstall Claude Hook") {
+                        Button {
                             let url = URL(fileURLWithPath: ("~/.claude/settings.json" as NSString).expandingTildeInPath)
                             do {
                                 try AgentHookInstaller.updateSettingsFile(at: url, AgentHookInstaller.uninstallClaudeHooks)
@@ -64,18 +97,69 @@ public struct AgentsSettingsTabView: View {
                                 hookActionMessage = "Failed to uninstall: \(error.localizedDescription)"
                                 isHookActionError = true
                             }
+                        } label: {
+                            Label("Uninstall Hook", systemImage: "trash")
                         }
                     }
 
                     if let msg = hookActionMessage {
-                        Text(msg)
-                            .font(.caption)
-                            .foregroundStyle(isHookActionError ? .red : .green)
+                        HStack(spacing: 6) {
+                            Image(systemName: isHookActionError ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                .foregroundStyle(isHookActionError ? .red : .green)
+                            Text(msg)
+                                .font(.caption.bold())
+                                .foregroundStyle(isHookActionError ? .red : .green)
+                        }
+                        .padding(.top, 4)
                     }
                 }
             }
         }
-        .formStyle(.grouped)
-        .padding()
+    }
+
+    // MARK: - Helpers
+
+    private func agentIcon(for name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("claude") { return "sparkle" }
+        if lower.contains("gemini") { return "sun.max.fill" }
+        if lower.contains("antigravity") { return "airplane.departure" }
+        if lower.contains("cursor") { return "cursorarrow.rays" }
+        if lower.contains("windsurf") { return "wind" }
+        return "terminal"
+    }
+
+    private func agentColor(for name: String) -> Color {
+        let lower = name.lowercased()
+        if lower.contains("claude") { return .purple }
+        if lower.contains("gemini") { return .blue }
+        if lower.contains("antigravity") { return .cyan }
+        if lower.contains("cursor") { return .green }
+        if lower.contains("windsurf") { return .teal }
+        return .accentColor
+    }
+
+    private func settingsCard<Content: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+        )
     }
 }

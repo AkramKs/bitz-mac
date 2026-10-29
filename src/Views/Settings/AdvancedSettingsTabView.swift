@@ -21,42 +21,90 @@ public struct AdvancedSettingsTabView: View {
     }
 
     public var body: some View {
-        Form {
-            // MARK: - State Simulation & Testing
-            Section("Behavior State Simulation 🧪") {
-                VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 18) {
+            // Section 1: Behavior State Simulation
+            settingsCard(title: "Behavior State Simulation", systemImage: "sparkles") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Trigger manual emotional states to preview animations, colors, and HUD behaviors.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                     if activityMonitor.isManualOverrideActive {
-                        Button("Disable Override (Resume Live Sensors)") {
-                            activityMonitor.clearManualOverride()
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text("Manual simulation override is currently active.")
+                                .font(.caption.bold())
+                            Spacer()
+                            Button("Resume Live Sensors") {
+                                activityMonitor.clearManualOverride()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .padding(10)
+                        .background(Color.orange.opacity(0.12))
+                        .cornerRadius(8)
                     }
 
-                    HStack {
-                        Button("Super Charged (90 PTS)") {
+                    // 3-Column Simulation Grid
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        simulationButton(
+                            title: "Super Charged",
+                            detail: "90 PTS",
+                            icon: "bolt.fill",
+                            color: .cyan
+                        ) {
                             activityMonitor.isManualOverrideActive = true
                             engine.setPoints(90.0, continuousWorkMinutes: 10.0)
                         }
-                        Button("Balanced (50 PTS)") {
+
+                        simulationButton(
+                            title: "Balanced",
+                            detail: "50 PTS",
+                            icon: "circle.circle.fill",
+                            color: .blue
+                        ) {
                             activityMonitor.isManualOverrideActive = true
                             engine.setPoints(50.0, continuousWorkMinutes: 0.0)
                         }
-                        Button("Sad / Overload (20 PTS)") {
+
+                        simulationButton(
+                            title: "Dopamine Sad",
+                            detail: "20 PTS",
+                            icon: "moon.fill",
+                            color: .purple
+                        ) {
                             activityMonitor.isManualOverrideActive = true
                             engine.setPoints(20.0, continuousWorkMinutes: 0.0)
                         }
-                    }
 
-                    HStack {
-                        Button("Overworked (50m)") {
+                        simulationButton(
+                            title: "Overworked",
+                            detail: "50m streak",
+                            icon: "flame.fill",
+                            color: .orange
+                        ) {
                             activityMonitor.isManualOverrideActive = true
                             engine.setPoints(75.0, continuousWorkMinutes: 50.0)
                         }
-                        Button("Burnout (95m)") {
+
+                        simulationButton(
+                            title: "Burnout",
+                            detail: "95m streak",
+                            icon: "exclamationmark.octagon.fill",
+                            color: .red
+                        ) {
                             activityMonitor.isManualOverrideActive = true
                             engine.setPoints(75.0, continuousWorkMinutes: 95.0)
                         }
-                        Button("Charging Mode ⚡") {
+
+                        simulationButton(
+                            title: "Charging Mode",
+                            detail: "Break recovery",
+                            icon: "battery.100.bolt",
+                            color: .green
+                        ) {
                             activityMonitor.isManualOverrideActive = true
                             engine.setChargingState(true)
                         }
@@ -64,54 +112,148 @@ public struct AdvancedSettingsTabView: View {
                 }
             }
 
-            // MARK: - Keyboard Shortcuts Reference
-            Section("Keyboard Shortcuts ⌨️") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("• ⌥ Option + Click & Drag: Move mascot anywhere")
-                    Text("• ⎋ Escape or Right-Click: Lock position")
-                    Text("• P: Pet Bitz")
-                    Text("• ⌘, : Open Settings Window")
-                    Text("• ⌘- / ⌘= : Scale avatar smaller / larger")
-                    Text("• ⌘[ / ⌘] : Decrease / increase opacity")
-                    Text("• ⌘Q: Quit Bitz")
+            // Section 2: Keyboard Shortcuts Reference
+            settingsCard(title: "Keyboard Shortcuts", systemImage: "keyboard") {
+                VStack(spacing: 8) {
+                    shortcutRow(action: "Move mascot anywhere (drag)", keys: ["⌥ Option", "Drag"])
+                    Divider()
+                    shortcutRow(action: "Lock position when dragging", keys: ["⎋ Esc"])
+                    Divider()
+                    shortcutRow(action: "Pet Bitz mascot", keys: ["P"])
+                    Divider()
+                    shortcutRow(action: "Open Settings Window", keys: ["⌘", ","])
+                    Divider()
+                    shortcutRow(action: "Scale mascot smaller / larger", keys: ["⌘ -", "⌘ ="])
+                    Divider()
+                    shortcutRow(action: "Decrease / increase opacity", keys: ["⌘ [", "⌘ ]"])
+                    Divider()
+                    shortcutRow(action: "Quit Bitz", keys: ["⌘", "Q"])
                 }
-                .font(.callout)
-                .foregroundStyle(.secondary)
             }
 
-            // MARK: - System Lifecycle & Updates
-            Section("System & Updates") {
-                Toggle("Launch at Login", isOn: Binding(
-                    get: { launchAtLoginEnabled },
-                    set: { shouldEnable in
-                        do {
-                            if shouldEnable {
-                                try SMAppService.mainApp.register()
-                            } else {
-                                try SMAppService.mainApp.unregister()
+            // Section 3: System & Updates
+            settingsCard(title: "System & Software Updates", systemImage: "gear") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Launch Bitz automatically at Login", isOn: Binding(
+                        get: { launchAtLoginEnabled },
+                        set: { shouldEnable in
+                            do {
+                                if shouldEnable {
+                                    try SMAppService.mainApp.register()
+                                } else {
+                                    try SMAppService.mainApp.unregister()
+                                }
+                                launchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
+                            } catch {
+                                launchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
                             }
-                            launchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
-                        } catch {
-                            launchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
+                        }
+                    ))
+
+                    Toggle("Automatically check for updates on startup", isOn: $updateStore.automaticallyCheckForUpdates)
+
+                    HStack {
+                        Button {
+                            Task {
+                                await updateStore.checkForUpdates(manual: true)
+                            }
+                        } label: {
+                            Label("Check for Updates Now...", systemImage: "arrow.clockwise")
+                        }
+
+                        if updateStore.isUpdateAvailable, let release = updateStore.latestRelease {
+                            Button("Download v\(release.semanticVersion.description)") {
+                                updateStore.openDownloadPage()
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
                     }
-                ))
-
-                Toggle("Check for Updates Automatically", isOn: $updateStore.automaticallyCheckForUpdates)
-
-                HStack {
-                    Button("Check for Updates Now") {
-                        Task {
-                            await updateStore.checkForUpdates(manual: true)
-                        }
-                    }
-                    Text(updateStore.statusMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
         }
-        .formStyle(.grouped)
-        .padding()
+    }
+
+    // MARK: - Helper Views
+
+    private func simulationButton(
+        title: String,
+        detail: String,
+        icon: String,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundStyle(color)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .medium))
+                    Text(detail)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(color.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func shortcutRow(action: String, keys: [String]) -> some View {
+        HStack {
+            Text(action)
+                .font(.subheadline)
+            Spacer()
+            HStack(spacing: 4) {
+                ForEach(keys, id: \.self) { key in
+                    Text(key)
+                        .font(.system(.caption, design: .monospaced).bold())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color(nsColor: .windowBackgroundColor))
+                        .cornerRadius(5)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.08), radius: 1, x: 0, y: 1)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func settingsCard<Content: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+        )
     }
 }

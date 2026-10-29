@@ -21,25 +21,35 @@ public struct GeneralSettingsTabView: View {
     }
 
     public var body: some View {
-        Form {
-            // MARK: - Avatar Scale Section
-            Section("Avatar Size & Scale") {
-                VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 18) {
+            // Live Interactive Avatar Preview Card
+            liveAvatarPreviewCard
+
+            // Section 1: Avatar Size & Scale
+            settingsCard(title: "Avatar Size & Scale", systemImage: "arrow.up.left.and.arrow.down.right") {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Current Size:")
+                            .font(.subheadline)
                         Spacer()
                         Text(scaleStore.formattedSizeSummary)
+                            .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
 
-                    HStack(spacing: 12) {
-                        Button("Smaller (-10%)") {
+                    // Stepper Buttons
+                    HStack(spacing: 10) {
+                        Button {
                             scaleStore.stepDown()
+                        } label: {
+                            Label("Smaller (-10%)", systemImage: "minus")
                         }
                         .disabled(!scaleStore.canStepDown)
 
-                        Button("Larger (+10%)") {
+                        Button {
                             scaleStore.stepUp()
+                        } label: {
+                            Label("Larger (+10%)", systemImage: "plus")
                         }
                         .disabled(!scaleStore.canStepUp)
 
@@ -50,71 +60,111 @@ public struct GeneralSettingsTabView: View {
                         }
                     }
 
-                    Picker("Size Presets", selection: Binding(
-                        get: { AvatarSizePreset.allCases.first(where: { scaleStore.isPresetSelected($0) }) ?? .defaultSize },
-                        set: { scaleStore.selectPreset($0) }
-                    )) {
-                        ForEach(AvatarSizePreset.allCases, id: \.rawValue) { preset in
-                            Text(preset.menuTitle).tag(preset)
+                    // Segmented Presets (Concise percentage labels to avoid horizontal overflow)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Size Presets")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Picker("Size Presets", selection: Binding(
+                            get: { AvatarSizePreset.allCases.first(where: { scaleStore.isPresetSelected($0) }) ?? .defaultSize },
+                            set: { scaleStore.selectPreset($0) }
+                        )) {
+                            ForEach(AvatarSizePreset.allCases, id: \.rawValue) { preset in
+                                Text(preset.percentageText).tag(preset)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+
+                        if let current = AvatarSizePreset.allCases.first(where: { scaleStore.isPresetSelected($0) }) {
+                            Text("Active: \(current.menuTitle)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                     }
-                    .pickerStyle(.segmented)
                 }
             }
 
-            // MARK: - Avatar Opacity Section
-            Section("Mascot Opacity") {
-                VStack(alignment: .leading, spacing: 8) {
+            // Section 2: Avatar Opacity & Transparency
+            settingsCard(title: "Mascot Opacity & Transparency", systemImage: "circle.lefthalf.filled") {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Current Opacity:")
+                            .font(.subheadline)
                         Spacer()
                         Text(opacityStore.formattedOpacitySummary)
+                            .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
 
-                    HStack(spacing: 12) {
-                        Button("More Transparent (-10%)") {
+                    HStack(spacing: 10) {
+                        Button {
                             opacityStore.stepDown()
+                        } label: {
+                            Label("More Transparent (-10%)", systemImage: "chevron.down")
                         }
                         .disabled(!opacityStore.canStepDown)
 
-                        Button("More Solid (+10%)") {
+                        Button {
                             opacityStore.stepUp()
+                        } label: {
+                            Label("More Solid (+10%)", systemImage: "chevron.up")
                         }
                         .disabled(!opacityStore.canStepUp)
                     }
 
-                    Picker("Opacity Presets", selection: Binding(
-                        get: { AvatarOpacityPreset.allCases.first(where: { opacityStore.isPresetSelected($0) }) ?? .translucent },
-                        set: { opacityStore.selectPreset($0) }
-                    )) {
-                        ForEach(AvatarOpacityPreset.allCases, id: \.rawValue) { preset in
-                            Text(preset.menuTitle).tag(preset)
+                    // Opacity Presets (Concise labels)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Opacity Presets")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Picker("Opacity Presets", selection: Binding(
+                            get: { AvatarOpacityPreset.allCases.first(where: { opacityStore.isPresetSelected($0) }) ?? .translucent },
+                            set: { opacityStore.selectPreset($0) }
+                        )) {
+                            ForEach(AvatarOpacityPreset.allCases, id: \.rawValue) { preset in
+                                Text(preset.percentageText).tag(preset)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+
+                        if let current = AvatarOpacityPreset.allCases.first(where: { opacityStore.isPresetSelected($0) }) {
+                            Text("Active: \(current.menuTitle)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
                     }
-                    .pickerStyle(.segmented)
                 }
             }
 
-            // MARK: - Positioning & Dragging Section
-            Section("Position & Screen Anchoring") {
-                VStack(alignment: .leading, spacing: 8) {
+            // Section 3: Position & Screen Anchoring
+            settingsCard(title: "Screen Placement & Dragging", systemImage: "rectangle.inset.filled.and.cursorarrow") {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Position:")
+                        Text("Placement Mode:")
+                            .font(.subheadline)
                         Spacer()
                         Text(positionStore.formattedPositionSummary)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
 
-                    HStack(spacing: 12) {
+                    HStack(spacing: 10) {
                         if positionStore.isPositionUnlocked {
-                            Button("Lock Position [⎋ Esc]") {
+                            Button {
                                 positionStore.lockPosition()
+                            } label: {
+                                Label("Lock Position [⎋ Esc]", systemImage: "lock.fill")
                             }
                             .buttonStyle(.borderedProminent)
                         } else {
-                            Button("Unlock Position (Drag to Move)") {
+                            Button {
                                 positionStore.unlockPosition()
+                            } label: {
+                                Label("Unlock Position (Drag to Move)", systemImage: "lock.open.fill")
                             }
                         }
 
@@ -125,9 +175,13 @@ public struct GeneralSettingsTabView: View {
                         }
                     }
 
-                    Text("💡 Tip: Hold ⌥ Option anytime to drag Bitz across your display.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text("Hold ⌥ Option anytime to freely drag Bitz anywhere on screen.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
 
                     Picker("Corner Anchor", selection: Binding(
                         get: { positionStore.cornerAnchor },
@@ -137,38 +191,160 @@ public struct GeneralSettingsTabView: View {
                             Text(corner.menuTitle).tag(corner)
                         }
                     }
+                    .pickerStyle(.menu)
                 }
             }
 
-            // MARK: - Displays & Multi-Monitor Section
-            Section("Display Routing") {
-                Picker("Target Display", selection: Binding(
-                    get: { displayStore.targetMode },
-                    set: { displayStore.selectMode($0) }
-                )) {
-                    Text("Primary Screen").tag(DisplayTargetMode.primary)
-                    Text("Follow Active Screen").tag(DisplayTargetMode.followActive)
-                    Text("All Screens").tag(DisplayTargetMode.allDisplays)
-                }
+            // Section 4: Multi-Monitor & Displays
+            settingsCard(title: "Display Routing", systemImage: "display.2") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Picker("Target Display", selection: Binding(
+                        get: { displayStore.targetMode },
+                        set: { displayStore.selectMode($0) }
+                    )) {
+                        Text("Primary Screen").tag(DisplayTargetMode.primary)
+                        Text("Follow Active Screen").tag(DisplayTargetMode.followActive)
+                        Text("All Screens").tag(DisplayTargetMode.allDisplays)
+                    }
+                    .pickerStyle(.menu)
 
-                if !displayStore.connectedScreens.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Connected Screens:")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(displayStore.connectedScreens) { screen in
-                            let isSelected = (displayStore.targetMode == .specific && displayStore.targetDisplayID == screen.id)
-                            Button(isSelected ? "✓ \(screen.name)" : screen.name) {
-                                displayStore.selectSpecificDisplay(id: screen.id, name: screen.name)
+                    if !displayStore.connectedScreens.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Connected Displays:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            ForEach(displayStore.connectedScreens) { screen in
+                                let isSelected = (displayStore.targetMode == .specific && displayStore.targetDisplayID == screen.id)
+                                Button {
+                                    displayStore.selectSpecificDisplay(id: screen.id, name: screen.name)
+                                } label: {
+                                    HStack {
+                                        Image(systemName: isSelected ? "checkmark.circle.fill" : "display")
+                                            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                                        Text(screen.name)
+                                            .font(.subheadline)
+                                        Spacer()
+                                        if screen.isPrimary {
+                                            Text("Primary")
+                                                .font(.caption2.bold())
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.secondary.opacity(0.15))
+                                                .cornerRadius(4)
+                                        }
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
                         }
                     }
                 }
             }
         }
-        .formStyle(.grouped)
-        .padding()
+    }
+
+    // MARK: - Live Preview Card
+
+    private var liveAvatarPreviewCard: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(nsColor: .controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+                )
+
+            // Dotted Matrix Wallpaper Pattern
+            Canvas { context, size in
+                let spacing: CGFloat = 16
+                for x in stride(from: 8, to: size.width, by: spacing) {
+                    for y in stride(from: 8, to: size.height, by: spacing) {
+                        let rect = CGRect(x: x, y: y, width: 2, height: 2)
+                        context.fill(Path(ellipseIn: rect), with: .color(Color.secondary.opacity(0.12)))
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+
+            // Cat Avatar with reactive scale & opacity
+            VStack {
+                ZStack {
+                    Circle()
+                        .fill(Color.cyan.opacity(0.2))
+                        .frame(width: 64 * CGFloat(scaleStore.scaleFactor), height: 64 * CGFloat(scaleStore.scaleFactor))
+                        .blur(radius: 6)
+
+                    Image(systemName: "cat.fill")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 48 * CGFloat(scaleStore.scaleFactor), height: 48 * CGFloat(scaleStore.scaleFactor))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.cyan, Color.blue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+                .opacity(opacityStore.opacityFactor)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: scaleStore.scaleFactor)
+                .animation(.easeInOut(duration: 0.2), value: opacityStore.opacityFactor)
+            }
+            .frame(height: 120)
+
+            // Top Info Bar
+            VStack {
+                HStack {
+                    Label("Live Avatar Preview", systemImage: "eye.fill")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(6)
+
+                    Spacer()
+
+                    Text("\(scaleStore.formattedSizeSummary) • \(opacityStore.formattedOpacitySummary)")
+                        .font(.caption2.monospacedDigit().bold())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(6)
+                }
+                .padding(10)
+                Spacer()
+            }
+        }
+        .frame(height: 130)
+    }
+
+    // MARK: - Reusable Settings Card Container
+
+    private func settingsCard<Content: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+                .foregroundStyle(.primary)
+
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+        )
     }
 }
