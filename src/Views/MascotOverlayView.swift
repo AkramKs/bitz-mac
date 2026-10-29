@@ -89,18 +89,37 @@ public struct MascotOverlayView: View {
     @ObservedObject public var engine: WellnessPointEngine
     @ObservedObject public var scaleStore: AvatarScaleStore
     @ObservedObject public var opacityStore: AvatarOpacityStore
+    @ObservedObject public var positionStore: AvatarPositionStore
     @ObservedObject public var agentMonitor: AgentMonitorService
+
+    public var onDragChanged: ((NSPoint, NSScreen?) -> Void)?
+    public var onDragEnded: ((NSPoint, NSScreen?) -> Void)?
+    public var onGetOrigin: (() -> NSPoint?)?
+    public var onGetSize: (() -> NSSize)?
+
+    @State private var dragInitialOrigin: NSPoint? = nil
+    @State private var isHovering: Bool = false
 
     public init(
         engine: WellnessPointEngine,
         scaleStore: AvatarScaleStore = AvatarScaleStore(),
         opacityStore: AvatarOpacityStore = AvatarOpacityStore(),
-        agentMonitor: AgentMonitorService = AgentMonitorService()
+        positionStore: AvatarPositionStore = AvatarPositionStore(),
+        agentMonitor: AgentMonitorService = AgentMonitorService(),
+        onDragChanged: ((NSPoint, NSScreen?) -> Void)? = nil,
+        onDragEnded: ((NSPoint, NSScreen?) -> Void)? = nil,
+        onGetOrigin: (() -> NSPoint?)? = nil,
+        onGetSize: (() -> NSSize)? = nil
     ) {
         self.engine = engine
         self.scaleStore = scaleStore
         self.opacityStore = opacityStore
+        self.positionStore = positionStore
         self.agentMonitor = agentMonitor
+        self.onDragChanged = onDragChanged
+        self.onDragEnded = onDragEnded
+        self.onGetOrigin = onGetOrigin
+        self.onGetSize = onGetSize
     }
 
     /// Returns the RGB color values (`red`, `green`, `blue`) matching the current `BitzState` visor color.
@@ -378,13 +397,116 @@ public struct MascotOverlayView: View {
             }
         }
         .frame(width: 250, height: 250)
+        .overlay {
+            if positionStore.isInteractivityEnabled {
+                ZStack(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            visorColor.opacity(positionStore.isDragging ? 0.95 : 0.65),
+                            style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])
+                        )
+                        .shadow(color: visorColor.opacity(0.4), radius: 6)
+
+                    HStack(spacing: 5) {
+                        Image(systemName: positionStore.isDragging ? "arrow.up.and.down.and.arrow.left.and.right" : "hand.draw.fill")
+                            .font(.system(size: 8))
+                        Text(positionStore.isDragging ? "DRAGGING" : (positionStore.isPositionUnlocked ? "DRAG TO MOVE" : "⌥ DRAG"))
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        if positionStore.isPositionUnlocked {
+                            Button(action: { positionStore.togglePositionLock() }) {
+                                Text("DONE")
+                                    .font(.system(size: 7, weight: .heavy, design: .monospaced))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Capsule().fill(visorColor))
+                                    .foregroundStyle(Color.black)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .foregroundStyle(visorColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.92)))
+                    .overlay(Capsule().stroke(visorColor.opacity(0.7), lineWidth: 1))
+                    .shadow(color: visorColor.opacity(0.4), radius: 4)
+                    .offset(y: -14)
+                }
+                .allowsHitTesting(true)
+            }
+        }
         .scaleEffect(scaleStore.scaleFactor)
         .frame(
             width: MascotOverlayPanel.defaultPanelSize.width * scaleStore.scaleFactor,
             height: MascotOverlayPanel.defaultPanelSize.height * scaleStore.scaleFactor
         )
         .background(Color.clear)
-        .allowsHitTesting(false)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+            if positionStore.isInteractivityEnabled {
+                if hovering {
+                    NSCursor.openHand.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { gesture in
+                    guard positionStore.isInteractivityEnabled else { return }
+                    if !positionStore.isDragging {
+                        positionStore.isDragging = true
+                        NSCursor.closedHand.push()
+                        dragInitialOrigin = onGetOrigin?() ?? .zero
+                    }
+                    guard let startOrigin = dragInitialOrigin else { return }
+                    let candidateOrigin = NSPoint(
+                        x: startOrigin.x + gesture.translation.width,
+                        y: startOrigin.y - gesture.translation.height
+                    )
+                    let mouseLoc = NSEvent.mouseLocation
+                    let targetScreen = NSScreen.screens.first(where: { NSPointInRect(mouseLoc, $0.frame) })
+                        ?? NSScreen.main
+                    let targetVisibleFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+                    let panelSize = onGetSize?() ?? MascotOverlayPanel.defaultPanelSize
+                    let clamped = MascotOverlayPanel.clampOriginToVisibleFrame(
+                        candidateOrigin,
+                        panelSize: panelSize,
+                        visibleFrame: targetVisibleFrame
+                    )
+                    onDragChanged?(clamped, targetScreen)
+                }
+                .onEnded { gesture in
+                    guard positionStore.isInteractivityEnabled else { return }
+                    if positionStore.isDragging {
+                        NSCursor.pop()
+                        positionStore.isDragging = false
+                    }
+                    let startOrigin = dragInitialOrigin ?? onGetOrigin?() ?? .zero
+                    dragInitialOrigin = nil
+
+                    let candidateOrigin = NSPoint(
+                        x: startOrigin.x + gesture.translation.width,
+                        y: startOrigin.y - gesture.translation.height
+                    )
+                    let mouseLoc = NSEvent.mouseLocation
+                    let targetScreen = NSScreen.screens.first(where: { NSPointInRect(mouseLoc, $0.frame) })
+                        ?? NSScreen.main
+                    let targetVisibleFrame = targetScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+                    let panelSize = onGetSize?() ?? MascotOverlayPanel.defaultPanelSize
+                    let finalClamped = MascotOverlayPanel.clampOriginToVisibleFrame(
+                        candidateOrigin,
+                        panelSize: panelSize,
+                        visibleFrame: targetVisibleFrame
+                    )
+
+                    positionStore.setCustomPosition(finalClamped)
+                    onDragEnded?(finalClamped, targetScreen)
+                }
+        )
+        .allowsHitTesting(positionStore.isInteractivityEnabled)
     }
 
     @ViewBuilder

@@ -19,6 +19,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 
     nonisolated(unsafe) private var screenParametersObserverToken: (any NSObjectProtocol)?
     nonisolated(unsafe) private var appActivationObserverToken: (any NSObjectProtocol)?
+    nonisolated(unsafe) private var localFlagsMonitor: Any?
+    nonisolated(unsafe) private var globalFlagsMonitor: Any?
     private var screenReconfigTask: Task<Void, Never>?
 
     public override convenience init() {
@@ -63,6 +65,12 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.positionStore.onCornerChanged = { [weak self] newCorner in
             self?.overlayPanels.forEach { $0.applyCornerAnchor(newCorner) }
         }
+        self.positionStore.onCustomPositionChanged = { [weak self] newOrigin in
+            self?.overlayPanels.forEach { $0.applyCustomOrigin(newOrigin) }
+        }
+        self.positionStore.onInteractivityToggled = { [weak self] isInteractive in
+            self?.overlayPanels.forEach { $0.ignoresMouseEvents = !isInteractive }
+        }
         self.displayStore.onDisplayPreferenceChanged = { [weak self] in
             self?.syncOverlayPanels()
         }
@@ -87,6 +95,19 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
                 self.syncOverlayPanels()
             }
         }
+
+        self.localFlagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            let optionHeld = event.modifierFlags.contains(.option)
+            self?.positionStore.setModifierHeld(optionHeld)
+            return event
+        }
+
+        self.globalFlagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            let optionHeld = event.modifierFlags.contains(.option)
+            Task { @MainActor [weak self] in
+                self?.positionStore.setModifierHeld(optionHeld)
+            }
+        }
     }
 
     deinit {
@@ -96,6 +117,12 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         }
         if let token = appActivationObserverToken {
             NSWorkspace.shared.notificationCenter.removeObserver(token)
+        }
+        if let local = localFlagsMonitor {
+            NSEvent.removeMonitor(local)
+        }
+        if let global = globalFlagsMonitor {
+            NSEvent.removeMonitor(global)
         }
     }
 
@@ -138,7 +165,11 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
                 }
                 panel.assignedScreen = screen
                 panel.applyScaleFactor(CGFloat(scaleStore.scaleFactor), on: screen)
-                panel.applyCornerAnchor(positionStore.cornerAnchor, on: screen)
+                if let customOrigin = positionStore.customOrigin {
+                    panel.applyCustomOrigin(customOrigin, on: screen)
+                } else {
+                    panel.applyCornerAnchor(positionStore.cornerAnchor, on: screen)
+                }
                 panel.orderFrontRegardless()
             }
         } else {
@@ -156,7 +187,11 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             }
             panel.assignedScreen = targetScreen
             panel.applyScaleFactor(CGFloat(scaleStore.scaleFactor), on: targetScreen)
-            panel.applyCornerAnchor(positionStore.cornerAnchor, on: targetScreen)
+            if let customOrigin = positionStore.customOrigin {
+                panel.applyCustomOrigin(customOrigin, on: targetScreen)
+            } else {
+                panel.applyCornerAnchor(positionStore.cornerAnchor, on: targetScreen)
+            }
             panel.orderFrontRegardless()
         }
     }
@@ -173,11 +208,30 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 
     private func createConfiguredPanel() -> MascotOverlayPanel {
         let panel = MascotOverlayPanel()
+        panel.ignoresMouseEvents = !positionStore.isInteractivityEnabled
         let rootView = MascotOverlayView(
             engine: engine,
             scaleStore: scaleStore,
             opacityStore: opacityStore,
-            agentMonitor: agentMonitor
+            positionStore: positionStore,
+            agentMonitor: agentMonitor,
+            onDragChanged: { [weak panel] origin, _ in
+                panel?.setFrameOrigin(origin)
+            },
+            onDragEnded: { [weak self, weak panel] finalOrigin, targetScreen in
+                panel?.applyCustomOrigin(finalOrigin, on: targetScreen)
+                if let targetScreen, let targetID = targetScreen.displayID {
+                    if self?.displayStore.targetMode == .specific {
+                        self?.displayStore.selectSpecificDisplay(id: targetID, name: targetScreen.localizedName)
+                    }
+                }
+            },
+            onGetOrigin: { [weak panel] in
+                panel?.frame.origin
+            },
+            onGetSize: { [weak panel] in
+                panel?.frame.size ?? MascotOverlayPanel.defaultPanelSize
+            }
         )
         let hostingView = NSHostingView(rootView: rootView)
         let initialSize = MascotOverlayPanel.calculatePanelSize(for: CGFloat(scaleStore.scaleFactor))
@@ -346,12 +400,26 @@ private struct BitzMenuBarContentView: View {
             }
 
             Divider()
-            // Corner Positioning Controls
-            Menu("Screen Corner: \(positionStore.cornerAnchor.menuTitle)") {
+            // Mascot Position & Freeform Dragging Controls
+            Text("Mascot Position: \(positionStore.formattedPositionSummary)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button(positionStore.isPositionUnlocked ? "✓ Lock Position (Drag Disabled)" : "Unlock Position (Drag to Move)") {
+                positionStore.togglePositionLock()
+            }
+
+            Menu("Screen Corner Presets") {
                 ForEach(ScreenCornerAnchor.allCases, id: \.rawValue) { corner in
                     Button(positionStore.isCornerSelected(corner) ? "✓ \(corner.menuTitle)" : corner.menuTitle) {
                         positionStore.selectCorner(corner)
                     }
+                }
+            }
+
+            if positionStore.isFreeform || positionStore.cornerAnchor != .bottomRight {
+                Button("Reset to Default Corner (Bottom-Right)") {
+                    positionStore.resetToDefaultCorner()
                 }
             }
 
