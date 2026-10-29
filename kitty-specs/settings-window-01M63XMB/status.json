@@ -2,9 +2,9 @@
   "event_count": 28,
   "last_event_id": "01M63ZX0HQ2BF5R7XK7SC112VA",
   "materialized_at": "2026-10-29T14:09:26.071390+00:00",
-  "mission_number": "1",
+  "mission_number": "",
   "mission_slug": "settings-window-01M63XMB",
-  "mission_type": "software-dev",
+  "mission_type": "",
   "summary": {
     "approved": 0,
     "blocked": 0,
@@ -19,131 +19,67 @@
   "work_packages": {
     "WP01": {
       "actor": "merge",
-      "agent": "reviewer",
-      "agent_profile": "__resolved_profile_absent__",
-      "agent_profile_version": "__resolved_profile_version_absent__",
+      "agent": "antigravity",
       "force_count": 0,
       "lane": "done",
       "last_event_id": "01M63ZWS8PDZEEVGKWKK5QKNAR",
       "last_transition_at": "2026-10-29T14:09:18.614764+00:00",
-      "model": "__resolved_model_absent__",
-      "notes": [
-        "Ready for review: SettingsWindowManager implemented and verified",
-        "Review passed: SettingsWindowManager correctly implemented and verified"
-      ],
-      "provider": "__resolved_provider_absent__",
       "review_result": {
         "feedback_path": "/Users/akramkasimi/Documents/bitz-mac/kitty-specs/settings-window-01M63XMB/tasks/WP01-settings-window-manager/review-cycle-1.md",
         "reference": "review-cycle://settings-window-01M63XMB/WP01-settings-window-manager/review-cycle-1.md",
         "reviewer": "user",
         "verdict": "approved"
       },
-      "role": "reviewer",
       "shell_pid": 3223,
-      "shell_pid_created_at": "1793263826.554059",
-      "subtasks": {
-        "T001": "done",
-        "T002": "done",
-        "T003": "done",
-        "T004": "done"
-      }
+      "shell_pid_created_at": "1793263826.554059"
     },
     "WP02": {
       "actor": "merge",
-      "agent": "reviewer",
-      "agent_profile": "__resolved_profile_absent__",
-      "agent_profile_version": "__resolved_profile_version_absent__",
+      "agent": "antigravity",
       "force_count": 0,
       "lane": "done",
       "last_event_id": "01M63ZWVMCYWJ78N8GF4T49CQC",
       "last_transition_at": "2026-10-29T14:09:21.036602+00:00",
-      "model": "__resolved_model_absent__",
-      "notes": [
-        "Ready for review: Modular Settings Tab Views implemented and verified",
-        "Review passed: Modular settings tab views fully implemented and verified"
-      ],
-      "provider": "__resolved_provider_absent__",
       "review_result": {
         "feedback_path": "/Users/akramkasimi/Documents/bitz-mac/kitty-specs/settings-window-01M63XMB/tasks/WP02-settings-tab-views/review-cycle-1.md",
         "reference": "review-cycle://settings-window-01M63XMB/WP02-settings-tab-views/review-cycle-1.md",
         "reviewer": "user",
         "verdict": "approved"
       },
-      "role": "reviewer",
       "shell_pid": 3223,
-      "shell_pid_created_at": "1793263826.554059",
-      "subtasks": {
-        "T005": "done",
-        "T006": "done",
-        "T007": "done",
-        "T008": "done",
-        "T009": "done",
-        "T010": "done",
-        "T011": "done"
-      }
+      "shell_pid_created_at": "1793263826.554059"
     },
     "WP03": {
       "actor": "merge",
-      "agent": "reviewer",
-      "agent_profile": "__resolved_profile_absent__",
-      "agent_profile_version": "__resolved_profile_version_absent__",
+      "agent": "antigravity",
       "force_count": 0,
       "lane": "done",
       "last_event_id": "01M63ZWY7FDGW5N6AS4D5M8FWD",
       "last_transition_at": "2026-10-29T14:09:23.695670+00:00",
-      "model": "__resolved_model_absent__",
-      "notes": [
-        "Ready for review: Streamlined Menu Bar Dropdown",
-        "Review passed: Streamlined Menu Bar Dropdown verified"
-      ],
-      "provider": "__resolved_provider_absent__",
       "review_result": {
         "feedback_path": "/Users/akramkasimi/Documents/bitz-mac/kitty-specs/settings-window-01M63XMB/tasks/WP03-streamlined-menu-bar/review-cycle-1.md",
         "reference": "review-cycle://settings-window-01M63XMB/WP03-streamlined-menu-bar/review-cycle-1.md",
         "reviewer": "user",
         "verdict": "approved"
       },
-      "role": "reviewer",
       "shell_pid": 3223,
-      "shell_pid_created_at": "1793263826.554059",
-      "subtasks": {
-        "T012": "done",
-        "T013": "done",
-        "T014": "done",
-        "T015": "done",
-        "T016": "done"
-      }
+      "shell_pid_created_at": "1793263826.554059"
     },
     "WP04": {
       "actor": "merge",
-      "agent": "reviewer",
-      "agent_profile": "__resolved_profile_absent__",
-      "agent_profile_version": "__resolved_profile_version_absent__",
+      "agent": "antigravity",
       "force_count": 0,
       "lane": "done",
       "last_event_id": "01M63ZX0HQ2BF5R7XK7SC112VA",
       "last_transition_at": "2026-10-29T14:09:26.071390+00:00",
-      "model": "__resolved_model_absent__",
-      "notes": [
-        "Ready for review: Quality Verification & Invariant Enforcement",
-        "Review passed: Quality verification and invariants confirmed"
-      ],
-      "provider": "__resolved_provider_absent__",
       "review_result": {
         "feedback_path": "/Users/akramkasimi/Documents/bitz-mac/kitty-specs/settings-window-01M63XMB/tasks/WP04-quality-verification/review-cycle-1.md",
         "reference": "review-cycle://settings-window-01M63XMB/WP04-quality-verification/review-cycle-1.md",
         "reviewer": "user",
         "verdict": "approved"
       },
-      "role": "reviewer",
       "shell_pid": 3223,
-      "shell_pid_created_at": "1793263826.554059",
-      "subtasks": {
-        "T017": "done",
-        "T018": "done",
-        "T019": "done",
-        "T020": "done"
-      }
+      "shell_pid_created_at": "1793263826.554059"
     }
   }
 }
