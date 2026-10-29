@@ -70,6 +70,12 @@ Ensure your changes follow the project structure and satisfy all tests:
 - Address feedback requested during code review.
 - When all checks pass and the PR is approved, maintainers will squash and merge your PR into `main`.
 
+### 6. Close Linked Tickets & Post-Merge Cleanup
+- **Mandatory Ticket Closure**: Verify that all linked issue tickets are officially closed. If a ticket was not automatically closed by GitHub, immediately close it (`gh issue close <id>`). Never leave completed issue tickets open.
+- Delete the remote feature branch and pull the latest `main` locally.
+
+> **AI Agents & Automated Workflows**: See [AGENTS.md](AGENTS.md) for full engineering invariants and workflow rules.
+
 ---
 
 ## 📋 Coding Guidelines
