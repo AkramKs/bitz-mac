@@ -11,5 +11,7 @@
   "purpose_tldr": "settings window",
   "slug": "settings-window-01M63XMB",
   "target_branch": "feat/issue-49-settings-window",
-  "topology": "coord"
+  "topology": "coord",
+  "vcs": "git",
+  "vcs_locked_at": "2026-10-29T13:37:49.277037+00:00"
 }
