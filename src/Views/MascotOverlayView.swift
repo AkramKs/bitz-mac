@@ -92,6 +92,8 @@ public struct MascotOverlayView: View {
     @ObservedObject public var positionStore: AvatarPositionStore
     @ObservedObject public var agentMonitor: AgentMonitorService
     @ObservedObject public var updateStore: AppUpdateStore
+    @ObservedObject public var telemetryDashboard: TelemetryDashboardService
+    @ObservedObject public var telemetrySettings: TelemetrySettingsStore
 
     public var onDragChanged: ((NSPoint, NSScreen?) -> Void)?
     public var onDragEnded: ((NSPoint, NSScreen?) -> Void)?
@@ -108,6 +110,8 @@ public struct MascotOverlayView: View {
         positionStore: AvatarPositionStore = AvatarPositionStore(),
         agentMonitor: AgentMonitorService = AgentMonitorService(),
         updateStore: AppUpdateStore = AppUpdateStore(),
+        telemetryDashboard: TelemetryDashboardService = TelemetryDashboardService(),
+        telemetrySettings: TelemetrySettingsStore = TelemetrySettingsStore(),
         onDragChanged: ((NSPoint, NSScreen?) -> Void)? = nil,
         onDragEnded: ((NSPoint, NSScreen?) -> Void)? = nil,
         onGetOrigin: (() -> NSPoint?)? = nil,
@@ -119,6 +123,8 @@ public struct MascotOverlayView: View {
         self.positionStore = positionStore
         self.agentMonitor = agentMonitor
         self.updateStore = updateStore
+        self.telemetryDashboard = telemetryDashboard
+        self.telemetrySettings = telemetrySettings
         self.onDragChanged = onDragChanged
         self.onDragEnded = onDragEnded
         self.onGetOrigin = onGetOrigin
@@ -263,6 +269,7 @@ public struct MascotOverlayView: View {
         // 30 fps is plenty for breathing/blink; the uncapped display rate cost ~25-30% of a core at idle (#10)
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
+            let _ = telemetryDashboard.fpsTracker.recordFrame(timestamp: t)
             let breathOffset = sin(t * 2.8 * animationSpeedMultiplier) * (engine.currentState == .burnout ? 0.0 : 4.5)
             let glitchOffsetX = engine.currentState == .overheating ? sin(t * 45.0) * 3.0 : 0.0
             let earTilt = (engine.currentState == .overworked || engine.currentState == .dopamineSad) ? 14.0 : 0.0
@@ -297,6 +304,27 @@ public struct MascotOverlayView: View {
                                         ? Color(red: 0.75, green: 0.06, blue: 0.10).opacity(0.95)
                                         : Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.94)
                                 )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(visorColor, lineWidth: 1.5)
+                        )
+                        .shadow(color: visorColor.opacity(0.7), radius: 6)
+                        .offset(y: isLoafPosture ? -30 : -50)
+                        .zIndex(3)
+                } else if telemetrySettings.displayInSpeechBubbleCycle, let carouselText = telemetryDashboard.currentCarouselMessage {
+                    Text(carouselText)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .frame(maxWidth: 236)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.94))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
@@ -418,12 +446,18 @@ public struct MascotOverlayView: View {
                 .offset(x: glitchOffsetX, y: breathOffset)
                 .opacity(opacityStore.opacityFactor)
 
-                // Live Cyberpunk Hardware Telemetry Pill (shows real CPU °C, CPU %, and Wellness PTS)
-                if let tempC = engine.latestTemperatureCelsius {
-                    let cpuString = engine.latestCPULoadPercentage.map { String(format: " • %.0f%% CPU", $0) } ?? ""
-                    Text(String(format: "%.1f°C%@ • %.1f PTS", tempC, cpuString, engine.currentPoints))
+                // Live Cyberpunk Hardware Telemetry & Diagnostics HUD
+                if telemetrySettings.displayInMascotCyberHUD {
+                    let hudText = telemetryDashboard.snapshot.hudSummary(
+                        enabledMetrics: telemetrySettings.enabledMetrics,
+                        focusPoints: engine.currentPoints
+                    )
+                    let hasWarning = telemetryDashboard.snapshot.hasActiveWarning
+                    let hudBorderColor = hasWarning ? Color.orange : visorColor
+
+                    Text(hudText)
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(visorColor)
+                        .foregroundStyle(hudBorderColor)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(
@@ -432,9 +466,9 @@ public struct MascotOverlayView: View {
                         )
                         .overlay(
                             Capsule()
-                                .stroke(visorColor.opacity(0.6), lineWidth: 1)
+                                .stroke(hudBorderColor.opacity(hasWarning ? 0.9 : 0.6), lineWidth: 1)
                         )
-                        .shadow(color: visorColor.opacity(0.4), radius: 4)
+                        .shadow(color: hudBorderColor.opacity(0.4), radius: 4)
                         .padding(.bottom, 4)
                         .opacity(max(0.6, opacityStore.opacityFactor))
                 } else {

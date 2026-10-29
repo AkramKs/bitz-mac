@@ -19,6 +19,8 @@ final class MenuBarContentViewTests: XCTestCase {
         let displayStore = DisplayPreferenceStore(userDefaults: defaults)
         let agentMonitor = AgentMonitorService(adapters: [])
         let updateStore = AppUpdateStore(userDefaults: defaults)
+        let telemetrySettings = TelemetrySettingsStore(userDefaults: defaults)
+        let telemetryDashboard = TelemetryDashboardService(settingsStore: telemetrySettings)
 
         let menuView = BitzMenuBarContentView(
             engine: engine,
@@ -28,7 +30,9 @@ final class MenuBarContentViewTests: XCTestCase {
             positionStore: positionStore,
             displayStore: displayStore,
             agentMonitor: agentMonitor,
-            updateStore: updateStore
+            updateStore: updateStore,
+            telemetryDashboard: telemetryDashboard,
+            telemetrySettings: telemetrySettings
         )
 
         // Verify view body can be evaluated without crashing
@@ -53,6 +57,8 @@ final class MenuBarContentViewTests: XCTestCase {
         let displayStore = DisplayPreferenceStore(userDefaults: defaults)
         let agentMonitor = AgentMonitorService(adapters: [])
         let updateStore = AppUpdateStore(userDefaults: defaults)
+        let telemetrySettings = TelemetrySettingsStore(userDefaults: defaults)
+        let telemetryDashboard = TelemetryDashboardService(settingsStore: telemetrySettings)
 
         positionStore.unlockPosition()
         XCTAssertTrue(positionStore.isPositionUnlocked)
@@ -65,7 +71,9 @@ final class MenuBarContentViewTests: XCTestCase {
             positionStore: positionStore,
             displayStore: displayStore,
             agentMonitor: agentMonitor,
-            updateStore: updateStore
+            updateStore: updateStore,
+            telemetryDashboard: telemetryDashboard,
+            telemetrySettings: telemetrySettings
         )
 
         _ = menuView.body
