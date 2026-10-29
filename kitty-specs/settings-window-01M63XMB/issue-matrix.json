@@ -1,7 +1,7 @@
 {
   "rows": {
     "#49": {
-      "evidence_ref": "kitty-specs/settings-window-01M63XMB/plan.md",
+      "evidence_ref": "Tests/BitzTests/SettingsIntegrationTests.swift",
       "fr": "FR-001",
       "nfr": "NFR-001",
       "repo": "AkramKs/bitz-mac",
@@ -9,7 +9,7 @@
       "scope": "settings window",
       "source_file": "spec.md",
       "title": "Dedicated Settings Window & Streamlined Menu Bar Dropdown",
-      "verdict": "in-mission",
+      "verdict": "fixed",
       "wp": "WP01-WP04"
     }
   },
