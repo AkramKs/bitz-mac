@@ -253,6 +253,12 @@ For full guidelines and instructions, please read [CONTRIBUTING.md](CONTRIBUTING
 
 ---
 
-## 📄 License
+## 📄 License & Ownership Policy
 
-Released as open-source software under the [MIT License](https://opensource.org/licenses/MIT).
+Copyright © 2026 **Akram Kasimi**. All rights reserved.
+
+**Bitz the Cyber Cat** is released under a **Source-Available & Personal Hobbyist License** (see [LICENSE](LICENSE)):
+
+- **✅ Personal & Hobbyist Use**: You are free to download, run, study, and tinker with Bitz locally for your own personal use, learning, and hobbyist projects.
+- **🚫 No Commercial Copies or Resale**: You may **not** copy, clone, redistribute, white-label, re-license, or sell Bitz (or derivative products based on it). Commercial rights and future monetized features are strictly and exclusively reserved by the author.
+- **🐾 Trademark & Brand Assets**: The "Bitz" mascot design, character artwork, and brand identity remain the exclusive intellectual property of **Akram Kasimi**.
