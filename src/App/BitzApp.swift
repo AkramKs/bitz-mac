@@ -333,67 +333,39 @@ struct BitzMenuBarContentView: View {
     @ObservedObject var telemetryDashboard: TelemetryDashboardService
     @ObservedObject var telemetrySettings: TelemetrySettingsStore
 
-    @State private var launchAtLoginEnabled: Bool = (SMAppService.mainApp.status == .enabled)
-    @State private var hookActionMessage: String? = nil
-    @State private var isHookActionError: Bool = false
-
-    private var thermalStateLabel: String {
-        switch activityMonitor.lastThermalState {
-        case .nominal: return "Nominal"
-        case .fair: return "Fair"
-        case .serious: return "Serious"
-        case .critical: return "Critical"
-        @unknown default: return "Unknown"
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             // MARK: - 1. Status Header & Quick Actions
             headerSection
 
-            Divider()
-
-            // MARK: - 2. Mascot Customization & Placement
-            appearanceMenu
-            positionMenu
-            displayMenu
-
-            Divider()
-
-            // MARK: - 3. Sensors, Telemetry & AI Monitoring
-            if telemetrySettings.displayInMenuBarMenu {
-                telemetryMenu
+            // Active Warnings Summary
+            if telemetryDashboard.snapshot.hasActiveWarning, let warning = telemetryDashboard.snapshot.activeWarningSummary {
+                Divider()
+                Text(warning)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
-            sensorsMenu
-            agentsMenu
+
+            if let agentPopup = agentMonitor.activePopup {
+                Divider()
+                Text(agentPopup.text)
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+            }
 
             Divider()
 
-            // MARK: - 4. Diagnostics & Shortcuts Reference
-            simulationMenu
-            keybindsMenu
+            // MARK: - 2. Dedicated Settings Entrance
+            Button("Settings...") {
+                openSettingsWindow()
+            }
+            .keyboardShortcut(",", modifiers: [.command])
 
-            Divider()
-
-            // MARK: - 5. System, Updates & Lifecycle
-            updatesMenu
-
-            Toggle("Launch at Login", isOn: Binding(
-                get: { launchAtLoginEnabled },
-                set: { shouldEnable in
-                    do {
-                        if shouldEnable {
-                            try SMAppService.mainApp.register()
-                        } else {
-                            try SMAppService.mainApp.unregister()
-                        }
-                        launchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
-                    } catch {
-                        launchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
-                    }
+            Button("Check for Updates...") {
+                Task {
+                    await updateStore.checkForUpdates(manual: true)
                 }
-            ))
+            }
 
             Divider()
 
@@ -403,6 +375,23 @@ struct BitzMenuBarContentView: View {
             .keyboardShortcut("q")
         }
         .padding(8)
+    }
+
+    private func openSettingsWindow() {
+        SettingsWindowManager.shared.showSettingsWindow(
+            rootView: SettingsRootView(
+                engine: engine,
+                activityMonitor: activityMonitor,
+                scaleStore: scaleStore,
+                opacityStore: opacityStore,
+                positionStore: positionStore,
+                displayStore: displayStore,
+                agentMonitor: agentMonitor,
+                updateStore: updateStore,
+                telemetryDashboard: telemetryDashboard,
+                telemetrySettings: telemetrySettings
+            )
+        )
     }
 
     // MARK: - Header & Primary Actions
@@ -436,496 +425,6 @@ struct BitzMenuBarContentView: View {
         }
     }
 
-    // MARK: - Appearance Menu (Size & Opacity)
-
-    @ViewBuilder
-    private var appearanceMenu: some View {
-        Menu("Appearance (Size & Opacity) 🎨") {
-            Text("Avatar Size: \(scaleStore.formattedSizeSummary)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 8) {
-                Button("Smaller (-10%)") {
-                    scaleStore.stepDown()
-                }
-                .disabled(!scaleStore.canStepDown)
-                .keyboardShortcut("-", modifiers: [.command])
-
-                Button("Larger (+10%)") {
-                    scaleStore.stepUp()
-                }
-                .disabled(!scaleStore.canStepUp)
-                .keyboardShortcut("=", modifiers: [.command])
-            }
-
-            if !scaleStore.isPresetSelected(.defaultSize) {
-                Button("Reset Size (100% — 250×250 pt)") {
-                    scaleStore.resetToDefault()
-                }
-            }
-
-            Menu("Size Presets (\(scaleStore.percentageInt)%)") {
-                ForEach(AvatarSizePreset.allCases, id: \.rawValue) { preset in
-                    Button(scaleStore.isPresetSelected(preset) ? "✓ \(preset.menuTitle)" : preset.menuTitle) {
-                        scaleStore.selectPreset(preset)
-                    }
-                }
-            }
-
-            Divider()
-
-            Text("Mascot Opacity: \(opacityStore.formattedOpacitySummary)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 8) {
-                Button("More Transparent (-10%)") {
-                    opacityStore.stepDown()
-                }
-                .disabled(!opacityStore.canStepDown)
-                .keyboardShortcut("[", modifiers: [.command])
-
-                Button("More Solid (+10%)") {
-                    opacityStore.stepUp()
-                }
-                .disabled(!opacityStore.canStepUp)
-                .keyboardShortcut("]", modifiers: [.command])
-            }
-
-            Menu("Opacity Presets (\(opacityStore.percentageInt)%)") {
-                ForEach(AvatarOpacityPreset.allCases, id: \.rawValue) { preset in
-                    Button(opacityStore.isPresetSelected(preset) ? "✓ \(preset.menuTitle)" : preset.menuTitle) {
-                        opacityStore.selectPreset(preset)
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Position & Dragging Menu
-
-    @ViewBuilder
-    private var positionMenu: some View {
-        Menu("Position & Dragging ✥") {
-            Text("Mascot Position: \(positionStore.formattedPositionSummary)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if positionStore.isPositionUnlocked {
-                Button("✓ Lock Position [⎋ Esc / Right-Click]") {
-                    positionStore.lockPosition()
-                }
-                .keyboardShortcut(.escape, modifiers: [])
-            } else {
-                Button("Unlock Position (Drag to Move)") {
-                    positionStore.unlockPosition()
-                }
-            }
-
-            Text("💡 Drag: Hold ⌥ Option anytime • Lock: ⎋ Esc or Right-Click")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-            Divider()
-
-            Menu("Screen Corner Presets") {
-                ForEach(ScreenCornerAnchor.allCases, id: \.rawValue) { corner in
-                    Button(positionStore.isCornerSelected(corner) ? "✓ \(corner.menuTitle)" : corner.menuTitle) {
-                        positionStore.selectCorner(corner)
-                    }
-                }
-            }
-
-            if positionStore.isFreeform || positionStore.cornerAnchor != .bottomRight {
-                Button("Reset to Default Corner (Bottom-Right)") {
-                    positionStore.resetToDefaultCorner()
-                }
-            }
-        }
-    }
-
-    // MARK: - Displays & Multi-Monitor Menu
-
-    @ViewBuilder
-    private var displayMenu: some View {
-        Menu("Display: \(displayStore.summaryTitle) 🖥️") {
-            Button(displayStore.targetMode == .primary ? "✓ Primary Screen" : "Primary Screen") {
-                displayStore.selectMode(.primary)
-            }
-
-            Button(displayStore.targetMode == .followActive ? "✓ Follow Active Screen" : "Follow Active Screen") {
-                displayStore.selectMode(.followActive)
-            }
-
-            Button(displayStore.targetMode == .allDisplays ? "✓ All Screens" : "All Screens") {
-                displayStore.selectMode(.allDisplays)
-            }
-
-            if !displayStore.connectedScreens.isEmpty {
-                Divider()
-                Text("Connected Displays:")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                ForEach(displayStore.connectedScreens) { screen in
-                    let isSelected = (displayStore.targetMode == .specific && displayStore.targetDisplayID == screen.id)
-                    Button(isSelected ? "✓ \(screen.name)" : screen.name) {
-                        displayStore.selectSpecificDisplay(id: screen.id, name: screen.name)
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Customizable Telemetry & Diagnostics Dashboard
-
-    @ViewBuilder
-    private var telemetryMenu: some View {
-        Menu("Telemetry & Diagnostics 📊") {
-            // Live Status Cards
-            if telemetryDashboard.snapshot.hasActiveWarning, let warning = telemetryDashboard.snapshot.activeWarningSummary {
-                Text(warning)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                Divider()
-            }
-
-            if telemetrySettings.isMetricEnabled(.disk) {
-                let disk = telemetryDashboard.snapshot.disk
-                Text("💾 Disk: \(disk.formattedSummary)")
-                    .foregroundStyle(disk.isLowSpace ? .orange : .primary)
-            }
-
-            if telemetrySettings.isMetricEnabled(.ram) {
-                let ram = telemetryDashboard.snapshot.ram
-                Text("🧠 RAM: \(ram.formattedSummary)")
-                    .foregroundStyle(ram.pressure.isWarningOrCritical ? .orange : .primary)
-            }
-
-            if telemetrySettings.isMetricEnabled(.agents) {
-                let agents = telemetryDashboard.snapshot.agents
-                Text("🤖 AI Agents: \(agents.formattedSummary)")
-            }
-
-            if telemetrySettings.isMetricEnabled(.fps) {
-                let fps = telemetryDashboard.snapshot.fps
-                Text("🖥️ Screen FPS: \(fps.formattedSummary)")
-            }
-
-            if telemetrySettings.isMetricEnabled(.cpu) {
-                let cpu = telemetryDashboard.snapshot.cpu
-                Text("⚡ CPU Status: \(cpu.formattedSummary)")
-            }
-
-            if telemetrySettings.isMetricEnabled(.network) {
-                let net = telemetryDashboard.snapshot.network
-                Text("🌐 Network: \(net.formattedSummary)")
-            }
-
-            if telemetrySettings.isMetricEnabled(.battery), let bat = telemetryDashboard.snapshot.battery {
-                Text("🔋 Battery: \(bat.formattedSummary)")
-            }
-
-            if let disp = telemetryDashboard.snapshot.display {
-                Text("🖥️ Display: \(disp.formattedSummary)")
-            }
-
-            Divider()
-
-            // Metric Selection Toggles
-            Menu("Visible Metrics (Customize)") {
-                ForEach(TelemetryMetric.allCases) { metric in
-                    Toggle(metric.displayName, isOn: Binding(
-                        get: { telemetrySettings.isMetricEnabled(metric) },
-                        set: { isEnabled in
-                            telemetrySettings.setMetric(metric, enabled: isEnabled)
-                        }
-                    ))
-                }
-            }
-
-            // Display Placement Options
-            Menu("Display Placements") {
-                Toggle("Compact Menu Bar Title Item", isOn: $telemetrySettings.displayInMenuBarTitle)
-                Toggle("Mascot Floating Cyber HUD", isOn: $telemetrySettings.displayInMascotCyberHUD)
-                Toggle("Speech Bubble Carousel", isOn: $telemetrySettings.displayInSpeechBubbleCycle)
-                Toggle("Show in Menu Bar Dropdown", isOn: $telemetrySettings.displayInMenuBarMenu)
-            }
-
-            // Polling Interval Cadence
-            Menu("Update Cadence (\(Int(telemetrySettings.pollingIntervalSeconds))s)") {
-                ForEach([1.0, 3.0, 5.0, 10.0], id: \.self) { seconds in
-                    let isSelected = telemetrySettings.pollingIntervalSeconds == seconds
-                    Button(isSelected ? "✓ \(Int(seconds)) second\(seconds == 1 ? "" : "s")" : "\(Int(seconds)) second\(seconds == 1 ? "" : "s")") {
-                        telemetrySettings.pollingIntervalSeconds = seconds
-                    }
-                }
-            }
-
-            // Warning Alert Thresholds
-            Menu("Low Disk Space Warning (\(Int(telemetrySettings.lowDiskWarningThresholdPercent))%)") {
-                ForEach([5.0, 10.0, 15.0, 20.0], id: \.self) { pct in
-                    let isSelected = telemetrySettings.lowDiskWarningThresholdPercent == pct
-                    Button(isSelected ? "✓ Warn below \(Int(pct))%" : "Warn below \(Int(pct))%") {
-                        telemetrySettings.lowDiskWarningThresholdPercent = pct
-                    }
-                }
-            }
-
-            Divider()
-
-            Button("Refresh Telemetry Now") {
-                Task {
-                    await telemetryDashboard.performSampleTick()
-                }
-            }
-        }
-    }
-
-    // MARK: - Hardware & Activity Sensors Menu
-
-    @ViewBuilder
-    private var sensorsMenu: some View {
-        Menu("Hardware & Sensors ⚡") {
-            if let temp = activityMonitor.lastTemperatureCelsius {
-                Text(String(format: "CPU Die Temp: %.1f °C (Warn > %.0f °C)", temp, activityMonitor.overheatingTemperatureThresholdCelsius))
-            } else {
-                Text("CPU Die Temp: Sensor Unavailable")
-            }
-
-            if let load = activityMonitor.lastCPULoadPercentage {
-                Text(String(format: "CPU Load: %.1f%% (Warn > %.0f%%)", load, activityMonitor.overheatingCPULoadThresholdPercent))
-            }
-
-            Text("Thermal Pressure: \(thermalStateLabel)")
-
-            let idleStatusSuffix: String = {
-                if activityMonitor.isOnBreak {
-                    return " (Charging ⚡)"
-                } else if activityMonitor.lastIdleSeconds >= activityMonitor.idleBreakThresholdSeconds && activityMonitor.isWatchingMediaOrDistraction {
-                    return " (Watching Media — Draining PTS)"
-                } else {
-                    return ""
-                }
-            }()
-            Text(String(format: "User Idle: %.0fs%@", activityMonitor.lastIdleSeconds, idleStatusSuffix))
-
-            if let appName = activityMonitor.lastFrontmostAppName {
-                Divider()
-                let tag = activityMonitor.lastAppIsProductive ? "+0.5 Productive" : "-1.5 Dopamine Drain"
-                let customTag = activityMonitor.frontmostAppCustomRule.map { $0 ? " [Custom: Productive]" : " [Custom: Distraction]" } ?? ""
-                Text("Active App: \(appName) (\(tag))\(customTag)")
-
-                HStack(spacing: 6) {
-                    if activityMonitor.frontmostAppCustomRule != true {
-                        Button("Mark Productive") {
-                            activityMonitor.markFrontmostApp(asProductive: true)
-                        }
-                    }
-                    if activityMonitor.frontmostAppCustomRule != false {
-                        Button("Mark Distraction") {
-                            activityMonitor.markFrontmostApp(asProductive: false)
-                        }
-                    }
-                    if activityMonitor.frontmostAppCustomRule != nil {
-                        Button("Reset Rule") {
-                            activityMonitor.resetFrontmostAppRule()
-                        }
-                    }
-                }
-            }
-
-            Divider()
-
-            Button("Sample Hardware Sensors Now") {
-                activityMonitor.performSampleTick()
-            }
-        }
-    }
-
-    // MARK: - AI Coding Agents Menu
-
-    @ViewBuilder
-    private var agentsMenu: some View {
-        Menu("AI Coding Agents (\(agentMonitor.activeAgents.count) Active) 🤖") {
-            Toggle("Show Agent Status Popups", isOn: $agentMonitor.popupsEnabled)
-
-            Divider()
-            Text("Monitored Agents:")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            ForEach(agentMonitor.catalog) { agent in
-                Toggle(agent.displayName, isOn: Binding(
-                    get: { agent.isEnabled },
-                    set: { isEnabled in
-                        agentMonitor.setAgentEnabled(id: agent.id, isEnabled: isEnabled)
-                    }
-                ))
-            }
-
-            Divider()
-            Menu("Claude Code Hooks") {
-                Button("Install Hook to ~/.claude/settings.json") {
-                    let url = URL(fileURLWithPath: ("~/.claude/settings.json" as NSString).expandingTildeInPath)
-                    do {
-                        try AgentHookInstaller.updateSettingsFile(at: url, AgentHookInstaller.installClaudeHooks)
-                        hookActionMessage = "Claude Code hooks installed!"
-                        isHookActionError = false
-                    } catch {
-                        hookActionMessage = "Failed to save hooks: \(error.localizedDescription)"
-                        isHookActionError = true
-                    }
-                }
-
-                Button("Uninstall Hook") {
-                    let url = URL(fileURLWithPath: ("~/.claude/settings.json" as NSString).expandingTildeInPath)
-                    do {
-                        try AgentHookInstaller.updateSettingsFile(at: url, AgentHookInstaller.uninstallClaudeHooks)
-                        hookActionMessage = "Claude Code hooks uninstalled."
-                        isHookActionError = false
-                    } catch {
-                        hookActionMessage = "Failed to uninstall: \(error.localizedDescription)"
-                        isHookActionError = true
-                    }
-                }
-            }
-
-            if let msg = hookActionMessage {
-                Text(msg)
-                    .font(.caption2)
-                    .foregroundStyle(isHookActionError ? .red : .green)
-            }
-        }
-    }
-
-    // MARK: - State Simulation & Testing Menu
-
-    @ViewBuilder
-    private var simulationMenu: some View {
-        Menu("State Simulation & Testing 🧪") {
-            if activityMonitor.isManualOverrideActive {
-                Button("Disable Override (Resume Live Sensors)") {
-                    activityMonitor.clearManualOverride()
-                }
-                Divider()
-            }
-
-            Button("Super Charged (90 PTS - Magenta ^ ^)") {
-                activityMonitor.isManualOverrideActive = true
-                engine.setPoints(90.0, continuousWorkMinutes: 10.0)
-            }
-            .accessibilityLabel("Super Charged (90 PTS - Magenta)")
-
-            Button("Balanced (50 PTS - Cyan)") {
-                activityMonitor.isManualOverrideActive = true
-                engine.setPoints(50.0, continuousWorkMinutes: 0.0)
-            }
-
-            Button("Sad / Dopamine Overload (20 PTS - Purple T T)") {
-                activityMonitor.isManualOverrideActive = true
-                engine.setPoints(20.0, continuousWorkMinutes: 0.0)
-            }
-            .accessibilityLabel("Sad or Dopamine Overload (20 PTS - Purple)")
-
-            Button("Overworked (50m Non-Stop Work - Amber - -)") {
-                activityMonitor.isManualOverrideActive = true
-                engine.setPoints(75.0, continuousWorkMinutes: 50.0)
-            }
-            .accessibilityLabel("Overworked (50 minutes Non-Stop Work - Amber)")
-
-            Button("Burnout (95m Non-Stop Work - X X)") {
-                activityMonitor.isManualOverrideActive = true
-                engine.setPoints(75.0, continuousWorkMinutes: 95.0)
-            }
-            .accessibilityLabel("Burnout (95 minutes Non-Stop Work)")
-
-            Button("Charging Mode (Idle Away from Keyboard ⚡ Z Z)") {
-                activityMonitor.isManualOverrideActive = true
-                engine.setChargingState(true)
-            }
-            .accessibilityLabel("Charging Mode (Idle Away from Keyboard)")
-
-            Button("Thermal / CPU Overheat (Cool-Down Action Alert)") {
-                activityMonitor.isManualOverrideActive = true
-                let temp = activityMonitor.lastTemperatureCelsius ?? 86.0
-                let load = activityMonitor.lastCPULoadPercentage ?? 92.0
-                engine.triggerThermalWarning(
-                    isOverheating: true,
-                    actionMessage: String(format: "🔥 %.0f°C (%.0f%% CPU) — CLOSE HEAVY TABS OR APPS TO COOL DOWN!", max(temp, 85.0), max(load, 88.0))
-                )
-            }
-        }
-    }
-
-    // MARK: - Keybinds & Shortcuts Reference Menu
-
-    @ViewBuilder
-    private var keybindsMenu: some View {
-        Menu("Keybinds & Shortcuts Reference ⌨️") {
-            Text("MASCOT POSITIONING:")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text("• ⌥ Option + Drag — Move mascot anywhere anytime")
-            Text("• ⎋ Escape or ⏎ Return — Lock position after moving")
-            Text("• Right-Click on Mascot — Lock position immediately")
-            Text("• Double-Click on Mascot — Lock position immediately")
-
-            Divider()
-
-            Text("SHORTCUTS:")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text("• P — Pet Bitz (<3)")
-            Text("• ⌘ = / ⌘ - — Increase / Decrease size")
-            Text("• ⌘ ] / ⌘ [ — Increase / Decrease opacity")
-            Text("• ⎋ Esc — Lock position when unlocked")
-            Text("• ⌘ Q — Quit Bitz")
-        }
-    }
-
-    // MARK: - App Updates & Version Menu
-
-    @ViewBuilder
-    private var updatesMenu: some View {
-        Menu("Updates & About (v\(updateStore.currentVersionString)) 🚀") {
-            Text("Bitz v\(updateStore.currentVersionString)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if updateStore.isUpdateAvailable, let release = updateStore.latestRelease {
-                Button("🚀 Download v\(release.semanticVersion.description)...") {
-                    updateStore.openDownloadPage()
-                }
-                Button("View Release Notes...") {
-                    updateStore.openReleaseNotes()
-                }
-                if updateStore.isSpeechBubbleAlertActive {
-                    Button("Dismiss Alert Bubble") {
-                        updateStore.dismissAlert()
-                    }
-                }
-            } else {
-                Button(updateStore.isChecking ? "Checking for Updates..." : "Check for Updates...") {
-                    Task {
-                        await updateStore.checkForUpdates(manual: true)
-                    }
-                }
-                .disabled(updateStore.isChecking)
-
-                if !updateStore.statusMessage.isEmpty && updateStore.statusMessage != "v\(updateStore.currentVersionString)" {
-                    Text(updateStore.statusMessage)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Divider()
-
-            Toggle("Check for Updates Automatically", isOn: $updateStore.automaticallyCheckForUpdates)
-        }
-    }
 }
 
 /// SwiftUI `App` definition providing a lightweight Menu Bar status item for inspecting

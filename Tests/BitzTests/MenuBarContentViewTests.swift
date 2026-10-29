@@ -80,4 +80,57 @@ final class MenuBarContentViewTests: XCTestCase {
         positionStore.lockPosition()
         XCTAssertFalse(positionStore.isPositionUnlocked)
     }
+
+    func testMenuBarSettingsTriggerOpensSettingsWindow() {
+        let suiteName = "MenuBarSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let riveController = ProductionRiveController()
+        let engine = WellnessPointEngine(riveController: riveController, userDefaults: defaults)
+        let telemetry = MockTelemetryProvider()
+        let activityMonitor = ActivityMonitorService(engine: engine, telemetry: telemetry)
+        let scaleStore = AvatarScaleStore(userDefaults: defaults)
+        let opacityStore = AvatarOpacityStore(userDefaults: defaults)
+        let positionStore = AvatarPositionStore(userDefaults: defaults)
+        let displayStore = DisplayPreferenceStore(userDefaults: defaults)
+        let agentMonitor = AgentMonitorService(adapters: [])
+        let updateStore = AppUpdateStore(userDefaults: defaults)
+        let telemetrySettings = TelemetrySettingsStore(userDefaults: defaults)
+        let telemetryDashboard = TelemetryDashboardService(settingsStore: telemetrySettings)
+
+        let menuView = BitzMenuBarContentView(
+            engine: engine,
+            activityMonitor: activityMonitor,
+            scaleStore: scaleStore,
+            opacityStore: opacityStore,
+            positionStore: positionStore,
+            displayStore: displayStore,
+            agentMonitor: agentMonitor,
+            updateStore: updateStore,
+            telemetryDashboard: telemetryDashboard,
+            telemetrySettings: telemetrySettings
+        )
+
+        _ = menuView.body
+
+        SettingsWindowManager.shared.showSettingsWindow(
+            rootView: SettingsRootView(
+                engine: engine,
+                activityMonitor: activityMonitor,
+                scaleStore: scaleStore,
+                opacityStore: opacityStore,
+                positionStore: positionStore,
+                displayStore: displayStore,
+                agentMonitor: agentMonitor,
+                updateStore: updateStore,
+                telemetryDashboard: telemetryDashboard,
+                telemetrySettings: telemetrySettings
+            )
+        )
+
+        XCTAssertTrue(SettingsWindowManager.shared.isWindowOpen)
+        SettingsWindowManager.shared.closeSettingsWindow()
+        XCTAssertFalse(SettingsWindowManager.shared.isWindowOpen)
+    }
 }
