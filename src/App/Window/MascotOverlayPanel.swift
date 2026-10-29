@@ -308,6 +308,9 @@ public final class MascotOverlayPanel: NSPanel {
 
     public private(set) var currentScaleFactor: CGFloat = CGFloat(AvatarScaleStore.defaultScaleFactor)
     public private(set) var currentCornerAnchor: ScreenCornerAnchor = .bottomRight
+    public var assignedScreen: NSScreen?
+    public var debounceInterval: TimeInterval = 0.25
+    private var screenReconfigTask: Task<Void, Never>?
     nonisolated(unsafe) private var screenParametersObserverToken: (any NSObjectProtocol)?
 
     public init(
@@ -349,14 +352,29 @@ public final class MascotOverlayPanel: NSPanel {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.repositionOnScreen()
+                self?.handleScreenParametersChangedDebounced()
             }
         }
     }
 
     deinit {
+        screenReconfigTask?.cancel()
         if let token = screenParametersObserverToken {
             NotificationCenter.default.removeObserver(token)
+        }
+    }
+
+    /// Debounces display change notifications to avoid layout flashes during display handshakes.
+    public func handleScreenParametersChangedDebounced() {
+        screenReconfigTask?.cancel()
+        screenReconfigTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            if self.debounceInterval > 0 {
+                let nanoseconds = UInt64(self.debounceInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanoseconds)
+            }
+            guard !Task.isCancelled else { return }
+            self.repositionOnScreen()
         }
     }
 
@@ -419,15 +437,20 @@ public final class MascotOverlayPanel: NSPanel {
         repositionOnScreen(of: screen)
     }
 
-    /// Repositions the panel on the specified `screen` (defaulting to current screen or `NSScreen.main`)
+    /// Repositions the panel on the specified `screen` (defaulting to assigned screen, current screen, or `NSScreen.main`)
     /// using the active `currentScaleFactor` and `currentCornerAnchor`.
     public func repositionOnScreen(of screen: NSScreen? = nil) {
-        let activeScreen = screen ?? self.screen ?? NSScreen.main
+        if let screen {
+            self.assignedScreen = screen
+        }
+        let activeScreen = screen ?? assignedScreen ?? self.screen ?? NSScreen.main
         let targetFrame = activeScreen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let scaledSize = Self.calculatePanelSize(for: currentScaleFactor, visibleFrame: targetFrame)
         let origin = Self.calculateOrigin(for: targetFrame, panelSize: scaledSize, corner: currentCornerAnchor)
         contentView?.frame = NSRect(origin: .zero, size: scaledSize)
+        contentView?.needsDisplay = true
         setFrame(NSRect(origin: origin, size: scaledSize), display: true)
+        invalidateShadow()
     }
 
     /// Legacy convenience helper backward compatible with previous bottom-right calls.
