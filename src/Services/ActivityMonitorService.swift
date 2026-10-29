@@ -210,6 +210,14 @@ public enum BrowserTabTelemetryReader {
     /// Cached chromium browser profile folder names to avoid repeated array allocation during fast path sampling.
     private static let chromiumProfileCandidates: [String] = ["Default", "Profile 1", "Profile 2", "Profile 3", ""]
 
+    /// Cached chromium browser relative base directories to avoid repeated array allocations.
+    private static let braveDirs: [String] = ["BraveSoftware/Brave-Browser"]
+    private static let edgeDirs: [String] = ["Microsoft Edge"]
+    private static let arcDirs: [String] = ["Arc/User Data"]
+    private static let operaDirs: [String] = ["com.operasoftware.Opera", "com.operasoftware.OperaGX"]
+    private static let vivaldiDirs: [String] = ["Vivaldi"]
+    private static let chromeDirs: [String] = ["Google/Chrome", "Google/Chrome Canary", "Chromium"]
+
     /// Decompresses a Mozilla `mozLz40\0` LZ4 block into raw JSON `Data`.
     public static func decompressMozLZ4(_ data: Data) -> Data? {
         guard data.count > 12 else { return nil }
@@ -390,17 +398,17 @@ public enum BrowserTabTelemetryReader {
 
         let relativeBaseDirs: [String]
         if lower.contains("brave") {
-            relativeBaseDirs = ["BraveSoftware/Brave-Browser"]
+            relativeBaseDirs = braveDirs
         } else if lower.contains("edgemac") || lower.contains("microsoft.edge") {
-            relativeBaseDirs = ["Microsoft Edge"]
+            relativeBaseDirs = edgeDirs
         } else if lower.contains("thebrowser") || lower.contains("arc") {
-            relativeBaseDirs = ["Arc/User Data"]
+            relativeBaseDirs = arcDirs
         } else if lower.contains("opera") {
-            relativeBaseDirs = ["com.operasoftware.Opera", "com.operasoftware.OperaGX"]
+            relativeBaseDirs = operaDirs
         } else if lower.contains("vivaldi") {
-            relativeBaseDirs = ["Vivaldi"]
+            relativeBaseDirs = vivaldiDirs
         } else {
-            relativeBaseDirs = ["Google/Chrome", "Google/Chrome Canary", "Chromium"]
+            relativeBaseDirs = chromeDirs
         }
 
         var newestSessionFile: URL? = nil
