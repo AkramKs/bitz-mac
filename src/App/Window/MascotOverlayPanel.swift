@@ -34,6 +34,7 @@ public final class AvatarPositionStore: ObservableObject {
     public static let isFreeformKey: String = "avatarIsFreeformMode"
     public static let customPositionXKey: String = "avatarCustomPositionX"
     public static let customPositionYKey: String = "avatarCustomPositionY"
+    public static let isMascotVisibleKey: String = "avatarIsMascotVisible"
 
     @Published public private(set) var positionMode: MascotPositionMode
     @Published public private(set) var cornerAnchor: ScreenCornerAnchor
@@ -41,6 +42,12 @@ public final class AvatarPositionStore: ObservableObject {
     @Published public var isPositionUnlocked: Bool = false
     @Published public var isModifierHeld: Bool = false
     @Published public var isDragging: Bool = false
+    @Published public var isMascotVisible: Bool {
+        didSet {
+            userDefaults.set(isMascotVisible, forKey: Self.isMascotVisibleKey)
+            onVisibilityChanged?(isMascotVisible)
+        }
+    }
 
     private let userDefaults: UserDefaults
 
@@ -48,6 +55,7 @@ public final class AvatarPositionStore: ObservableObject {
     public var onCustomPositionChanged: ((NSPoint) -> Void)?
     public var onPositionModeChanged: ((MascotPositionMode) -> Void)?
     public var onInteractivityToggled: ((Bool) -> Void)?
+    public var onVisibilityChanged: ((Bool) -> Void)?
 
     public var isInteractivityEnabled: Bool {
         isPositionUnlocked || isModifierHeld
@@ -64,6 +72,9 @@ public final class AvatarPositionStore: ObservableObject {
 
     public init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
+
+        let isMascotVisible = userDefaults.object(forKey: Self.isMascotVisibleKey) as? Bool ?? true
+        self.isMascotVisible = isMascotVisible
 
         let storedCornerRaw = userDefaults.string(forKey: Self.userDefaultsKey)
         let resolvedCorner = storedCornerRaw.flatMap { ScreenCornerAnchor(rawValue: $0) } ?? Self.defaultCorner
@@ -134,6 +145,15 @@ public final class AvatarPositionStore: ObservableObject {
         guard isModifierHeld != held else { return }
         isModifierHeld = held
         onInteractivityToggled?(isInteractivityEnabled)
+    }
+
+    public func setMascotVisible(_ visible: Bool) {
+        guard isMascotVisible != visible else { return }
+        isMascotVisible = visible
+    }
+
+    public func toggleMascotVisibility() {
+        isMascotVisible.toggle()
     }
 }
 

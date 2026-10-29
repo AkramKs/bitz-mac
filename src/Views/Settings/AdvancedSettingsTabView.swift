@@ -170,6 +170,24 @@ public struct AdvancedSettingsTabView: View {
                     }
                 }
             }
+
+            // Section 4: Application Lifecycle & Exit
+            settingsCard(title: "Application Lifecycle", systemImage: "power") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Completely exit Bitz, remove the mascot overlay from all displays, and stop background activity monitoring.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Button(role: .destructive) {
+                        NSApplication.shared.terminate(nil)
+                    } label: {
+                        Label("Quit Bitz Completely", systemImage: "power")
+                            .font(.subheadline.bold())
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                }
+            }
         }
     }
 

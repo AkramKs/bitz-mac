@@ -72,9 +72,43 @@ public struct SettingsRootView: View {
                 activeTabContent
                     .padding(20)
             }
+
+            Divider()
+
+            // Bottom Utility Footer Bar
+            bottomFooterBar
         }
         .frame(minWidth: 660, minHeight: 560)
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    // MARK: - Bottom Utility Footer Bar
+
+    private var bottomFooterBar: some View {
+        HStack(spacing: 14) {
+            Toggle("Show Mascot on Desktop", isOn: $positionStore.isMascotVisible)
+                .font(.subheadline)
+
+            Spacer()
+
+            Button("Close Settings") {
+                SettingsWindowManager.shared.closeSettingsWindow()
+            }
+            .keyboardShortcut("w", modifiers: [.command])
+
+            Button(role: .destructive) {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label("Quit Bitz", systemImage: "power")
+                    .font(.subheadline.bold())
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .keyboardShortcut("q", modifiers: [.command])
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.75))
     }
 
     // MARK: - Tab Header Bar

@@ -305,4 +305,29 @@ final class FreeformPositioningTests: XCTestCase {
         XCTAssertNil(panel.customOrigin)
         XCTAssertEqual(panel.currentCornerAnchor, .topLeft)
     }
+
+    func testMascotVisibilityToggleAndPersistence() {
+        let (defaults, cleanup) = createIsolatedDefaults()
+        defer { cleanup() }
+
+        let store = AvatarPositionStore(userDefaults: defaults)
+        XCTAssertTrue(store.isMascotVisible)
+
+        var callbackCount = 0
+        store.onVisibilityChanged = { isVisible in
+            callbackCount += 1
+        }
+
+        store.toggleMascotVisibility()
+        XCTAssertFalse(store.isMascotVisible)
+        XCTAssertEqual(callbackCount, 1)
+
+        store.setMascotVisible(true)
+        XCTAssertTrue(store.isMascotVisible)
+        XCTAssertEqual(callbackCount, 2)
+
+        // Verify restoration from defaults
+        let restoredStore = AvatarPositionStore(userDefaults: defaults)
+        XCTAssertTrue(restoredStore.isMascotVisible)
+    }
 }

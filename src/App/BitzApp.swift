@@ -100,6 +100,13 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.positionStore.onInteractivityToggled = { [weak self] _ in
             self?.updatePanelsInteractivity()
         }
+        self.positionStore.onVisibilityChanged = { [weak self] _ in
+            self?.syncOverlayPanels()
+        }
+        SettingsWindowManager.shared.onWindowClosed = { [weak self] in
+            self?.positionStore.lockPosition()
+            self?.updatePanelsInteractivity()
+        }
         self.updateStoreCancellable = self.updateStore.$isSpeechBubbleAlertActive
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -193,6 +200,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp?.setActivationPolicy(.accessory)
+        setupApplicationMenu()
         setupOverlayPanel()
         activityMonitor.startMonitoring()
         agentMonitor.startMonitoring()
@@ -201,11 +209,80 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
+        overlayPanels.forEach { panel in
+            panel.orderOut(nil)
+            panel.close()
+        }
+        overlayPanels.removeAll()
+        SettingsWindowManager.shared.closeSettingsWindow()
         activityMonitor.stopMonitoring()
         agentMonitor.stopMonitoring()
         telemetryDashboard.stop()
         updateStore.stopPeriodicChecks()
         engine.persistState()
+    }
+
+    /// Configures standard application menu shortcuts (`⌘Q` to Quit, `⌘W` to Close, `⌘,` for Settings)
+    /// even when running as an accessory menu bar application.
+    public func setupApplicationMenu() {
+        guard NSApp?.mainMenu == nil else { return }
+        let mainMenu = NSMenu()
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+
+        let appMenu = NSMenu(title: "Bitz")
+        appMenuItem.submenu = appMenu
+
+        let aboutItem = NSMenuItem(
+            title: "About Bitz",
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: ""
+        )
+        appMenu.addItem(aboutItem)
+        appMenu.addItem(NSMenuItem.separator())
+
+        let settingsItem = NSMenuItem(
+            title: "Settings...",
+            action: #selector(menuOpenSettings),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(NSMenuItem.separator())
+
+        let closeItem = NSMenuItem(
+            title: "Close Window",
+            action: #selector(NSWindow.performClose(_:)),
+            keyEquivalent: "w"
+        )
+        appMenu.addItem(closeItem)
+        appMenu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(
+            title: "Quit Bitz",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+        appMenu.addItem(quitItem)
+
+        NSApp?.mainMenu = mainMenu
+    }
+
+    @objc private func menuOpenSettings() {
+        SettingsWindowManager.shared.showSettingsWindow(
+            rootView: SettingsRootView(
+                engine: engine,
+                activityMonitor: activityMonitor,
+                scaleStore: scaleStore,
+                opacityStore: opacityStore,
+                positionStore: positionStore,
+                displayStore: displayStore,
+                agentMonitor: agentMonitor,
+                updateStore: updateStore,
+                telemetryDashboard: telemetryDashboard,
+                telemetrySettings: telemetrySettings
+            )
+        )
     }
 
     /// Instantiates and positions the borderless, click-through `MascotOverlayPanel`(s)
@@ -217,6 +294,11 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     /// Synchronizes overlay panels across screens based on `displayStore.targetMode`.
     public func syncOverlayPanels() {
         displayStore.refreshConnectedScreens()
+
+        guard positionStore.isMascotVisible else {
+            overlayPanels.forEach { $0.orderOut(nil) }
+            return
+        }
 
         if displayStore.targetMode == .allDisplays {
             let screens = NSScreen.screens
@@ -410,6 +492,8 @@ struct BitzMenuBarContentView: View {
         }
         .accessibilityLabel("Pet Bitz")
         .keyboardShortcut("p")
+
+        Toggle(positionStore.isMascotVisible ? "Mascot Visible on Screen" : "Mascot Hidden (Click to Show)", isOn: $positionStore.isMascotVisible)
 
         if positionStore.isPositionUnlocked {
             Button("✓ Lock Position [⎋ Esc / Right-Click]") {

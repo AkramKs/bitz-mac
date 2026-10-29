@@ -28,7 +28,21 @@ public struct GeneralSettingsTabView: View {
             // Live Interactive Avatar Preview Card
             liveAvatarPreviewCard
 
-            // Section 1: Avatar Size & Scale
+            // Section 1: Mascot Visibility
+            settingsCard(title: "Desktop Mascot Visibility", systemImage: "eye.fill") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Show Mascot on Desktop", isOn: $positionStore.isMascotVisible)
+                        .font(.subheadline.bold())
+
+                    Text(positionStore.isMascotVisible
+                        ? "Bitz is currently active and floating on your desktop screen."
+                        : "Bitz is currently hidden from your desktop screen. Toggle on anytime to restore.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Section 2: Avatar Size & Scale
             settingsCard(title: "Avatar Size & Scale", systemImage: "arrow.up.left.and.arrow.down.right") {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {

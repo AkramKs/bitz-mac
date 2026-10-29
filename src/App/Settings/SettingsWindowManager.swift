@@ -14,6 +14,7 @@ public final class SettingsWindowManager: NSObject, ObservableObject, NSWindowDe
 
     private var windowController: NSWindowController?
     @Published public private(set) var isWindowOpen: Bool = false
+    public var onWindowClosed: (() -> Void)?
 
     public override init() {
         super.init()
@@ -60,11 +61,13 @@ public final class SettingsWindowManager: NSObject, ObservableObject, NSWindowDe
     public func closeSettingsWindow() {
         windowController?.close()
         isWindowOpen = false
+        onWindowClosed?()
     }
 
     // MARK: - NSWindowDelegate
 
     public func windowWillClose(_ notification: Notification) {
         isWindowOpen = false
+        onWindowClosed?()
     }
 }
