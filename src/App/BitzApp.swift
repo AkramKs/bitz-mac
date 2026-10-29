@@ -18,6 +18,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let updateStore: AppUpdateStore
     public let telemetrySettings: TelemetrySettingsStore
     public let telemetryDashboard: TelemetryDashboardService
+    @Published public private(set) var menuBarTitle: String = "Bitz"
     public private(set) var overlayPanels: [MascotOverlayPanel] = []
     public var overlayPanel: MascotOverlayPanel? { overlayPanels.first }
 
@@ -80,6 +81,11 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         )
 
         super.init()
+
+        self.telemetryDashboard.onTitleChanged = { [weak self] newTitle in
+            guard let self, self.menuBarTitle != newTitle else { return }
+            self.menuBarTitle = newTitle
+        }
 
         self.scaleStore.onScaleChanged = { [weak self] newScale in
             self?.overlayPanels.forEach { $0.applyScaleFactor(newScale) }
@@ -930,7 +936,7 @@ public struct BitzApp: App {
     public init() {}
 
     public var body: some Scene {
-        MenuBarExtra(appDelegate.telemetryDashboard.menuBarTitleText, systemImage: "cat.fill") {
+        MenuBarExtra(appDelegate.menuBarTitle, systemImage: "cat.fill") {
             BitzMenuBarContentView(
                 engine: appDelegate.engine,
                 activityMonitor: appDelegate.activityMonitor,

@@ -210,12 +210,13 @@ final class TelemetryDashboardServiceTests: XCTestCase {
         )
 
         let hud = snapshot.hudSummary(enabledMetrics: [.cpu, .agents, .ram, .disk, .fps], focusPoints: 85.0)
-        XCTAssertTrue(hud.contains("45°C / 20%"))
+        XCTAssertTrue(hud.contains("45°C (20%)"))
         XCTAssertTrue(hud.contains("1 AGTS"))
         XCTAssertTrue(hud.contains("16.0GB RAM"))
         XCTAssertTrue(hud.contains("100GB"))
         XCTAssertTrue(hud.contains("30 FPS"))
         XCTAssertTrue(hud.contains("85 PTS"))
+        XCTAssertTrue(hud.contains("\n"))
     }
 
     func testSnapshotSpeechBubbleCarouselMessages() {

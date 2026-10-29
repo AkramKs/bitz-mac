@@ -321,6 +321,9 @@ public final class TelemetrySettingsStore: ObservableObject {
 /// Central coordinator for modular system telemetry, asynchronous sampling, and display bindings.
 @MainActor
 public final class TelemetryDashboardService: ObservableObject {
+    public static var isMenuTracking: Bool = false
+    public var onTitleChanged: ((String) -> Void)?
+
     @Published public private(set) var snapshot: TelemetrySnapshot = TelemetrySnapshot()
     @Published public private(set) var menuBarTitleText: String = "Bitz"
     @Published public private(set) var currentCarouselMessage: String? = nil
@@ -336,6 +339,9 @@ public final class TelemetryDashboardService: ObservableObject {
     private var sampleTask: Task<Void, Never>?
     private var carouselTask: Task<Void, Never>?
     private var carouselIndex: Int = 0
+    private var pendingSnapshot: TelemetrySnapshot?
+    nonisolated(unsafe) private var menuBeginTrackingObserver: (any NSObjectProtocol)?
+    nonisolated(unsafe) private var menuEndTrackingObserver: (any NSObjectProtocol)?
 
     public init(
         settingsStore: TelemetrySettingsStore = TelemetrySettingsStore(),
@@ -356,7 +362,40 @@ public final class TelemetryDashboardService: ObservableObject {
             self?.applyConfigurationChange()
         }
 
+        self.menuBeginTrackingObserver = NotificationCenter.default.addObserver(
+            forName: NSMenu.didBeginTrackingNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
+                Self.isMenuTracking = true
+            }
+        }
+
+        self.menuEndTrackingObserver = NotificationCenter.default.addObserver(
+            forName: NSMenu.didEndTrackingNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                Self.isMenuTracking = false
+                guard let self, let pending = self.pendingSnapshot else { return }
+                self.snapshot = pending
+                self.pendingSnapshot = nil
+                self.updateMenuBarTitle()
+            }
+        }
+
         updateMenuBarTitle()
+    }
+
+    deinit {
+        if let o = menuBeginTrackingObserver {
+            NotificationCenter.default.removeObserver(o)
+        }
+        if let o = menuEndTrackingObserver {
+            NotificationCenter.default.removeObserver(o)
+        }
     }
 
     public func bindDependencies(
@@ -422,6 +461,7 @@ public final class TelemetryDashboardService: ObservableObject {
     }
 
     private func advanceCarousel() {
+        guard !Self.isMenuTracking else { return }
         let messages = snapshot.speechBubbleCarouselMessages(enabledMetrics: settingsStore.enabledMetrics)
         guard !messages.isEmpty else {
             currentCarouselMessage = nil
@@ -492,6 +532,11 @@ public final class TelemetryDashboardService: ObservableObject {
             display: disp
         )
 
+        if Self.isMenuTracking {
+            self.pendingSnapshot = newSnapshot
+            return
+        }
+
         self.snapshot = newSnapshot
         updateMenuBarTitle()
 
@@ -533,10 +578,15 @@ public final class TelemetryDashboardService: ObservableObject {
     }
 
     private func updateMenuBarTitle() {
+        let newTitle: String
         if settingsStore.displayInMenuBarTitle {
-            menuBarTitleText = snapshot.menuBarTitle(enabledMetrics: settingsStore.enabledMetrics)
+            newTitle = snapshot.menuBarTitle(enabledMetrics: settingsStore.enabledMetrics)
         } else {
-            menuBarTitleText = "Bitz"
+            newTitle = "Bitz"
+        }
+        if menuBarTitleText != newTitle {
+            menuBarTitleText = newTitle
+            onTitleChanged?(newTitle)
         }
     }
 }

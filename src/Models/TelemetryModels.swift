@@ -400,21 +400,22 @@ public struct TelemetrySnapshot: Equatable, Sendable {
     }
 
     /// Formats the Cyber HUD readout string displayed underneath the mascot.
+    /// Balances items across 1 or 2 clean, centered lines without trailing bullets.
     public func hudSummary(enabledMetrics: Set<TelemetryMetric>, focusPoints: Double) -> String {
         var items: [String] = []
 
         if enabledMetrics.contains(.cpu), let temp = cpu.temperatureCelsius {
             if let load = cpu.loadPercentage {
-                items.append(String(format: "%.0f°C / %.0f%%", temp, load))
+                items.append(String(format: "%.0f°C (%.0f%%)", temp, load))
             } else {
                 items.append(String(format: "%.0f°C", temp))
             }
         }
-        if enabledMetrics.contains(.agents) && agents.activeCount > 0 {
-            items.append(agents.compactBadge)
-        }
         if enabledMetrics.contains(.ram) {
             items.append(ram.compactBadge)
+        }
+        if enabledMetrics.contains(.agents) && agents.activeCount > 0 {
+            items.append(agents.compactBadge)
         }
         if enabledMetrics.contains(.disk) {
             items.append(disk.compactBadge)
@@ -422,9 +423,25 @@ public struct TelemetrySnapshot: Equatable, Sendable {
         if enabledMetrics.contains(.fps) {
             items.append(fps.compactBadge)
         }
+        if enabledMetrics.contains(.battery), let bat = battery {
+            items.append(bat.compactBadge)
+        }
+        if enabledMetrics.contains(.network) && (network.downloadBytesPerSec > 10240 || network.uploadBytesPerSec > 10240) {
+            items.append(network.compactBadge)
+        }
 
         items.append(String(format: "%.0f PTS", focusPoints))
-        return items.joined(separator: " • ")
+
+        // If 3 or fewer items, keep on a single clean line
+        if items.count <= 3 {
+            return items.joined(separator: " • ")
+        }
+
+        // Split into 2 evenly balanced lines
+        let mid = (items.count + 1) / 2
+        let line1 = items[0..<mid].joined(separator: " • ")
+        let line2 = items[mid..<items.count].joined(separator: " • ")
+        return line1 + "\n" + line2
     }
 
     /// Formats rotating speech bubble carousel messages for Bitz.
