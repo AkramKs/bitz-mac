@@ -385,11 +385,13 @@ private struct BitzMenuBarContentView: View {
                     opacityStore.stepDown()
                 }
                 .disabled(!opacityStore.canStepDown)
+                .keyboardShortcut("[", modifiers: [.command])
 
                 Button("More Solid (+10%)") {
                     opacityStore.stepUp()
                 }
                 .disabled(!opacityStore.canStepUp)
+                .keyboardShortcut("]", modifiers: [.command])
             }
 
             Menu("Opacity Presets (\(opacityStore.percentageInt)%)") {
@@ -411,11 +413,13 @@ private struct BitzMenuBarContentView: View {
                     scaleStore.stepDown()
                 }
                 .disabled(!scaleStore.canStepDown)
+                .keyboardShortcut("-", modifiers: [.command])
 
                 Button("Larger (+10%)") {
                     scaleStore.stepUp()
                 }
                 .disabled(!scaleStore.canStepUp)
+                .keyboardShortcut("=", modifiers: [.command])
             }
 
             if !scaleStore.isPresetSelected(.defaultSize) {
@@ -438,9 +442,20 @@ private struct BitzMenuBarContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Button(positionStore.isPositionUnlocked ? "✓ Lock Position (Drag Disabled)" : "Unlock Position (Drag to Move)") {
-                positionStore.togglePositionLock()
+            if positionStore.isPositionUnlocked {
+                Button("✓ Lock Position [⎋ Esc / Right-Click]") {
+                    positionStore.lockPosition()
+                }
+                .keyboardShortcut(.escape, modifiers: [])
+            } else {
+                Button("Unlock Position (Drag to Move)") {
+                    positionStore.unlockPosition()
+                }
             }
+
+            Text("💡 Drag: Hold ⌥ Option anytime • Lock: ⎋ Esc or Right-Click")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
 
             Menu("Screen Corner Presets") {
                 ForEach(ScreenCornerAnchor.allCases, id: \.rawValue) { corner in
@@ -454,6 +469,26 @@ private struct BitzMenuBarContentView: View {
                 Button("Reset to Default Corner (Bottom-Right)") {
                     positionStore.resetToDefaultCorner()
                 }
+            }
+
+            Divider()
+            // Keybinds & Shortcuts Reference
+            Menu("Keybinds & Shortcuts Reference ⌨️") {
+                Text("MASCOT POSITIONING:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("• ⌥ Option + Drag — Move mascot anywhere anytime")
+                Text("• ⎋ Escape or ⏎ Return — Lock position after moving")
+                Text("• Right-Click on Mascot — Lock position immediately")
+                Text("• Double-Click on Mascot — Lock position immediately")
+                Divider()
+                Text("SHORTCUTS:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("• P — Pet Bitz (<3)")
+                Text("• ⌘ = / ⌘ - — Increase / Decrease size")
+                Text("• ⌘ ] / ⌘ [ — Increase / Decrease opacity")
+                Text("• ⎋ Esc — Lock position when unlocked")
             }
 
             Divider()
