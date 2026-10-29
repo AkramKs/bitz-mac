@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import ServiceManagement
 import SwiftUI
 
@@ -14,6 +15,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let positionStore: AvatarPositionStore
     public let displayStore: DisplayPreferenceStore
     public let agentMonitor: AgentMonitorService
+    public let updateStore: AppUpdateStore
     public private(set) var overlayPanels: [MascotOverlayPanel] = []
     public var overlayPanel: MascotOverlayPanel? { overlayPanels.first }
 
@@ -23,6 +25,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     nonisolated(unsafe) private var globalFlagsMonitor: Any?
     nonisolated(unsafe) private var localKeyMonitor: Any?
     nonisolated(unsafe) private var globalKeyMonitor: Any?
+    private var updateStoreCancellable: AnyCancellable?
     private var screenReconfigTask: Task<Void, Never>?
 
     public override convenience init() {
@@ -32,7 +35,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             scaleStore: AvatarScaleStore(),
             opacityStore: AvatarOpacityStore(),
             positionStore: AvatarPositionStore(),
-            displayStore: DisplayPreferenceStore()
+            displayStore: DisplayPreferenceStore(),
+            updateStore: AppUpdateStore()
         )
     }
 
@@ -43,6 +47,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         opacityStore: AvatarOpacityStore = AvatarOpacityStore(),
         positionStore: AvatarPositionStore = AvatarPositionStore(),
         displayStore: DisplayPreferenceStore = DisplayPreferenceStore(),
+        updateStore: AppUpdateStore = AppUpdateStore(),
         userDefaults: UserDefaults = .standard
     ) {
         self.riveController = riveController
@@ -52,6 +57,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.opacityStore = opacityStore
         self.positionStore = positionStore
         self.displayStore = displayStore
+        self.updateStore = updateStore
 
         // Wire agent detection adapters
         let processAdapter = ProcessAgentAdapter()
@@ -70,9 +76,14 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.positionStore.onCustomPositionChanged = { [weak self] newOrigin in
             self?.overlayPanels.forEach { $0.applyCustomOrigin(newOrigin) }
         }
-        self.positionStore.onInteractivityToggled = { [weak self] isInteractive in
-            self?.overlayPanels.forEach { $0.ignoresMouseEvents = !isInteractive }
+        self.positionStore.onInteractivityToggled = { [weak self] _ in
+            self?.updatePanelsInteractivity()
         }
+        self.updateStoreCancellable = self.updateStore.$isSpeechBubbleAlertActive
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updatePanelsInteractivity()
+            }
         self.displayStore.onDisplayPreferenceChanged = { [weak self] in
             self?.syncOverlayPanels()
         }
@@ -154,16 +165,23 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    public func updatePanelsInteractivity() {
+        let isInteractive = positionStore.isInteractivityEnabled || updateStore.isSpeechBubbleAlertActive
+        overlayPanels.forEach { $0.ignoresMouseEvents = !isInteractive }
+    }
+
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp?.setActivationPolicy(.accessory)
         setupOverlayPanel()
         activityMonitor.startMonitoring()
         agentMonitor.startMonitoring()
+        updateStore.startPeriodicChecks()
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
         activityMonitor.stopMonitoring()
         agentMonitor.stopMonitoring()
+        updateStore.stopPeriodicChecks()
         engine.persistState()
     }
 
@@ -236,7 +254,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 
     private func createConfiguredPanel() -> MascotOverlayPanel {
         let panel = MascotOverlayPanel()
-        panel.ignoresMouseEvents = !positionStore.isInteractivityEnabled
+        panel.ignoresMouseEvents = !(positionStore.isInteractivityEnabled || updateStore.isSpeechBubbleAlertActive)
         panel.onRightMouseDown = { [weak self] in
             Task { @MainActor [weak self] in
                 self?.positionStore.lockPosition()
@@ -248,6 +266,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             opacityStore: opacityStore,
             positionStore: positionStore,
             agentMonitor: agentMonitor,
+            updateStore: updateStore,
             onDragChanged: { [weak panel] origin, _ in
                 panel?.setFrameOrigin(origin)
             },
@@ -285,6 +304,7 @@ private struct BitzMenuBarContentView: View {
     @ObservedObject var positionStore: AvatarPositionStore
     @ObservedObject var displayStore: DisplayPreferenceStore
     @ObservedObject var agentMonitor: AgentMonitorService
+    @ObservedObject var updateStore: AppUpdateStore
 
     @AppStorage("enableManualStateOverrideMenu") private var showManualOverrideMenu: Bool = true
     @State private var launchAtLoginEnabled: Bool = (SMAppService.mainApp.status == .enabled)
@@ -650,6 +670,50 @@ private struct BitzMenuBarContentView: View {
                 }
             }
             Divider()
+            // App Updates & Version Section
+            HStack {
+                Text("Bitz v\(updateStore.currentVersionString)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if updateStore.isUpdateAvailable {
+                    Text("• Update Available")
+                        .font(.caption2)
+                        .foregroundStyle(Color.cyan)
+                }
+            }
+
+            if updateStore.isUpdateAvailable, let release = updateStore.latestRelease {
+                Button("🚀 Download v\(release.semanticVersion.description)...") {
+                    updateStore.openDownloadPage()
+                }
+                Button("View Release Notes...") {
+                    updateStore.openReleaseNotes()
+                }
+                if updateStore.isSpeechBubbleAlertActive {
+                    Button("Dismiss Alert Bubble") {
+                        updateStore.dismissAlert()
+                    }
+                }
+            } else {
+                Button(updateStore.isChecking ? "Checking for Updates..." : "Check for Updates...") {
+                    Task {
+                        await updateStore.checkForUpdates(manual: true)
+                    }
+                }
+                .disabled(updateStore.isChecking)
+
+                if !updateStore.statusMessage.isEmpty && updateStore.statusMessage != "v\(updateStore.currentVersionString)" {
+                    Text(updateStore.statusMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Toggle("Check for Updates Automatically", isOn: $updateStore.automaticallyCheckForUpdates)
+                .font(.caption)
+
+            Divider()
             Button("Quit Bitz") {
                 NSApplication.shared.terminate(nil)
             }
@@ -676,7 +740,8 @@ public struct BitzApp: App {
                 opacityStore: appDelegate.opacityStore,
                 positionStore: appDelegate.positionStore,
                 displayStore: appDelegate.displayStore,
-                agentMonitor: appDelegate.agentMonitor
+                agentMonitor: appDelegate.agentMonitor,
+                updateStore: appDelegate.updateStore
             )
         }
     }

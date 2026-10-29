@@ -91,6 +91,7 @@ public struct MascotOverlayView: View {
     @ObservedObject public var opacityStore: AvatarOpacityStore
     @ObservedObject public var positionStore: AvatarPositionStore
     @ObservedObject public var agentMonitor: AgentMonitorService
+    @ObservedObject public var updateStore: AppUpdateStore
 
     public var onDragChanged: ((NSPoint, NSScreen?) -> Void)?
     public var onDragEnded: ((NSPoint, NSScreen?) -> Void)?
@@ -106,6 +107,7 @@ public struct MascotOverlayView: View {
         opacityStore: AvatarOpacityStore = AvatarOpacityStore(),
         positionStore: AvatarPositionStore = AvatarPositionStore(),
         agentMonitor: AgentMonitorService = AgentMonitorService(),
+        updateStore: AppUpdateStore = AppUpdateStore(),
         onDragChanged: ((NSPoint, NSScreen?) -> Void)? = nil,
         onDragEnded: ((NSPoint, NSScreen?) -> Void)? = nil,
         onGetOrigin: (() -> NSPoint?)? = nil,
@@ -116,6 +118,7 @@ public struct MascotOverlayView: View {
         self.opacityStore = opacityStore
         self.positionStore = positionStore
         self.agentMonitor = agentMonitor
+        self.updateStore = updateStore
         self.onDragChanged = onDragChanged
         self.onDragEnded = onDragEnded
         self.onGetOrigin = onGetOrigin
@@ -215,6 +218,47 @@ public struct MascotOverlayView: View {
             .zIndex(3)
     }
 
+    private func updateBubbleView(for release: GitHubReleaseInfo) -> some View {
+        let accentColor = Color(red: 0.0, green: 0.94, blue: 1.0)
+        let bgColor = Color(red: 0.06, green: 0.08, blue: 0.12).opacity(0.96)
+        return VStack(spacing: 5) {
+            Text("UPDATE READY: v\(release.semanticVersion.description) 🚀")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.white)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 6) {
+                Button(action: { updateStore.openDownloadPage() }) {
+                    Text("DOWNLOAD")
+                        .font(.system(size: 8, weight: .heavy, design: .monospaced))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(accentColor))
+                        .foregroundStyle(Color.black)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: { updateStore.dismissAlert() }) {
+                    Text("LATER")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().stroke(Color.gray.opacity(0.6), lineWidth: 1))
+                        .foregroundStyle(Color.white.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: 236)
+        .background(RoundedRectangle(cornerRadius: 8).fill(bgColor))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(accentColor, lineWidth: 1.5))
+        .shadow(color: accentColor.opacity(0.6), radius: 6)
+        .offset(y: isLoafPosture ? -30 : -50)
+        .zIndex(3)
+    }
+
     public var body: some View {
         // 30 fps is plenty for breathing/blink; the uncapped display rate cost ~25-30% of a core at idle (#10)
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
@@ -234,6 +278,8 @@ public struct MascotOverlayView: View {
                 // Priority: Agent Monitor active popup takes precedence over wellness text (T016)
                 if let agentPopup = agentMonitor.activePopup {
                     agentBubbleView(for: agentPopup)
+                } else if updateStore.isSpeechBubbleAlertActive, let release = updateStore.latestRelease {
+                    updateBubbleView(for: release)
                 } else if let speechText = engine.activeSpeechBubbleText {
                     Text(speechText)
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
@@ -529,7 +575,7 @@ public struct MascotOverlayView: View {
                 }
             }
         }
-        .allowsHitTesting(positionStore.isInteractivityEnabled)
+        .allowsHitTesting(positionStore.isInteractivityEnabled || updateStore.isSpeechBubbleAlertActive)
     }
 
     @ViewBuilder
