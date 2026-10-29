@@ -16,6 +16,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     public let displayStore: DisplayPreferenceStore
     public let agentMonitor: AgentMonitorService
     public let updateStore: AppUpdateStore
+    public let telemetrySettings: TelemetrySettingsStore
+    public let telemetryDashboard: TelemetryDashboardService
     public private(set) var overlayPanels: [MascotOverlayPanel] = []
     public var overlayPanel: MascotOverlayPanel? { overlayPanels.first }
 
@@ -48,6 +50,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         positionStore: AvatarPositionStore = AvatarPositionStore(),
         displayStore: DisplayPreferenceStore = DisplayPreferenceStore(),
         updateStore: AppUpdateStore = AppUpdateStore(),
+        telemetrySettings: TelemetrySettingsStore? = nil,
+        telemetryDashboard: TelemetryDashboardService? = nil,
         userDefaults: UserDefaults = .standard
     ) {
         self.riveController = riveController
@@ -59,11 +63,21 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         self.displayStore = displayStore
         self.updateStore = updateStore
 
+        let resolvedTelemetrySettings = telemetrySettings ?? TelemetrySettingsStore(userDefaults: userDefaults)
+        self.telemetrySettings = resolvedTelemetrySettings
+        self.telemetryDashboard = telemetryDashboard ?? TelemetryDashboardService(settingsStore: resolvedTelemetrySettings)
+
         // Wire agent detection adapters
         let processAdapter = ProcessAgentAdapter()
         let dropboxAdapter = DropboxAgentAdapter()
         let antigravityAdapter = AntigravityTranscriptAdapter()
         self.agentMonitor = AgentMonitorService(adapters: [processAdapter, dropboxAdapter, antigravityAdapter])
+
+        self.telemetryDashboard.bindDependencies(
+            agentMonitor: self.agentMonitor,
+            activityMonitor: self.activityMonitor,
+            engine: self.engine
+        )
 
         super.init()
 
@@ -175,12 +189,14 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         setupOverlayPanel()
         activityMonitor.startMonitoring()
         agentMonitor.startMonitoring()
+        telemetryDashboard.start()
         updateStore.startPeriodicChecks()
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
         activityMonitor.stopMonitoring()
         agentMonitor.stopMonitoring()
+        telemetryDashboard.stop()
         updateStore.stopPeriodicChecks()
         engine.persistState()
     }
@@ -267,6 +283,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             positionStore: positionStore,
             agentMonitor: agentMonitor,
             updateStore: updateStore,
+            telemetryDashboard: telemetryDashboard,
+            telemetrySettings: telemetrySettings,
             onDragChanged: { [weak panel] origin, _ in
                 panel?.setFrameOrigin(origin)
             },
@@ -305,6 +323,8 @@ struct BitzMenuBarContentView: View {
     @ObservedObject var displayStore: DisplayPreferenceStore
     @ObservedObject var agentMonitor: AgentMonitorService
     @ObservedObject var updateStore: AppUpdateStore
+    @ObservedObject var telemetryDashboard: TelemetryDashboardService
+    @ObservedObject var telemetrySettings: TelemetrySettingsStore
 
     @State private var launchAtLoginEnabled: Bool = (SMAppService.mainApp.status == .enabled)
     @State private var hookActionMessage: String? = nil
@@ -334,7 +354,10 @@ struct BitzMenuBarContentView: View {
 
             Divider()
 
-            // MARK: - 3. Sensors & AI Monitoring
+            // MARK: - 3. Sensors, Telemetry & AI Monitoring
+            if telemetrySettings.displayInMenuBarMenu {
+                telemetryMenu
+            }
             sensorsMenu
             agentsMenu
 
@@ -543,6 +566,111 @@ struct BitzMenuBarContentView: View {
                     Button(isSelected ? "✓ \(screen.name)" : screen.name) {
                         displayStore.selectSpecificDisplay(id: screen.id, name: screen.name)
                     }
+                }
+            }
+        }
+    }
+
+    // MARK: - Customizable Telemetry & Diagnostics Dashboard
+
+    @ViewBuilder
+    private var telemetryMenu: some View {
+        Menu("Telemetry & Diagnostics 📊") {
+            // Live Status Cards
+            if telemetryDashboard.snapshot.hasActiveWarning, let warning = telemetryDashboard.snapshot.activeWarningSummary {
+                Text(warning)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                Divider()
+            }
+
+            if telemetrySettings.isMetricEnabled(.disk) {
+                let disk = telemetryDashboard.snapshot.disk
+                Text("💾 Disk: \(disk.formattedSummary)")
+                    .foregroundStyle(disk.isLowSpace ? .orange : .primary)
+            }
+
+            if telemetrySettings.isMetricEnabled(.ram) {
+                let ram = telemetryDashboard.snapshot.ram
+                Text("🧠 RAM: \(ram.formattedSummary)")
+                    .foregroundStyle(ram.pressure.isWarningOrCritical ? .orange : .primary)
+            }
+
+            if telemetrySettings.isMetricEnabled(.agents) {
+                let agents = telemetryDashboard.snapshot.agents
+                Text("🤖 AI Agents: \(agents.formattedSummary)")
+            }
+
+            if telemetrySettings.isMetricEnabled(.fps) {
+                let fps = telemetryDashboard.snapshot.fps
+                Text("🐾 Mascot FPS: \(fps.formattedSummary)")
+            }
+
+            if telemetrySettings.isMetricEnabled(.cpu) {
+                let cpu = telemetryDashboard.snapshot.cpu
+                Text("⚡ CPU Status: \(cpu.formattedSummary)")
+            }
+
+            if telemetrySettings.isMetricEnabled(.network) {
+                let net = telemetryDashboard.snapshot.network
+                Text("🌐 Network: \(net.formattedSummary)")
+            }
+
+            if telemetrySettings.isMetricEnabled(.battery), let bat = telemetryDashboard.snapshot.battery {
+                Text("🔋 Battery: \(bat.formattedSummary)")
+            }
+
+            if let disp = telemetryDashboard.snapshot.display {
+                Text("🖥️ Display: \(disp.formattedSummary)")
+            }
+
+            Divider()
+
+            // Metric Selection Toggles
+            Menu("Visible Metrics (Customize)") {
+                ForEach(TelemetryMetric.allCases) { metric in
+                    Toggle(metric.displayName, isOn: Binding(
+                        get: { telemetrySettings.isMetricEnabled(metric) },
+                        set: { isEnabled in
+                            telemetrySettings.setMetric(metric, enabled: isEnabled)
+                        }
+                    ))
+                }
+            }
+
+            // Display Placement Options
+            Menu("Display Placements") {
+                Toggle("Compact Menu Bar Title Item", isOn: $telemetrySettings.displayInMenuBarTitle)
+                Toggle("Mascot Floating Cyber HUD", isOn: $telemetrySettings.displayInMascotCyberHUD)
+                Toggle("Speech Bubble Carousel", isOn: $telemetrySettings.displayInSpeechBubbleCycle)
+                Toggle("Show in Menu Bar Dropdown", isOn: $telemetrySettings.displayInMenuBarMenu)
+            }
+
+            // Polling Interval Cadence
+            Menu("Update Cadence (\(Int(telemetrySettings.pollingIntervalSeconds))s)") {
+                ForEach([1.0, 3.0, 5.0, 10.0], id: \.self) { seconds in
+                    let isSelected = telemetrySettings.pollingIntervalSeconds == seconds
+                    Button(isSelected ? "✓ \(Int(seconds)) second\(seconds == 1 ? "" : "s")" : "\(Int(seconds)) second\(seconds == 1 ? "" : "s")") {
+                        telemetrySettings.pollingIntervalSeconds = seconds
+                    }
+                }
+            }
+
+            // Warning Alert Thresholds
+            Menu("Low Disk Space Warning (\(Int(telemetrySettings.lowDiskWarningThresholdPercent))%)") {
+                ForEach([5.0, 10.0, 15.0, 20.0], id: \.self) { pct in
+                    let isSelected = telemetrySettings.lowDiskWarningThresholdPercent == pct
+                    Button(isSelected ? "✓ Warn below \(Int(pct))%" : "Warn below \(Int(pct))%") {
+                        telemetrySettings.lowDiskWarningThresholdPercent = pct
+                    }
+                }
+            }
+
+            Divider()
+
+            Button("Refresh Telemetry Now") {
+                Task {
+                    await telemetryDashboard.performSampleTick()
                 }
             }
         }
@@ -802,7 +930,7 @@ public struct BitzApp: App {
     public init() {}
 
     public var body: some Scene {
-        MenuBarExtra("Bitz", systemImage: "cat.fill") {
+        MenuBarExtra(appDelegate.telemetryDashboard.menuBarTitleText, systemImage: "cat.fill") {
             BitzMenuBarContentView(
                 engine: appDelegate.engine,
                 activityMonitor: appDelegate.activityMonitor,
@@ -811,7 +939,9 @@ public struct BitzApp: App {
                 positionStore: appDelegate.positionStore,
                 displayStore: appDelegate.displayStore,
                 agentMonitor: appDelegate.agentMonitor,
-                updateStore: appDelegate.updateStore
+                updateStore: appDelegate.updateStore,
+                telemetryDashboard: appDelegate.telemetryDashboard,
+                telemetrySettings: appDelegate.telemetrySettings
             )
         }
     }
