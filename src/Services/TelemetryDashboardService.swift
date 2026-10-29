@@ -206,34 +206,20 @@ public final class SystemTelemetryDataProvider: TelemetryDataProviding, @uncheck
 
     public func fetchDisplayTelemetry() -> DisplayTelemetry? {
         guard let screen = NSScreen.main else { return nil }
-        let name = screen.localizedName
+        let name = screen.localizedName.isEmpty ? "Display" : screen.localizedName
         let frame = screen.frame
         let resolution = "\(Int(frame.width))×\(Int(frame.height))"
-        let refreshRate: Double = {
-            if let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
-               let mode = CGDisplayCopyDisplayMode(id),
-               mode.refreshRate > 0 {
-                return mode.refreshRate
-            }
-            return screen.maximumFramesPerSecond > 0 ? Double(screen.maximumFramesPerSecond) : 60.0
-        }()
+        let refreshRate = screen.maximumFramesPerSecond > 0 ? Double(screen.maximumFramesPerSecond) : 60.0
         return DisplayTelemetry(name: name, resolution: resolution, refreshRate: refreshRate)
     }
 
     public func fetchDisplayFPSTelemetry(screen: NSScreen? = nil) -> FPSTelemetry {
-        let targetScreen = screen ?? NSScreen.main
-        guard let s = targetScreen else {
+        guard let s = screen ?? NSScreen.main else {
             return FPSTelemetry(currentFPS: 60.0, targetFPS: 60.0, screenName: "Display")
         }
-        let fps: Double = {
-            if let id = s.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
-               let mode = CGDisplayCopyDisplayMode(id),
-               mode.refreshRate > 0 {
-                return mode.refreshRate
-            }
-            return s.maximumFramesPerSecond > 0 ? Double(s.maximumFramesPerSecond) : 60.0
-        }()
-        return FPSTelemetry(currentFPS: fps, targetFPS: fps, screenName: s.localizedName)
+        let fps = s.maximumFramesPerSecond > 0 ? Double(s.maximumFramesPerSecond) : 60.0
+        let name = s.localizedName.isEmpty ? "Display" : s.localizedName
+        return FPSTelemetry(currentFPS: fps, targetFPS: fps, screenName: name)
     }
 }
 
@@ -421,6 +407,8 @@ public final class TelemetryDashboardService: ObservableObject {
     }
 
     deinit {
+        sampleTask?.cancel()
+        carouselTask?.cancel()
         if let o = menuBeginTrackingObserver {
             NotificationCenter.default.removeObserver(o)
         }
