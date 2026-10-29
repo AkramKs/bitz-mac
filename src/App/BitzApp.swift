@@ -151,6 +151,15 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         }
 
         self.localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // Option + Command + B (KeyCode 11) -> Toggle Settings Window
+            if event.modifierFlags.contains([.option, .command]) && event.keyCode == 11 {
+                if SettingsWindowManager.shared.isWindowOpen {
+                    SettingsWindowManager.shared.closeSettingsWindow()
+                } else {
+                    self?.showSettingsWindow()
+                }
+                return nil
+            }
             guard let self, self.positionStore.isPositionUnlocked else { return event }
             // Escape (53) or Return (36) immediately locks position
             if event.keyCode == 53 || event.keyCode == 36 {
@@ -161,7 +170,19 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         }
 
         self.globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.positionStore.isPositionUnlocked else { return }
+            guard let self else { return }
+            // Option + Command + B (KeyCode 11) -> Toggle Settings Window
+            if event.modifierFlags.contains([.option, .command]) && event.keyCode == 11 {
+                Task { @MainActor [weak self] in
+                    if SettingsWindowManager.shared.isWindowOpen {
+                        SettingsWindowManager.shared.closeSettingsWindow()
+                    } else {
+                        self?.showSettingsWindow()
+                    }
+                }
+                return
+            }
+            guard self.positionStore.isPositionUnlocked else { return }
             // Escape (53) or Return (36) immediately locks position
             if event.keyCode == 53 || event.keyCode == 36 {
                 Task { @MainActor [weak self] in
@@ -206,6 +227,12 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         agentMonitor.startMonitoring()
         telemetryDashboard.start()
         updateStore.startPeriodicChecks()
+        showSettingsWindow()
+    }
+
+    public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettingsWindow()
+        return true
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
@@ -243,7 +270,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 
         let settingsItem = NSMenuItem(
             title: "Settings...",
-            action: #selector(menuOpenSettings),
+            action: #selector(showSettingsWindow),
             keyEquivalent: ","
         )
         settingsItem.target = self
@@ -268,7 +295,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         NSApp?.mainMenu = mainMenu
     }
 
-    @objc private func menuOpenSettings() {
+    @objc public func showSettingsWindow() {
         SettingsWindowManager.shared.showSettingsWindow(
             rootView: SettingsRootView(
                 engine: engine,
@@ -390,6 +417,9 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             },
             onGetSize: { [weak panel] in
                 panel?.frame.size ?? MascotOverlayPanel.defaultPanelSize
+            },
+            onOpenSettings: { [weak self] in
+                self?.showSettingsWindow()
             }
         )
         let hostingView = NSHostingView(rootView: rootView)

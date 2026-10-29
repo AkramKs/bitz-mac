@@ -135,4 +135,83 @@ final class SettingsIntegrationTests: XCTestCase {
         SettingsWindowManager.shared.closeSettingsWindow()
         XCTAssertFalse(SettingsWindowManager.shared.isWindowOpen)
     }
+
+    func testAppDelegateApplicationShouldHandleReopenPresentsSettingsWindow() {
+        defer { SettingsWindowManager.shared.closeSettingsWindow() }
+
+        let suiteName = "SettingsAppDelegateReopenTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let riveController = ProductionRiveController()
+        let telemetry = MockTelemetryProvider()
+        let scaleStore = AvatarScaleStore(userDefaults: defaults)
+        let opacityStore = AvatarOpacityStore(userDefaults: defaults)
+        let positionStore = AvatarPositionStore(userDefaults: defaults)
+        let displayStore = DisplayPreferenceStore(userDefaults: defaults)
+        let updateStore = AppUpdateStore(userDefaults: defaults)
+
+        let appDelegate = BitzAppDelegate(
+            riveController: riveController,
+            telemetryProvider: telemetry,
+            scaleStore: scaleStore,
+            opacityStore: opacityStore,
+            positionStore: positionStore,
+            displayStore: displayStore,
+            updateStore: updateStore,
+            userDefaults: defaults
+        )
+
+        // Ensure settings window starts closed
+        SettingsWindowManager.shared.closeSettingsWindow()
+        XCTAssertFalse(SettingsWindowManager.shared.isWindowOpen)
+
+        // Calling applicationShouldHandleReopen must present settings window and return true
+        let handled = appDelegate.applicationShouldHandleReopen(NSApplication.shared, hasVisibleWindows: false)
+        XCTAssertTrue(handled, "applicationShouldHandleReopen must return true")
+        XCTAssertTrue(SettingsWindowManager.shared.isWindowOpen, "Settings window must be opened upon reopen")
+
+        // Calling again with visible windows flag true must keep/re-show window and return true
+        let handledAgain = appDelegate.applicationShouldHandleReopen(NSApplication.shared, hasVisibleWindows: true)
+        XCTAssertTrue(handledAgain, "applicationShouldHandleReopen must return true when already open")
+        XCTAssertTrue(SettingsWindowManager.shared.isWindowOpen)
+
+        SettingsWindowManager.shared.closeSettingsWindow()
+        XCTAssertFalse(SettingsWindowManager.shared.isWindowOpen)
+    }
+
+    func testMascotOverlayViewOpenSettingsCallbackConfiguration() {
+        let suiteName = "MascotOverlayViewSettingsTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let riveController = ProductionRiveController()
+        let engine = WellnessPointEngine(riveController: riveController, userDefaults: defaults)
+        let scaleStore = AvatarScaleStore(userDefaults: defaults)
+        let opacityStore = AvatarOpacityStore(userDefaults: defaults)
+        let positionStore = AvatarPositionStore(userDefaults: defaults)
+        let agentMonitor = AgentMonitorService(adapters: [])
+        let updateStore = AppUpdateStore(userDefaults: defaults)
+        let telemetrySettings = TelemetrySettingsStore(userDefaults: defaults)
+        let telemetryDashboard = TelemetryDashboardService(settingsStore: telemetrySettings)
+
+        var settingsOpened = false
+        let overlayView = MascotOverlayView(
+            engine: engine,
+            scaleStore: scaleStore,
+            opacityStore: opacityStore,
+            positionStore: positionStore,
+            agentMonitor: agentMonitor,
+            updateStore: updateStore,
+            telemetryDashboard: telemetryDashboard,
+            telemetrySettings: telemetrySettings,
+            onOpenSettings: {
+                settingsOpened = true
+            }
+        )
+
+        XCTAssertNotNil(overlayView.onOpenSettings)
+        overlayView.onOpenSettings?()
+        XCTAssertTrue(settingsOpened, "onOpenSettings closure must be invokable and update state")
+    }
 }
