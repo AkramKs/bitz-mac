@@ -17,6 +17,7 @@ public struct MascotOverlayView: View {
     public var onDragEnded: ((NSPoint, NSScreen?) -> Void)?
     public var onGetOrigin: (() -> NSPoint?)?
     public var onGetSize: (() -> NSSize)?
+    public var onOpenSettings: (() -> Void)?
 
     @State private var dragInitialOrigin: NSPoint? = nil
     @State private var isHovering: Bool = false
@@ -33,7 +34,8 @@ public struct MascotOverlayView: View {
         onDragChanged: ((NSPoint, NSScreen?) -> Void)? = nil,
         onDragEnded: ((NSPoint, NSScreen?) -> Void)? = nil,
         onGetOrigin: (() -> NSPoint?)? = nil,
-        onGetSize: (() -> NSSize)? = nil
+        onGetSize: (() -> NSSize)? = nil,
+        onOpenSettings: (() -> Void)? = nil
     ) {
         self.engine = engine
         self.scaleStore = scaleStore
@@ -47,6 +49,7 @@ public struct MascotOverlayView: View {
         self.onDragEnded = onDragEnded
         self.onGetOrigin = onGetOrigin
         self.onGetSize = onGetSize
+        self.onOpenSettings = onOpenSettings
     }
 
     /// Returns the RGB color values (`red`, `green`, `blue`) matching the current `BitzState` visor color.
@@ -411,20 +414,51 @@ public struct MascotOverlayView: View {
         .onTapGesture(count: 2) {
             if positionStore.isPositionUnlocked {
                 positionStore.lockPosition()
+            } else {
+                onOpenSettings?()
             }
         }
         .contextMenu {
+            Button {
+                onOpenSettings?()
+            } label: {
+                Label("Settings...", systemImage: "gearshape.fill")
+            }
+
+            Button {
+                positionStore.toggleMascotVisibility()
+            } label: {
+                Label(positionStore.isMascotVisible ? "Hide Mascot" : "Show Mascot", systemImage: positionStore.isMascotVisible ? "eye.slash" : "eye")
+            }
+
+            Divider()
+
             if positionStore.isPositionUnlocked {
                 Button {
                     positionStore.lockPosition()
                 } label: {
-                    Label("Lock Position", systemImage: "lock.fill")
+                    Label("Lock Position [⎋ Esc]", systemImage: "lock.fill")
                 }
+            } else {
                 Button {
-                    positionStore.resetToDefaultCorner()
+                    positionStore.unlockPosition()
                 } label: {
-                    Label("Reset to Default Corner", systemImage: "arrow.counterclockwise")
+                    Label("Unlock Position (Drag)", systemImage: "lock.open.fill")
                 }
+            }
+
+            Button {
+                positionStore.resetToDefaultCorner()
+            } label: {
+                Label("Reset to Default Corner", systemImage: "arrow.counterclockwise")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label("Quit Bitz", systemImage: "power")
             }
         }
         .allowsHitTesting(positionStore.isInteractivityEnabled || updateStore.isSpeechBubbleAlertActive)
