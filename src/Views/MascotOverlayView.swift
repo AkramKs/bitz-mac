@@ -408,18 +408,22 @@ public struct MascotOverlayView: View {
                         .shadow(color: visorColor.opacity(0.4), radius: 6)
 
                     HStack(spacing: 5) {
-                        Image(systemName: positionStore.isDragging ? "arrow.up.and.down.and.arrow.left.and.right" : "hand.draw.fill")
+                        Image(systemName: positionStore.isDragging ? "arrow.up.and.down.and.arrow.left.and.right" : "lock.open.fill")
                             .font(.system(size: 8))
-                        Text(positionStore.isDragging ? "DRAGGING" : (positionStore.isPositionUnlocked ? "DRAG TO MOVE" : "⌥ DRAG"))
+                        Text(positionStore.isDragging ? "DRAGGING" : (positionStore.isPositionUnlocked ? "DRAG • ⎋ ESC / RIGHT-CLICK TO LOCK" : "⌥ HOLD TO DRAG"))
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
                         if positionStore.isPositionUnlocked {
-                            Button(action: { positionStore.togglePositionLock() }) {
-                                Text("DONE")
-                                    .font(.system(size: 7, weight: .heavy, design: .monospaced))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(Capsule().fill(visorColor))
-                                    .foregroundStyle(Color.black)
+                            Button(action: { positionStore.lockPosition() }) {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 7))
+                                    Text("LOCK")
+                                        .font(.system(size: 7, weight: .heavy, design: .monospaced))
+                                }
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(visorColor))
+                                .foregroundStyle(Color.black)
                             }
                             .buttonStyle(.plain)
                         }
@@ -506,6 +510,25 @@ public struct MascotOverlayView: View {
                     onDragEnded?(finalClamped, targetScreen)
                 }
         )
+        .onTapGesture(count: 2) {
+            if positionStore.isPositionUnlocked {
+                positionStore.lockPosition()
+            }
+        }
+        .contextMenu {
+            if positionStore.isPositionUnlocked {
+                Button {
+                    positionStore.lockPosition()
+                } label: {
+                    Label("Lock Position", systemImage: "lock.fill")
+                }
+                Button {
+                    positionStore.resetToDefaultCorner()
+                } label: {
+                    Label("Reset to Default Corner", systemImage: "arrow.counterclockwise")
+                }
+            }
+        }
         .allowsHitTesting(positionStore.isInteractivityEnabled)
     }
 

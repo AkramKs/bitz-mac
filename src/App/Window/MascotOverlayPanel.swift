@@ -117,6 +117,19 @@ public final class AvatarPositionStore: ObservableObject {
         onInteractivityToggled?(isInteractivityEnabled)
     }
 
+    public func lockPosition() {
+        guard isPositionUnlocked || isModifierHeld else { return }
+        isPositionUnlocked = false
+        isModifierHeld = false
+        onInteractivityToggled?(false)
+    }
+
+    public func unlockPosition() {
+        guard !isPositionUnlocked else { return }
+        isPositionUnlocked = true
+        onInteractivityToggled?(true)
+    }
+
     public func setModifierHeld(_ held: Bool) {
         guard isModifierHeld != held else { return }
         isModifierHeld = held
@@ -602,6 +615,16 @@ public final class MascotOverlayPanel: NSPanel {
     /// Legacy convenience helper backward compatible with previous bottom-right calls.
     public func positionInBottomRight(of screen: NSScreen? = NSScreen.main) {
         applyCornerAnchor(.bottomRight, on: screen)
+    }
+
+    public var onRightMouseDown: (() -> Void)?
+
+    public override func rightMouseDown(with event: NSEvent) {
+        if let onRightMouseDown {
+            onRightMouseDown()
+        } else {
+            super.rightMouseDown(with: event)
+        }
     }
 
     public override var canBecomeKey: Bool {

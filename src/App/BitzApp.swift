@@ -21,6 +21,8 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     nonisolated(unsafe) private var appActivationObserverToken: (any NSObjectProtocol)?
     nonisolated(unsafe) private var localFlagsMonitor: Any?
     nonisolated(unsafe) private var globalFlagsMonitor: Any?
+    nonisolated(unsafe) private var localKeyMonitor: Any?
+    nonisolated(unsafe) private var globalKeyMonitor: Any?
     private var screenReconfigTask: Task<Void, Never>?
 
     public override convenience init() {
@@ -108,6 +110,26 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
                 self?.positionStore.setModifierHeld(optionHeld)
             }
         }
+
+        self.localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.positionStore.isPositionUnlocked else { return event }
+            // Escape (53) or Return (36) immediately locks position
+            if event.keyCode == 53 || event.keyCode == 36 {
+                self.positionStore.lockPosition()
+                return nil
+            }
+            return event
+        }
+
+        self.globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.positionStore.isPositionUnlocked else { return }
+            // Escape (53) or Return (36) immediately locks position
+            if event.keyCode == 53 || event.keyCode == 36 {
+                Task { @MainActor [weak self] in
+                    self?.positionStore.lockPosition()
+                }
+            }
+        }
     }
 
     deinit {
@@ -123,6 +145,12 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         }
         if let global = globalFlagsMonitor {
             NSEvent.removeMonitor(global)
+        }
+        if let localKey = localKeyMonitor {
+            NSEvent.removeMonitor(localKey)
+        }
+        if let globalKey = globalKeyMonitor {
+            NSEvent.removeMonitor(globalKey)
         }
     }
 
@@ -209,6 +237,11 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     private func createConfiguredPanel() -> MascotOverlayPanel {
         let panel = MascotOverlayPanel()
         panel.ignoresMouseEvents = !positionStore.isInteractivityEnabled
+        panel.onRightMouseDown = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.positionStore.lockPosition()
+            }
+        }
         let rootView = MascotOverlayView(
             engine: engine,
             scaleStore: scaleStore,

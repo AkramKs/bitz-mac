@@ -169,6 +169,52 @@ final class FreeformPositioningTests: XCTestCase {
         XCTAssertEqual(toggledState, false)
     }
 
+    func testLockAndUnlockPositionMethods() {
+        let (defaults, cleanup) = createIsolatedDefaults()
+        defer { cleanup() }
+
+        let store = AvatarPositionStore(userDefaults: defaults)
+        XCTAssertFalse(store.isPositionUnlocked)
+        XCTAssertFalse(store.isInteractivityEnabled)
+
+        var toggledState: Bool?
+        store.onInteractivityToggled = { enabled in
+            toggledState = enabled
+        }
+
+        // Explicit unlock
+        store.unlockPosition()
+        XCTAssertTrue(store.isPositionUnlocked)
+        XCTAssertTrue(store.isInteractivityEnabled)
+        XCTAssertEqual(toggledState, true)
+
+        // Explicit lock
+        store.lockPosition()
+        XCTAssertFalse(store.isPositionUnlocked)
+        XCTAssertFalse(store.isInteractivityEnabled)
+        XCTAssertEqual(toggledState, false)
+
+        // Lock when modifier was held
+        store.setModifierHeld(true)
+        XCTAssertTrue(store.isModifierHeld)
+        XCTAssertTrue(store.isInteractivityEnabled)
+
+        store.lockPosition()
+        XCTAssertFalse(store.isModifierHeld)
+        XCTAssertFalse(store.isInteractivityEnabled)
+    }
+
+    func testMascotOverlayPanelRightClickLocksPosition() {
+        let panel = MascotOverlayPanel()
+        var rightClickCalled = false
+        panel.onRightMouseDown = {
+            rightClickCalled = true
+        }
+
+        panel.rightMouseDown(with: NSEvent())
+        XCTAssertTrue(rightClickCalled)
+    }
+
     func testClampingKeepsPanelWithinScreenVisibleFrame() {
         let visibleFrame = NSRect(x: 0, y: 25, width: 1728, height: 1092) // Display with Dock/Menubar
         let panelSize = NSSize(width: 250, height: 250)
