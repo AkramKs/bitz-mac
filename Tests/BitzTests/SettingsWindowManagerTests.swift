@@ -49,4 +49,20 @@ final class SettingsWindowManagerTests: XCTestCase {
         manager.closeSettingsWindow()
         XCTAssertFalse(manager.isWindowOpen)
     }
+
+    func testSettingsWindowCloseInvokesOnWindowClosed() {
+        let manager = SettingsWindowManager()
+        var closeCallbackInvoked = false
+        manager.onWindowClosed = {
+            closeCallbackInvoked = true
+        }
+
+        manager.showSettingsWindow(rootView: Text("Settings Content"))
+        XCTAssertTrue(manager.isWindowOpen)
+        XCTAssertFalse(closeCallbackInvoked)
+
+        manager.closeSettingsWindow()
+        XCTAssertFalse(manager.isWindowOpen)
+        XCTAssertTrue(closeCallbackInvoked)
+    }
 }
