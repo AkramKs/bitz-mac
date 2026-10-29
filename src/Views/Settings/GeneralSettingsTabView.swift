@@ -7,17 +7,20 @@ public struct GeneralSettingsTabView: View {
     @ObservedObject public var opacityStore: AvatarOpacityStore
     @ObservedObject public var positionStore: AvatarPositionStore
     @ObservedObject public var displayStore: DisplayPreferenceStore
+    public var engine: WellnessPointEngine?
 
     public init(
         scaleStore: AvatarScaleStore,
         opacityStore: AvatarOpacityStore,
         positionStore: AvatarPositionStore,
-        displayStore: DisplayPreferenceStore
+        displayStore: DisplayPreferenceStore,
+        engine: WellnessPointEngine? = nil
     ) {
         self.scaleStore = scaleStore
         self.opacityStore = opacityStore
         self.positionStore = positionStore
         self.displayStore = displayStore
+        self.engine = engine
     }
 
     public var body: some View {
@@ -268,36 +271,23 @@ public struct GeneralSettingsTabView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
 
-            // Cat Avatar with reactive scale & opacity
+            // Real Bitz Cyber Mascot with reactive scale & opacity
             VStack {
-                ZStack {
-                    Circle()
-                        .fill(Color.cyan.opacity(0.2))
-                        .frame(width: 64 * CGFloat(scaleStore.scaleFactor), height: 64 * CGFloat(scaleStore.scaleFactor))
-                        .blur(radius: 6)
-
-                    Image(systemName: "cat.fill")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 48 * CGFloat(scaleStore.scaleFactor), height: 48 * CGFloat(scaleStore.scaleFactor))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.cyan, Color.blue],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                }
-                .opacity(opacityStore.opacityFactor)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: scaleStore.scaleFactor)
-                .animation(.easeInOut(duration: 0.2), value: opacityStore.opacityFactor)
+                let currentState = engine?.currentState ?? .balanced
+                AnimatedBitzCharacterView(state: currentState, showParticles: true)
+                    .scaleEffect(0.70 * CGFloat(scaleStore.scaleFactor))
+                    .frame(height: 140)
+                    .opacity(opacityStore.opacityFactor)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.7), value: scaleStore.scaleFactor)
+                    .animation(.easeInOut(duration: 0.2), value: opacityStore.opacityFactor)
             }
-            .frame(height: 120)
+            .frame(height: 150)
+            .padding(.top, 16)
 
             // Top Info Bar
             VStack {
                 HStack {
-                    Label("Live Avatar Preview", systemImage: "eye.fill")
+                    Label("Live Mascot Preview", systemImage: "sparkles")
                         .font(.caption2.bold())
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
@@ -307,7 +297,8 @@ public struct GeneralSettingsTabView: View {
 
                     Spacer()
 
-                    Text("\(scaleStore.formattedSizeSummary) • \(opacityStore.formattedOpacitySummary)")
+                    let stateTitle = (engine?.currentState ?? .balanced).rawValue.capitalized
+                    Text("\(stateTitle) • \(scaleStore.formattedSizeSummary) • \(opacityStore.formattedOpacitySummary)")
                         .font(.caption2.monospacedDigit().bold())
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
@@ -319,7 +310,7 @@ public struct GeneralSettingsTabView: View {
                 Spacer()
             }
         }
-        .frame(height: 130)
+        .frame(height: 175)
     }
 
     // MARK: - Reusable Settings Card Container

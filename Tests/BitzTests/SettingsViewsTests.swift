@@ -97,4 +97,40 @@ final class SettingsViewsTests: XCTestCase {
         displayStore.selectMode(.followActive)
         XCTAssertEqual(displayStore.targetMode, .followActive)
     }
+
+    func testBitzCharacterViewAndRealMascotPreview() {
+        for state in BitzState.allCases {
+            let characterView = BitzCharacterView(state: state)
+            _ = characterView.body
+
+            let rgb = BitzCharacterView.visorRGB(for: state)
+            let mascotRGB = MascotOverlayView.visorRGB(for: state)
+            XCTAssertEqual(rgb.red, mascotRGB.red, accuracy: 0.001)
+            XCTAssertEqual(rgb.green, mascotRGB.green, accuracy: 0.001)
+            XCTAssertEqual(rgb.blue, mascotRGB.blue, accuracy: 0.001)
+        }
+
+        let animatedView = AnimatedBitzCharacterView(state: .balanced, showParticles: true)
+        _ = animatedView.body
+
+        let suiteName = "RealMascotPreviewTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let riveController = ProductionRiveController()
+        let engine = WellnessPointEngine(riveController: riveController, userDefaults: defaults)
+        let scaleStore = AvatarScaleStore(userDefaults: defaults)
+        let opacityStore = AvatarOpacityStore(userDefaults: defaults)
+        let positionStore = AvatarPositionStore(userDefaults: defaults)
+        let displayStore = DisplayPreferenceStore(userDefaults: defaults)
+
+        let tabWithEngine = GeneralSettingsTabView(
+            scaleStore: scaleStore,
+            opacityStore: opacityStore,
+            positionStore: positionStore,
+            displayStore: displayStore,
+            engine: engine
+        )
+        _ = tabWithEngine.body
+    }
 }

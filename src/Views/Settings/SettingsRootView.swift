@@ -127,7 +127,8 @@ public struct SettingsRootView: View {
                 scaleStore: scaleStore,
                 opacityStore: opacityStore,
                 positionStore: positionStore,
-                displayStore: displayStore
+                displayStore: displayStore,
+                engine: engine
             )
         case .behaviors:
             BehaviorSettingsTabView(
