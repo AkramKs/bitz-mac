@@ -24,6 +24,7 @@
   "purpose_context": "This mission advances settings window on feat/issue-49-settings-window so stakeholders can track the work from mission creation onward.",
   "purpose_tldr": "settings window",
   "slug": "settings-window-01M63XMB",
+  "status_phase": "1",
   "target_branch": "feat/issue-49-settings-window",
   "topology": "coord",
   "vcs": "git",
