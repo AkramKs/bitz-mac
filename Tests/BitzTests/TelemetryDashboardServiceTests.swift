@@ -10,6 +10,7 @@ final class MockTelemetryDataProvider: TelemetryDataProviding, @unchecked Sendab
     var networkToReturn = NetworkTelemetry(downloadBytesPerSec: 1_250_000, uploadBytesPerSec: 320_000)
     var batteryToReturn: BatteryTelemetry? = BatteryTelemetry(percentage: 85, isCharging: false, powerSource: "Battery")
     var displayToReturn: DisplayTelemetry? = DisplayTelemetry(name: "Studio Display", resolution: "2560×1440", refreshRate: 60.0)
+    var fpsToReturn = FPSTelemetry(currentFPS: 120.0, targetFPS: 120.0, screenName: "Built-in Retina Display")
 
     func fetchDiskTelemetry(lowDiskThresholdPercent: Double) -> DiskTelemetry {
         DiskTelemetry(
@@ -33,6 +34,10 @@ final class MockTelemetryDataProvider: TelemetryDataProviding, @unchecked Sendab
 
     func fetchDisplayTelemetry() -> DisplayTelemetry? {
         displayToReturn
+    }
+
+    func fetchDisplayFPSTelemetry(screen: NSScreen? = nil) -> FPSTelemetry {
+        fpsToReturn
     }
 }
 
@@ -240,7 +245,7 @@ final class TelemetryDashboardServiceTests: XCTestCase {
         XCTAssertTrue(messages[1].contains("Storage: 100.0 GB free"))
         XCTAssertTrue(messages[2].contains("RAM: 16.0 / 32.0 GB"))
         XCTAssertTrue(messages[3].contains("CPU Core: 42.0°C"))
-        XCTAssertTrue(messages[4].contains("Mascot Render: 30.0 FPS"))
+        XCTAssertTrue(messages[4].contains("Display Screen: 30 FPS"))
     }
 
     // MARK: - 5. TelemetryDashboardService Lifecycle & Sampling Tests

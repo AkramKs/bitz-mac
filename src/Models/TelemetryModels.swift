@@ -19,7 +19,7 @@ public enum TelemetryMetric: String, CaseIterable, Codable, Identifiable, Sendab
         case .disk: return "Disk Storage"
         case .ram: return "Memory (RAM) & Pressure"
         case .cpu: return "CPU Load & Temperature"
-        case .fps: return "Live Mascot FPS"
+        case .fps: return "Display Screen FPS"
         case .network: return "Network Speed"
         case .battery: return "Battery & Power"
         }
@@ -165,25 +165,30 @@ public struct AgentTelemetry: Equatable, Sendable {
     public static let empty = AgentTelemetry(activeCount: 0, agentNames: [], lastActionMessage: nil)
 }
 
-/// Mascot rendering frame-rate telemetry snapshot.
+/// Display screen frame-rate / refresh rate telemetry snapshot.
 public struct FPSTelemetry: Equatable, Sendable {
     public let currentFPS: Double
     public let targetFPS: Double
+    public let screenName: String?
 
-    public init(currentFPS: Double = 30.0, targetFPS: Double = 30.0) {
+    public init(currentFPS: Double = 60.0, targetFPS: Double = 60.0, screenName: String? = nil) {
         self.currentFPS = currentFPS
         self.targetFPS = targetFPS
+        self.screenName = screenName
     }
 
     public var formattedSummary: String {
-        String(format: "%.1f FPS (Target: %.0f)", currentFPS, targetFPS)
+        if let name = screenName {
+            return String(format: "%.0f FPS (%@ @ %.0fHz)", currentFPS, name, currentFPS)
+        }
+        return String(format: "%.0f FPS (%.0fHz)", currentFPS, currentFPS)
     }
 
     public var compactBadge: String {
         String(format: "%.0f FPS", currentFPS)
     }
 
-    public static let standard = FPSTelemetry(currentFPS: 30.0, targetFPS: 30.0)
+    public static let standard = FPSTelemetry(currentFPS: 60.0, targetFPS: 60.0)
 }
 
 /// CPU load and die temperature snapshot.
@@ -469,7 +474,7 @@ public struct TelemetrySnapshot: Equatable, Sendable {
             messages.append(String(format: "⚡ CPU Core: %.1f°C", temp))
         }
         if enabledMetrics.contains(.fps) {
-            messages.append(String(format: "🐾 Mascot Render: %.1f FPS", fps.currentFPS))
+            messages.append(String(format: "🖥️ Display Screen: %.0f FPS", fps.currentFPS))
         }
 
         return messages
