@@ -190,8 +190,6 @@ final class SettingsIntegrationTests: XCTestCase {
         let scaleStore = AvatarScaleStore(userDefaults: defaults)
         let opacityStore = AvatarOpacityStore(userDefaults: defaults)
         let positionStore = AvatarPositionStore(userDefaults: defaults)
-        let agentMonitor = AgentMonitorService(adapters: [])
-        let updateStore = AppUpdateStore(userDefaults: defaults)
         let telemetrySettings = TelemetrySettingsStore(userDefaults: defaults)
         let telemetryDashboard = TelemetryDashboardService(settingsStore: telemetrySettings)
 
@@ -201,8 +199,6 @@ final class SettingsIntegrationTests: XCTestCase {
             scaleStore: scaleStore,
             opacityStore: opacityStore,
             positionStore: positionStore,
-            agentMonitor: agentMonitor,
-            updateStore: updateStore,
             telemetryDashboard: telemetryDashboard,
             telemetrySettings: telemetrySettings,
             onOpenSettings: {

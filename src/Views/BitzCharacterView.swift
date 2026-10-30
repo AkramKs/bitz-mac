@@ -142,6 +142,17 @@ public struct BitzCharacterView: View {
         }
     }
 
+    /// How far the head & ears assembly is lifted above its resting place in the frame.
+    static func headLift(isLoafPosture: Bool) -> CGFloat {
+        isLoafPosture ? 22 : 44
+    }
+
+    /// How far the ear tips rise above this view's 140 pt-high frame at rest (breathing adds up to 4.5 pt).
+    /// The 116 pt ears-and-head stack sits centered in the frame, 12 pt below its top, before the lift.
+    public static func earOverflow(isLoafPosture: Bool) -> CGFloat {
+        headLift(isLoafPosture: isLoafPosture) - 12
+    }
+
     public var visorColor: Color {
         if let custom = customVisorColor {
             return custom
@@ -274,7 +285,7 @@ public struct BitzCharacterView: View {
                 }
                 .zIndex(1)
             }
-            .offset(y: isLoafPosture ? -22 : -44)
+            .offset(y: -Self.headLift(isLoafPosture: isLoafPosture))
         }
         .offset(x: glitchOffsetX, y: breathOffset)
         .frame(width: 180, height: 140)

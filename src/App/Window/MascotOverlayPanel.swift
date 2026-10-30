@@ -415,6 +415,16 @@ public final class MascotOverlayPanel: NSPanel {
     public private(set) var currentCornerAnchor: ScreenCornerAnchor = .bottomRight
     public private(set) var customOrigin: NSPoint?
     public var assignedScreen: NSScreen?
+    public let speechBubblePanel = SpeechBubblePanel()
+    /// Distance from the panel's top edge down to Bitz's ear tips (unscaled pt), reported by `MascotOverlayView`.
+    /// The default matches a standing Bitz above a 2-line HUD until the first report arrives.
+    public var earTopInset: CGFloat = 40 {
+        didSet {
+            if earTopInset != oldValue {
+                layoutSpeechBubble()
+            }
+        }
+    }
     public var debounceInterval: TimeInterval = 0.25
     private var screenReconfigTask: Task<Void, Never>?
     nonisolated(unsafe) private var screenParametersObserverToken: (any NSObjectProtocol)?
@@ -460,6 +470,12 @@ public final class MascotOverlayPanel: NSPanel {
             .fullScreenAuxiliary,
             .stationary
         ]
+
+        // Child windows follow the parent's ordering and visibility (hide mascot hides the bubble too)
+        addChildWindow(speechBubblePanel, ordered: .above)
+        speechBubblePanel.onSizeChanged = { [weak self] in
+            self?.layoutSpeechBubble()
+        }
 
         self.screenParametersObserverToken = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -630,6 +646,34 @@ public final class MascotOverlayPanel: NSPanel {
         contentView?.needsDisplay = true
         setFrame(NSRect(origin: origin, size: scaledSize), display: true)
         invalidateShadow()
+    }
+
+    // Corner/scale/screen changes come through setFrame, drag moves through setFrameOrigin
+    public override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        super.setFrame(frameRect, display: flag)
+        layoutSpeechBubble()
+    }
+
+    public override func setFrameOrigin(_ point: NSPoint) {
+        super.setFrameOrigin(point)
+        layoutSpeechBubble()
+    }
+
+    /// Keeps `speechBubblePanel` just above Bitz's ears after the panel moves, the bubble resizes, or the ears move.
+    public func layoutSpeechBubble() {
+        let bubbleSize = speechBubblePanel.frame.size
+        guard bubbleSize.width > 0, let visibleFrame = (screen ?? assignedScreen ?? NSScreen.main)?.visibleFrame else {
+            return
+        }
+        speechBubblePanel.setFrameOrigin(
+            SpeechBubblePanel.calculateOrigin(
+                bubbleSize: bubbleSize,
+                mascotFrame: frame,
+                visibleFrame: visibleFrame,
+                earTopInset: earTopInset,
+                scaleFactor: currentScaleFactor
+            )
+        )
     }
 
     /// Legacy convenience helper backward compatible with previous bottom-right calls.
