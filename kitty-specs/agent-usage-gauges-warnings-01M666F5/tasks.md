@@ -9,6 +9,8 @@ description: "Work package task list for agent usage gauges, almost-done milesto
 
 **Tests**: Required. The charter mandates TDD (`tdd-red-green-refactor`) and ≥ 80% coverage on core services; AGENTS.md §3.2 requires isolated `UserDefaults(suiteName:)` domains with cleanup.
 
+**Definition of Done (every code WP)**: `xcrun swift build` with zero compiler warnings (charter quality gate; baseline 0 on 2026-10-30; SwiftLint is not configured in the repo) and a green `xcrun swift test`.
+
 **Organization**: Fine-grained subtasks (`Txxx`) roll up into work packages (`WPxx`). Each work package is independently deliverable and testable.
 
 **Prompt Files**: Each work package references a matching prompt file in `/tasks/`. Deep implementation detail lives in the prompt files.
@@ -46,6 +48,7 @@ WP01…WP08 ──► WP09
 | T011 | Stall sweep task + `evaluateStalls()` | WP02 | |
 | T012 | Disabled agent clears warning/context/session state | WP02 | |
 | T013 | Policy tests (`AgentSignalPolicyTests`) + existing monitor tests green | WP02 | |
+| T044 | `ProcessAgentAdapter` tags `source = process`; app-presence `done` never clears warnings or ends turns | WP02 | |
 | T014 | `SessionLogTail` incremental reader + 256 KB seed | WP03 | [P] |
 | T015 | Session selection with idle-switch hysteresis | WP03 | [P] |
 | T016 | `SessionLogEntry` + `AgentSessionTracker` (turns, pending tools, loop streak) | WP03 | [P] |
@@ -59,11 +62,13 @@ WP01…WP08 ──► WP09
 | T024 | Antigravity adapter on shared tail + tracker, existing behaviour kept | WP05 | |
 | T025 | Antigravity tests (existing updated + usage/loop/pending) | WP05 | |
 | T026 | Warning bubble with GOT IT + almost-done style + interactivity | WP06 | |
-| T027 | Amber visor override in `MascotOverlayView` | WP06 | [P] |
+| T027 | Warning visor through `WellnessPointEngine` (Rive input + drawn visor match) | WP06 | [P] |
 | T028 | App wiring: Claude adapter, injected defaults, monitor into overlay | WP06 | |
 | T029 | Fixture helpers + layout tests for new bubbles | WP06 | |
 | T030 | Click-through test for warning bubble acknowledgement | WP06 | |
-| T031 | Presentation unit tests (visor mapping, content interactivity) | WP06 | |
+| T031 | Presentation + engine unit tests (visor mapping, Rive input, content interactivity) | WP06 | |
+| T045 | Menu bar "Dismiss Agent Warning" item | WP06 | |
+| T046 | End-to-end replay test: Claude session → adapter → monitor (SC-002) | WP06 | |
 | T032 | `AgentTelemetry` context reading + rendering in badge/summary/title | WP07 | |
 | T033 | `TelemetryDashboardService` passes active agent's context reading | WP07 | |
 | T034 | Telemetry tests for context text | WP07 | |
@@ -74,8 +79,8 @@ WP01…WP08 ──► WP09
 | T039 | `docs/ARCHITECTURE.md` update | WP09 | [P] |
 | T040 | `docs/STATE_MACHINE.md` agent-warning visor override | WP09 | [P] |
 | T041 | `docs/ACCEPTANCE_CRITERIA.md` rows for this mission | WP09 | [P] |
-| T042 | Full test suite run | WP09 | |
-| T043 | Release package run, quickstart walkthrough, resource check | WP09 | |
+| T042 | Zero-warnings build + full test suite run | WP09 | |
+| T043 | Release package run, quickstart walkthrough incl. timed latency step (NFR-003), resource check | WP09 | |
 
 ---
 
@@ -85,7 +90,7 @@ WP01…WP08 ──► WP09
 **Independent Test**: Decoding an old payload yields the same `AgentEvent`; decoding a v2 payload with `metadata` (strings or numbers) yields typed accessors; the build stays green.
 **Prompt**: `/tasks/WP01-event-model-and-dropbox-contract.md`
 **Requirement Refs**: FR-001, FR-002, FR-003, C-001
-**Estimated prompt size**: ~330 lines
+**Estimated prompt size**: ~227 lines
 
 ### Included Subtasks
 
@@ -104,6 +109,12 @@ T006 Model + drop-box decoding tests (WP01)
 
 - Adding enum cases breaks two exhaustive switches (`AgentMonitorService.handleEvent`, `SpeechBubbleView.agentPopupColors`): T004 adds minimal placeholder cases, replaced in WP02/WP06.
 
+### Out-of-map edits (declared)
+
+- `src/Services/AgentMonitorService.swift` (owned by WP02): one placeholder `case .almostDone, .warning, .usage: break`.
+- `src/Views/SpeechBubbleView.swift` (owned by WP06): placeholder colour mapping for the three new kinds.
+- Both are required to keep the build green after T001; WP02 T010 and WP06 T026 replace them. Reviewers of WP02/WP06 confirm no placeholder remains.
+
 ---
 
 ## Work Package WP02: Monitor Policy & Signal Settings (Priority: P1)
@@ -112,7 +123,7 @@ T006 Model + drop-box decoding tests (WP01)
 **Independent Test**: Synthetic events + injected clock reproduce every acceptance scenario of User Stories 1–4 without files or UI.
 **Prompt**: `/tasks/WP02-monitor-policy-and-signal-settings.md`
 **Requirement Refs**: FR-001, FR-002, FR-005, FR-007, FR-009, FR-010, FR-012, FR-013, FR-014, NFR-003, NFR-005
-**Estimated prompt size**: ~480 lines
+**Estimated prompt size**: ~267 lines
 
 ### Included Subtasks
 
@@ -123,6 +134,7 @@ T010 Popup priority: almost-done, approval override + restoration, popups-disabl
 T011 Stall sweep task + `evaluateStalls()` (WP02)
 T012 Disabled agent clears warning/context/session state (WP02)
 T013 Policy tests (`AgentSignalPolicyTests`) + existing monitor tests green (WP02)
+T044 `ProcessAgentAdapter` tags `source = process`; app-presence `done` never clears warnings or ends turns (WP02)
 
 ### Dependencies
 
@@ -140,7 +152,7 @@ T013 Policy tests (`AgentSignalPolicyTests`) + existing monitor tests green (WP0
 **Independent Test**: Tail and tracker tests pass with temp files and in-memory entries; no adapter needed.
 **Prompt**: `/tasks/WP03-shared-session-log-foundation.md`
 **Requirement Refs**: FR-008, FR-009, FR-014, NFR-001, NFR-002, NFR-004, NFR-006
-**Estimated prompt size**: ~470 lines
+**Estimated prompt size**: ~237 lines
 
 ### Included Subtasks
 
@@ -167,7 +179,7 @@ T019 `AgentSessionTracker` tests (WP03)
 **Independent Test**: Fixture replays in a temp `projects/` dir produce the expected event sequence; subagent files and sidechain lines are ignored; startup seeds the gauge silently.
 **Prompt**: `/tasks/WP04-claude-code-transcript-adapter.md`
 **Requirement Refs**: FR-004, FR-005, FR-008, FR-014, C-003, NFR-004
-**Estimated prompt size**: ~380 lines
+**Estimated prompt size**: ~171 lines
 
 ### Included Subtasks
 
@@ -191,7 +203,7 @@ T022 Claude Code adapter fixture tests (WP04)
 **Independent Test**: Existing Antigravity test passes (filtering `usage` events); new fixtures yield usage tokens and one loop warning after four identical `{name,args}` calls.
 **Prompt**: `/tasks/WP05-antigravity-usage-and-loop-signals.md`
 **Requirement Refs**: FR-005, FR-008, FR-014
-**Estimated prompt size**: ~300 lines
+**Estimated prompt size**: ~131 lines
 
 ### Included Subtasks
 
@@ -211,20 +223,22 @@ T025 Antigravity tests (existing updated + usage/loop/pending) (WP05)
 
 ## Work Package WP06: Warning Bubble, Amber Visor & App Wiring (Priority: P2)
 
-**Goal**: Present warnings (persistent bubble with GOT IT, amber visor), a distinct almost-done bubble, and wire the Claude Code adapter + injected defaults into the app.
-**Independent Test**: Layout tests keep new bubbles inside their window at max scale; the bubble panel takes clicks only while GOT IT shows; visor mapping returns amber for warnings except while overheating.
+**Goal**: Present warnings (persistent bubble with GOT IT, amber visor through the engine so the drawn visor and Rive input match, menu bar Dismiss Agent Warning), a distinct almost-done bubble, wire the Claude Code adapter + injected defaults into the app, and prove the pipeline with an end-to-end replay.
+**Independent Test**: Layout tests keep new bubbles inside their window at max scale; the bubble panel takes clicks only while GOT IT shows; the engine's Rive `visorColor` and the drawn visor are both amber for warnings except while overheating; a replayed Claude session raises exactly one context warning per crossing.
 **Prompt**: `/tasks/WP06-warning-bubble-amber-visor-and-wiring.md`
 **Requirement Refs**: FR-001, FR-010, FR-011, C-002, C-005, C-006
-**Estimated prompt size**: ~430 lines
+**Estimated prompt size**: ~232 lines
 
 ### Included Subtasks
 
 T026 Warning bubble with GOT IT + almost-done style + interactivity (WP06)
-T027 [P] Amber visor override in `MascotOverlayView` (WP06)
+T027 [P] Warning visor through `WellnessPointEngine` (Rive input + drawn visor match) (WP06)
 T028 App wiring: Claude adapter, injected defaults, monitor into overlay (WP06)
 T029 Fixture helpers + layout tests for new bubbles (WP06)
 T030 Click-through test for warning bubble acknowledgement (WP06)
-T031 Presentation unit tests (visor mapping, content interactivity) (WP06)
+T031 Presentation + engine unit tests (visor mapping, Rive input, content interactivity) (WP06)
+T045 Menu bar "Dismiss Agent Warning" item (WP06)
+T046 End-to-end replay test: Claude session → adapter → monitor (SC-002) (WP06)
 
 ### Dependencies
 
@@ -242,7 +256,7 @@ T031 Presentation unit tests (visor mapping, content interactivity) (WP06)
 **Independent Test**: A snapshot with an active agent and a reading renders the context text in all three placements; without a reading, output is unchanged.
 **Prompt**: `/tasks/WP07-context-gauge-on-agents-metric.md`
 **Requirement Refs**: FR-006
-**Estimated prompt size**: ~220 lines
+**Estimated prompt size**: ~120 lines
 
 ### Included Subtasks
 
@@ -262,7 +276,7 @@ T034 Telemetry tests for context text (WP07)
 **Independent Test**: Changing a control updates `agentMonitor.signalSettings`, persists to the injected defaults, and a fresh monitor reads it back.
 **Prompt**: `/tasks/WP08-agent-signals-settings-card.md`
 **Requirement Refs**: FR-012, FR-013
-**Estimated prompt size**: ~260 lines
+**Estimated prompt size**: ~136 lines
 
 ### Included Subtasks
 
@@ -280,18 +294,18 @@ T038 Settings view tests (WP08)
 ## Work Package WP09: Living Docs & Release Verification (Priority: P3)
 
 **Goal**: Sync living docs (charter DIR-005) and verify the whole mission end to end.
-**Independent Test**: `xcrun swift test` passes with zero failures; release build runs; quickstart steps behave as documented; Activity Monitor shows < 2% CPU and < 70 MB RAM.
+**Independent Test**: `xcrun swift build` has zero warnings and `xcrun swift test` passes with zero failures; release build runs; quickstart steps behave as documented; the timed latency step measures ≤ 5 s (NFR-003); Activity Monitor shows < 2% CPU and < 70 MB RAM.
 **Prompt**: `/tasks/WP09-living-docs-and-release-verification.md`
-**Requirement Refs**: NFR-001, NFR-002, C-004, C-005
-**Estimated prompt size**: ~240 lines
+**Requirement Refs**: NFR-001, NFR-002, NFR-003, C-004, C-005
+**Estimated prompt size**: ~130 lines
 
 ### Included Subtasks
 
 T039 [P] `docs/ARCHITECTURE.md` update (WP09)
 T040 [P] `docs/STATE_MACHINE.md` agent-warning visor override (WP09)
 T041 [P] `docs/ACCEPTANCE_CRITERIA.md` rows for this mission (WP09)
-T042 Full test suite run (WP09)
-T043 Release package run, quickstart walkthrough, resource check (WP09)
+T042 Zero-warnings build + full test suite run (WP09)
+T043 Release package run, quickstart walkthrough incl. timed latency step (NFR-003), resource check (WP09)
 
 ### Dependencies
 

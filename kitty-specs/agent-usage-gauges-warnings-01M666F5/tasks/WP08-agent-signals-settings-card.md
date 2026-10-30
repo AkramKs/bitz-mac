@@ -59,6 +59,9 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 
 FR-012 / SC-005: Settings → AI Agents gets an **Agent Signals & Warnings** card where each signal is one click to toggle, and thresholds/windows are tunable. Done when every control binds to `agentMonitor.signalSettings`, changes apply immediately and persist (WP02 handles persistence + clamping), and view tests prove the bindings.
 
+Definition of Done also includes:
+- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+
 ## Context & Constraints
 
 - File: `src/Views/Settings/AgentsSettingsTabView.swift`. Reuse its private `settingsCard(title:systemImage:content:)` helper and the visual language of the existing cards (caption `info.circle` hints).

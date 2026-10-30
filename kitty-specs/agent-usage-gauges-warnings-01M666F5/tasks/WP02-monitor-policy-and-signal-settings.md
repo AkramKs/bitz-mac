@@ -26,6 +26,7 @@ subtasks:
 - T011
 - T012
 - T013
+- T044
 phase: Phase 1 - Policy
 history:
 - !!omap
@@ -42,6 +43,8 @@ owned_files:
 - src/Services/AgentMonitorService.swift
 - Tests/BitzTests/AgentMonitorServiceTests.swift
 - Tests/BitzTests/AgentSignalPolicyTests.swift
+- src/Services/ProcessAgentAdapter.swift
+- Tests/BitzTests/ProcessAgentAdapterTests.swift
 role: implementer
 tags: []
 task_type: implement
@@ -78,7 +81,9 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 - The warning slot follows FR-010 exactly, including the approval override and restoration.
 - Almost-done popups show for 6 s unless a warning is active or the toggle is off (FR-001).
 - Disabling an agent clears its warning, readings and session state (FR-013).
+- `done` events from `ProcessAgentAdapter` (tagged `source = process`) never clear a warning or end a turn (spec Edge Case "Claude desktop app quits").
 - Every existing `AgentMonitorServiceTests` case passes unchanged; new `AgentSignalPolicyTests` cover every acceptance scenario of User Stories 1–4 at the policy level.
+- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
 
 ## Context & Constraints
 
@@ -173,7 +178,7 @@ Rewrite the popup part of `handleEvent` so the following table holds (W = active
 | `almostDone` (any) | 6 s popup if `almostDoneEnabled` | same as `working` row |
 | `needsApproval` from A | persistent popup (existing) | clear W, persistent popup |
 | `needsApproval` from B | — | persistent popup, `approvalOverrideAgentID = B`, W stays |
-| `done` from A | 6 s popup (existing) | clear W, 6 s popup |
+| `done` from A | 6 s popup (existing) | clear W, 6 s popup — unless `event.isProcessPresence` (T044): then treat as the `done` from B row |
 | `done` from B | — | no popup change; if B is the override agent → clear override, `presentWarningBubble()` |
 | `warning` | raise | newer replaces W |
 | `usage` | no popup | no popup (may raise a context warning) |
@@ -203,6 +208,14 @@ Rewrite the popup part of `handleEvent` so the following table holds (W = active
 
 - In `setAgentEnabled(id:isEnabled:)` when disabling: remove `sessions[id]`, `contextReadings[id]`; nil `latestContext` if it belongs to `id`; if `activeWarning?.agentID == id` → `acknowledgeWarning()`; if `approvalOverrideAgentID == id` → clear it and `presentWarningBubble()` when a warning remains.
 
+### Subtask T044 – Ignore app-presence `done` for warnings and turns
+
+- **Why**: the Claude desktop app (`ProcessAgentAdapter`, bundle `com.anthropic.claudefordesktop`) and Claude Code share agent ID `claude`; quitting the app emits `done` for `claude` (analysis finding I2, research R8).
+- **Steps**:
+  1. `src/Services/ProcessAgentAdapter.swift`: pass `metadata: [AgentEvent.MetadataKey.source: "process"]` on every `AgentEvent` it creates (started, working, done). No other behaviour change.
+  2. `AgentMonitorService.handleEvent`: for `done` with `event.isProcessPresence`: keep the existing `activeAgents.remove` and, when no warning is active, the existing 6 s popup; but never clear `activeWarning`, never touch `sessions[id]` (`turnActive`, `pendingTools`), and when a warning is active follow the "`done` from B" row.
+  3. `Tests/BitzTests/ProcessAgentAdapterTests.swift`: extend `testDetectsStartedAndExitedAgent` (or add a test) to assert `isProcessPresence == true` on emitted events.
+
 ### Subtask T013 – Tests
 
 - Keep `Tests/BitzTests/AgentMonitorServiceTests.swift` green; only touch it if an assertion breaks because of the new `userDefaults` parameter (it should not).
@@ -230,6 +243,7 @@ Rewrite the popup part of `handleEvent` so the following table holds (W = active
   16. `testActivityResetsStall` (usage after stall → can fire again after another timeout).
   17. `testDisablingAgentClearsWarningReadingAndSession`.
   18. `testReportedWarningAlwaysShownAndLoopToggleRespected`.
+  19. `testProcessPresenceDoneDoesNotClearWarningOrEndTurn` (warning for `claude`, then `done` with `source = process` → warning stays, stall still fires after the timeout).
 
 ## Test Strategy
 

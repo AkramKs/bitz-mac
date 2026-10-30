@@ -64,6 +64,9 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 
 A new `ClaudeCodeTranscriptAdapter` follows the active **top-level** Claude Code session log and emits `working`, `done`, loop `warning`, and `usage` events via WP03's `SessionLogTail` + `AgentSessionTracker` (FR-004, FR-005, FR-008, FR-014). No hooks, no writes anywhere (C-003). Done when fixture tests in a temp `projects/` directory reproduce the expected event sequences, including subagent/sidechain exclusion and silent seeding. Wiring into the app happens in WP06.
 
+Definition of Done also includes:
+- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+
 ## Context & Constraints
 
 - Read: `research.md` (Verified session-log facts, R3–R7), `data-model.md` (Adapter-side tracker).

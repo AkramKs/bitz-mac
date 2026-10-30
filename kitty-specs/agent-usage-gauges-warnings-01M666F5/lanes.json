@@ -31,7 +31,9 @@
       "write_scope": [
         "Tests/BitzTests/AgentMonitorServiceTests.swift",
         "Tests/BitzTests/AgentSignalPolicyTests.swift",
-        "src/Services/AgentMonitorService.swift"
+        "Tests/BitzTests/ProcessAgentAdapterTests.swift",
+        "src/Services/AgentMonitorService.swift",
+        "src/Services/ProcessAgentAdapter.swift"
       ],
       "predicted_surfaces": [
         "api",
@@ -143,11 +145,15 @@
         "WP06"
       ],
       "write_scope": [
+        "Tests/BitzTests/AgentSignalIntegrationTests.swift",
         "Tests/BitzTests/AgentWarningPresentationTests.swift",
         "Tests/BitzTests/MascotOverlayLayoutTests.swift",
+        "Tests/BitzTests/MenuBarContentViewTests.swift",
         "Tests/BitzTests/OverlayTestFixtures.swift",
         "Tests/BitzTests/SpeechBubblePanelTests.swift",
+        "Tests/BitzTests/WellnessPointEngineTests.swift",
         "src/App/BitzApp.swift",
+        "src/Services/WellnessPointEngine.swift",
         "src/Views/MascotOverlayView.swift",
         "src/Views/SpeechBubbleView.swift"
       ],
@@ -155,6 +161,8 @@
         "api",
         "app-shell",
         "artifact-rendering",
+        "legacy-cleanup",
+        "tests",
         "tracker-integration"
       ],
       "depends_on_lanes": [
@@ -191,8 +199,8 @@
       "parallel_group": 4
     }
   ],
-  "computed_at": "2026-10-30T13:46:59.621867+00:00",
+  "computed_at": "2026-10-30T14:06:31.760313+00:00",
   "computed_from": "dependency_graph+ownership",
   "planning_artifact_wps": [],
-  "planning_commit_sha": "9bfb4b2a91fce4dc8074bec45bdbe1317246afb1"
+  "planning_commit_sha": "998c1e06ad7bdaa161bdbde818693df05775149b"
 }

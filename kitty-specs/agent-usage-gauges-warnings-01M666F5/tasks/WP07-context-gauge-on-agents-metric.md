@@ -58,6 +58,9 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 
 FR-006: the existing AI Agents telemetry metric shows the most recently active agent's context as tokens and percent (`Claude ctx 148k · 74%`) in its existing placements — HUD badge, speech-bubble carousel and menu bar title — refreshed within one telemetry interval. Done when snapshot rendering includes the reading only when present and that agent is active, output is byte-identical otherwise, and tests prove all three placements.
 
+Definition of Done also includes:
+- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+
 ## Context & Constraints
 
 - `AgentTelemetry` lives in `src/Models/TelemetryModels.swift:142-166`; it is rendered by `TelemetrySnapshot.menuBarTitle` (`"\(agents.activeCount) Agts"`, ~line 379), the HUD items (`agents.compactBadge`, ~line 422) and carousel (`"🤖 \(agents.formattedSummary)"`, ~line 456). All three are gated on `enabledMetrics.contains(.agents) && agents.activeCount > 0` — keep that gate (no stale gauge for inactive agents).

@@ -77,6 +77,9 @@ Build three pure, adapter-agnostic pieces used by WP04 (Claude Code) and WP05 (A
 
 Done when all behaviour below is covered by `SessionLogTailTests` and `AgentSessionTrackerTests` and the full suite is green. No adapter or UI changes in this WP.
 
+Definition of Done also includes:
+- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+
 ## Context & Constraints
 
 - Read: `research.md` R4–R7, `data-model.md` (Adapter-side tracker table), `contracts/agent-event-contract.md` (usage metadata).

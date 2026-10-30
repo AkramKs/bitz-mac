@@ -72,6 +72,7 @@ Done when:
 - New value types exist: `AgentWarningReason`, `AgentWarning`, `AgentContextReading`, `AgentSignalSettings` (see `data-model.md`).
 - `docs/agent-dropbox-event.schema.json` matches `contracts/agent-event-contract.md`.
 - `xcrun swift build` and `xcrun swift test` are green (the two exhaustive switches compile via placeholder cases).
+- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
 
 ## Context & Constraints
 
@@ -124,11 +125,14 @@ Done when:
          public static let pendingTools = "pendingTools"
          public static let turnActive = "turnActive"
          public static let seed = "seed"
+         /// `process` on ProcessAgentAdapter events (app presence); see data-model.md.
+         public static let source = "source"
      }
      public var contextTokens: Int? { metadata?[MetadataKey.contextTokens].flatMap(Int.init).flatMap { $0 >= 0 ? $0 : nil } }
      public var pendingTools: Int? { metadata?[MetadataKey.pendingTools].flatMap(Int.init).flatMap { $0 >= 0 ? $0 : nil } }
      public var turnActive: Bool? { metadata?[MetadataKey.turnActive].flatMap(Bool.init) }
      public var isSeed: Bool { metadata?[MetadataKey.seed] == "true" }
+     public var isProcessPresence: Bool { metadata?[MetadataKey.source] == "process" }
      public var warningReason: AgentWarningReason { metadata?[MetadataKey.reason].flatMap(AgentWarningReason.init(rawValue:)) ?? .reported }
      ```
   2. Non-integer or negative values return `nil` (contract: "ignored, never crash").
@@ -183,7 +187,7 @@ Done when:
 - **Purpose**: Integrators validate against `docs/agent-dropbox-event.schema.json`; it currently enumerates only four kinds and forbids extra properties.
 - **Steps**:
   1. `kind.enum` → `["started","working","needsApproval","done","almostDone","warning","usage"]`; update the description.
-  2. Add `metadata`: `{"type":"object","additionalProperties":{"type":["string","number","boolean"]},"description":"Optional details. Keys: reason (context|loop|stall|reported), contextTokens, pendingTools, turnActive, seed."}`.
+  2. Add `metadata`: `{"type":"object","additionalProperties":{"type":["string","number","boolean"]},"description":"Optional details. Keys: reason (context|loop|stall|reported), contextTokens, pendingTools, turnActive, seed, source (set by Bitz only)."}`.
   3. Keep `additionalProperties: false` at the top level and the existing `required` list.
 - **Files**: `docs/agent-dropbox-event.schema.json`
 - **Validation**: `/usr/bin/python3 -I -c "import json;json.load(open('docs/agent-dropbox-event.schema.json'))"` parses.
@@ -196,7 +200,7 @@ Done when:
   2. `testMetadataDecodesStringsNumbersAndBools` — `{"contextTokens":185000,"turnActive":true,"reason":"context"}` → `contextTokens == 185000`, `turnActive == true`, `warningReason == .context`.
   3. `testMalformedMetadataIsIgnoredNotFatal` — `"metadata":{"x":[1,2]}` → event decodes, `metadata == nil`.
   4. `testInvalidNumbersReturnNil` — `"contextTokens":"abc"` and `"-5"` → `nil`.
-  5. `testUnknownReasonFallsBackToReported`.
+  5. `testUnknownReasonFallsBackToReported` and `testProcessPresenceFlagFromSourceMetadata`.
   6. `testContextReadingPercentAndText` — 148_000 / 200_000 → 74, `"Claude ctx 148k · 74%"`; 943_000 / 200_000 → 100; 1_200_000 → `"1.2M"`; window 0 → 0%.
   7. `testSignalSettingsDefaultsClampAndPartialDecode` — defaults; `clamped()` maps threshold 120 → 99, 10 → 50, stall 0 → 1, 99 → 30, drops `["x": 0]`; decoding `{"loopWarningEnabled":false}` keeps all other defaults; `contextWindow(for: "unknown") == 200_000`.
   8. In `Tests/BitzTests/DropboxAgentAdapterTests.swift` add `testDropsV2EventWithMetadata` — write a v2 file with `"kind":"usage","metadata":{"contextTokens":"1234"}` and assert the handler receives `kind == .usage`, `contextTokens == 1234`. Follow the existing file's temp-dir pattern.
