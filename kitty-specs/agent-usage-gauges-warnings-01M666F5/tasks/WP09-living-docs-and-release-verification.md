@@ -15,6 +15,7 @@ requirement_refs:
 - C-005
 - NFR-001
 - NFR-002
+- NFR-003
 planning_base_branch: feat/issue-38-agent-gauges-warnings
 merge_target_branch: feat/issue-38-agent-gauges-warnings
 branch_strategy: Planning artifacts for this mission were generated on feat/issue-38-agent-gauges-warnings. During /spec-kitty.implement this WP may branch from a dependency-specific base, but completed changes must merge back into feat/issue-38-agent-gauges-warnings unless the human explicitly redirects the landing branch.
@@ -70,8 +71,9 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 
 Charter DIR-005 requires the living docs to match the shipped behaviour; AGENTS.md §3 requires a green full suite and a local release run. Done when:
 - `docs/ARCHITECTURE.md`, `docs/STATE_MACHINE.md`, `docs/ACCEPTANCE_CRITERIA.md` describe the new adapter, policy and visor override accurately (no invented numbers).
+- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` on the merged result (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
 - `xcrun swift test` passes with zero failures (output captured in the Activity Log: totals line).
-- `./Scripts/package_and_run.sh release` launches; the `quickstart.md` walkthrough behaves as written; Activity Monitor readings recorded (CPU %, memory MB) over ~5 minutes with an active Claude Code session.
+- `./Scripts/package_and_run.sh release` launches; the `quickstart.md` walkthrough behaves as written; the timed latency step (quickstart §3) measures ≤ 5 s on every run (NFR-003); Activity Monitor readings recorded (CPU %, memory MB) over ~5 minutes with an active Claude Code session.
 
 ## Context & Constraints
 
@@ -92,11 +94,12 @@ Charter DIR-005 requires the living docs to match the shipped behaviour; AGENTS.
 
 - Layer 3 mermaid diagram: add `ClaudeAdapt["ClaudeCodeTranscriptAdapter (session log tail)"]` and edge `AgentMgr --> ClaudeAdapt`; mention `SessionLogTail` / `AgentSessionTracker` as shared helpers.
 - Component table: extend "Agent Coordination" (policy: usage readings, context crossing, stall sweep, single warning slot with approval override, signal settings) and "Agent Adapters" (Claude Code adapter; Antigravity usage/loop).
+- Mention the `source = process` tag on `ProcessAgentAdapter` events (app-presence `done` never clears warnings) and the engine's warning visor input.
 - One sentence on privacy: session logs read locally, only token counts / tool names / fingerprints kept in memory.
 
 ### Subtask T040 – `docs/STATE_MACHINE.md` [P]
 
-- New subsection "Agent Warning Visor Override": while an agent warning is unacknowledged the SwiftUI visor shows Amber `#FFB000`; overheating red keeps priority; wellness state and Rive inputs are unchanged.
+- New subsection "Agent Warning Visor": while an agent warning is unacknowledged, `WellnessPointEngine.setWarningVisor(active:)` makes `syncWithRive()` send `visorColor = 2.0` (Amber `#FFB000`) and the drawn visor shows the same colour; overheating red keeps priority; wellness state, points and thresholds are unchanged.
 
 ### Subtask T041 – `docs/ACCEPTANCE_CRITERIA.md` [P]
 
@@ -104,13 +107,15 @@ Charter DIR-005 requires the living docs to match the shipped behaviour; AGENTS.
 
 ### Subtask T042 – Full test suite
 
+- `xcrun swift build 2>&1 | grep 'warning:'` must print nothing (zero compiler warnings, charter gate); record the count in the Activity Log.
 - `xcrun swift test 2>&1 | tail -30`; zero failures required. If anything fails, stop and report the failing test + output; do not mark done.
 
 ### Subtask T043 – Release run, quickstart, resources
 
 - `./Scripts/package_and_run.sh release`.
-- Walk `kitty-specs/agent-usage-gauges-warnings-01M666F5/quickstart.md` §1–§4; note each step pass/fail.
-- §5: Activity Monitor (or `top -l 6 -s 10 -pid <pid>`) CPU and memory for Bitz during an active Claude Code session; record numbers against the charter budget (< 2% CPU, < 70 MB).
+- Walk `kitty-specs/agent-usage-gauges-warnings-01M666F5/quickstart.md` §1–§5; note each step pass/fail.
+- §3 is the timed latency step (NFR-003): run it three times, record each measured latency in seconds; any run > 5 s is a failure to report.
+- §6: Activity Monitor (or `top -l 6 -s 10 -pid <pid>`) CPU and memory for Bitz during an active Claude Code session; record numbers against the charter budget (< 2% CPU, < 70 MB).
 
 ## Risks & Mitigations
 
