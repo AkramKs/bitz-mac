@@ -85,7 +85,7 @@ Present the WP02 policy on the mascot, wire the new adapter, and prove the pipel
 - The app runs `ClaudeCodeTranscriptAdapter` alongside the existing adapters and creates `AgentMonitorService` with the delegate's injected `userDefaults`.
 - An integration test replays a Claude Code session through the real adapter into the real monitor (SC-002).
 - Layout tests prove both new bubbles fit their window at the largest scale; the click-through test proves the bubble reverts to `ignoresMouseEvents = true` right after **GOT IT**.
-- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+- A clean build (`xcrun swift build --scratch-path "$(mktemp -d)" 2>&1 | grep -c 'warning:'`) prints `0`: this WP also removes the 3 pre-existing Swift 6 warnings at `src/Views/MascotOverlayView.swift:142` (from #61; see T027 step 3). Charter quality gate; SwiftLint is not configured in this repo.
 
 ## Context & Constraints
 
@@ -139,6 +139,7 @@ Present the WP02 policy on the mascot, wire the new adapter, and prove the pipel
      public static func visorColor(for state: BitzState, warningVisorActive: Bool) -> Color
      ```
      and make the private `visorColor` use `engine.isWarningVisorActive`. Keep the one-argument helpers unchanged (used by `SpeechBubbleView`, `MascotOverlayPanelTests`, `SettingsViewsTests`). **No `agentMonitor` parameter on `MascotOverlayView`.**
+  3. Remove the 3 pre-existing Swift 6 warnings at `MascotOverlayView.swift:142`: the `.onGeometryChange` transform closure is `Sendable` but reads main-actor `Self.canvasSpace`, `isLoafPosture` and `BitzCharacterView.earOverflow(isLoafPosture:)`. Compute those values into local `let`s in `body` before the modifier and capture the locals; behaviour must stay identical (`SpeechBubblePanelTests.testMascotViewReportsEarTopForPostureAndHUD` and `MascotOverlayLayoutTests.testEarOverflowMatchesDrawnEarTips` stay green).
 - **Notes**: Wellness thresholds, `currentState` and the other Rive inputs are untouched.
 
 ### Subtask T028 – App wiring

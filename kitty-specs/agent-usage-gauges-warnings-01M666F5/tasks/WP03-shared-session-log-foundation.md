@@ -78,7 +78,7 @@ Build three pure, adapter-agnostic pieces used by WP04 (Claude Code) and WP05 (A
 Done when all behaviour below is covered by `SessionLogTailTests` and `AgentSessionTrackerTests` and the full suite is green. No adapter or UI changes in this WP.
 
 Definition of Done also includes:
-- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+- No new compiler warnings, measured with a clean build (`xcrun swift build --scratch-path "$(mktemp -d)" 2>&1 | grep 'warning:' | sort -u`): the only allowed lines are the 3 pre-existing Swift 6 warnings at `src/Views/MascotOverlayView.swift:142` (from #61), which WP06 removes. Incremental builds hide warnings, so don't use them for this check (charter quality gate; SwiftLint is not configured in this repo).
 
 ## Context & Constraints
 

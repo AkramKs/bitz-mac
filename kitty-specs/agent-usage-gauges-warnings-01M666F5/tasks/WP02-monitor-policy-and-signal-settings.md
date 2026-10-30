@@ -83,7 +83,7 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 - Disabling an agent clears its warning, readings and session state (FR-013).
 - `done` events from `ProcessAgentAdapter` (tagged `source = process`) never clear a warning or end a turn (spec Edge Case "Claude desktop app quits").
 - Every existing `AgentMonitorServiceTests` case passes unchanged; new `AgentSignalPolicyTests` cover every acceptance scenario of User Stories 1–4 at the policy level.
-- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+- No new compiler warnings, measured with a clean build (`xcrun swift build --scratch-path "$(mktemp -d)" 2>&1 | grep 'warning:' | sort -u`): the only allowed lines are the 3 pre-existing Swift 6 warnings at `src/Views/MascotOverlayView.swift:142` (from #61), which WP06 removes. Incremental builds hide warnings, so don't use them for this check (charter quality gate; SwiftLint is not configured in this repo).
 
 ## Context & Constraints
 

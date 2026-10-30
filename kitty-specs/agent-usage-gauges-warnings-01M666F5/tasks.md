@@ -9,7 +9,7 @@ description: "Work package task list for agent usage gauges, almost-done milesto
 
 **Tests**: Required. The charter mandates TDD (`tdd-red-green-refactor`) and ≥ 80% coverage on core services; AGENTS.md §3.2 requires isolated `UserDefaults(suiteName:)` domains with cleanup.
 
-**Definition of Done (every code WP)**: `xcrun swift build` with zero compiler warnings (charter quality gate; baseline 0 on 2026-10-30; SwiftLint is not configured in the repo) and a green `xcrun swift test`.
+**Definition of Done (every code WP)**: no new compiler warnings in a clean build (`xcrun swift build --scratch-path "$(mktemp -d)"`; incremental builds hide warnings) and a green `xcrun swift test`. Baseline on 2026-10-30 (clean build): 3 pre-existing Swift 6 warnings at `src/Views/MascotOverlayView.swift:142` from #61; WP06 removes them, so the merged result has 0 (charter quality gate; SwiftLint is not configured in the repo).
 
 **Organization**: Fine-grained subtasks (`Txxx`) roll up into work packages (`WPxx`). Each work package is independently deliverable and testable.
 

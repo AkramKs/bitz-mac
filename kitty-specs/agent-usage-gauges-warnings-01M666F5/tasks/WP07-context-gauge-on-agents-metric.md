@@ -59,7 +59,7 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 FR-006: the existing AI Agents telemetry metric shows the most recently active agent's context as tokens and percent (`Claude ctx 148k · 74%`) in its existing placements — HUD badge, speech-bubble carousel and menu bar title — refreshed within one telemetry interval. Done when snapshot rendering includes the reading only when present and that agent is active, output is byte-identical otherwise, and tests prove all three placements.
 
 Definition of Done also includes:
-- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+- No new compiler warnings, measured with a clean build (`xcrun swift build --scratch-path "$(mktemp -d)" 2>&1 | grep 'warning:' | sort -u`): the only allowed lines are the 3 pre-existing Swift 6 warnings at `src/Views/MascotOverlayView.swift:142` (from #61), which WP06 removes. Incremental builds hide warnings, so don't use them for this check (charter quality gate; SwiftLint is not configured in this repo).
 
 ## Context & Constraints
 

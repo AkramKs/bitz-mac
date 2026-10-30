@@ -71,7 +71,7 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 
 Charter DIR-005 requires the living docs to match the shipped behaviour; AGENTS.md §3 requires a green full suite and a local release run. Done when:
 - `docs/ARCHITECTURE.md`, `docs/STATE_MACHINE.md`, `docs/ACCEPTANCE_CRITERIA.md` describe the new adapter, policy and visor override accurately (no invented numbers).
-- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` on the merged result (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+- A clean build (`xcrun swift build --scratch-path "$(mktemp -d)" 2>&1 | grep -c 'warning:'`) prints `0` on the merged result (charter quality gate; WP06 removed the 3 pre-existing warnings; SwiftLint is not configured in this repo).
 - `xcrun swift test` passes with zero failures (output captured in the Activity Log: totals line).
 - `./Scripts/package_and_run.sh release` launches; the `quickstart.md` walkthrough behaves as written; the timed latency step (quickstart §3) measures ≤ 5 s on every run (NFR-003); Activity Monitor readings recorded (CPU %, memory MB) over ~5 minutes with an active Claude Code session.
 
@@ -107,7 +107,7 @@ Charter DIR-005 requires the living docs to match the shipped behaviour; AGENTS.
 
 ### Subtask T042 – Full test suite
 
-- `xcrun swift build 2>&1 | grep 'warning:'` must print nothing (zero compiler warnings, charter gate); record the count in the Activity Log.
+- `xcrun swift build --scratch-path "$(mktemp -d)" 2>&1 | grep 'warning:'` must print nothing (clean build; incremental builds hide warnings; charter gate); record the count in the Activity Log.
 - `xcrun swift test 2>&1 | tail -30`; zero failures required. If anything fails, stop and report the failing test + output; do not mark done.
 
 ### Subtask T043 – Release run, quickstart, resources

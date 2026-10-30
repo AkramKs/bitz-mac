@@ -60,7 +60,7 @@ If no profile is specified, run `spec-kitty agent profile list` and select the b
 Move `AntigravityTranscriptAdapter` onto WP03's `SessionLogTail` + `AgentSessionTracker` so it also reports context usage, pending tools and loop warnings (FR-005, FR-008), with a silent startup seed (FR-014). Existing behaviour stays: `working` on `USER_INPUT`, `needsApproval` on `ask_question` (unchanged lookup, see #63), `done` on a final `PLANNER_RESPONSE`. Done when the existing test passes (ignoring `usage`) and new fixtures pass.
 
 Definition of Done also includes:
-- `xcrun swift build 2>&1 | grep -c 'warning:'` prints `0` (charter quality gate: zero compiler warnings; SwiftLint is not configured in this repo).
+- No new compiler warnings, measured with a clean build (`xcrun swift build --scratch-path "$(mktemp -d)" 2>&1 | grep 'warning:' | sort -u`): the only allowed lines are the 3 pre-existing Swift 6 warnings at `src/Views/MascotOverlayView.swift:142` (from #61), which WP06 removes. Incremental builds hide warnings, so don't use them for this check (charter quality gate; SwiftLint is not configured in this repo).
 
 ## Context & Constraints
 
