@@ -4,7 +4,7 @@ artifact_type: spec-kitty.analysis-report
 command: /spec-kitty.analyze
 mission_slug: agent-usage-gauges-warnings-01M666F5
 mission_id: 01M666F5Z5VJTD1R7QXESMDY73
-generated_at: '2026-10-30T14:07:13.621793+00:00'
+generated_at: '2026-10-30T14:34:38.716915+00:00'
 analyzer_agent: unknown
 input_artifacts:
   spec.md:
@@ -12,19 +12,19 @@ input_artifacts:
     sha256: d3949c4a8338c14d5ed61b2977b8a82338823844833c1f8028370a4d72f68210
   plan.md:
     path: kitty-specs/agent-usage-gauges-warnings-01M666F5/plan.md
-    sha256: f76715ec7e00327b5b8ce0e411a72ab11e583e198efeb8011ad38ee255cbf483
+    sha256: e053aead703a3229a6d9a2fa78c22dc424dacc3e7053adac5be3518c6d2f79ef
   tasks.md:
     path: kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks.md
-    sha256: ff1676079280943f3e0ea7b32eb1cc753129b8c55fbb4b41e1a61b2fdf1b8e09
+    sha256: b503a810c4b480208fc3eb3b1a8217e9e03f6c0bf4c716814fd462801f82c1d1
   charter:
     path: .kittify/charter/charter.yaml
     sha256: 7651897089e056618a1c4b783e579dfc8dcb9cd1909fb35d03178ab10f1ca31f
 verdict: ready
 issue_counts:
-  low: 3
   high: 0
-  critical: 0
+  low: 3
   medium: 0
+  critical: 0
   info: 0
 findings:
 - id: L1
@@ -43,13 +43,15 @@ findings:
 
 ## Specification Analysis Report (re-run after remediation)
 
+> Re-recorded 2026-10-30 after commit `0e9097d`: the zero-warnings Definition of Done now uses a clean build. The clean-build baseline is 3 pre-existing Swift 6 warnings at `src/Views/MascotOverlayView.swift:142` from #61; the earlier "baseline 0" came from an incremental build and was caught in the WP01 review. WP06 removes the 3 warnings. No other artifact changes; findings unchanged.
+
 Mission `agent-usage-gauges-warnings-01M666F5` (GitHub #38). Re-analysed spec.md, plan.md, tasks.md + 9 WP prompts, research.md, data-model.md, contracts/agent-event-contract.md, quickstart.md and `.kittify/charter/charter.md` after the remediation commits `f4d2fae`, `998c1e0`, `f763e98`.
 
 ### Resolution of the previous findings
 
 | Previous ID | Resolution |
 |-------------|------------|
-| C1 (high) | Zero-warnings gate added to tasks.md Definition of Done, every code WP's Definition of Done, WP09 T042, and plan Charter Check (SwiftLint absence recorded). Baseline build: 0 warnings. |
+| C1 (high) | Zero-warnings gate added to tasks.md Definition of Done, every code WP's Definition of Done, WP09 T042, and plan Charter Check (SwiftLint absence recorded). Clean-build baseline: 3 pre-existing warnings (MascotOverlayView.swift:142, #61), removed by WP06. |
 | C2 | Warning visor routed through `WellnessPointEngine` (`setWarningVisor(active:)`); Rive `visorColor` and drawn visor always match (spec FR-011, plan Design Decision 7, research R10, data-model, WP06 T027/T031). |
 | I1 | FR-004 now says the first reply to a prompt marks working; local commands don't start a turn. |
 | I2 | `ProcessAgentAdapter` events carry `source = process`; app-presence `done` never clears warnings or ends turns (spec Edge Case, plan DD9, research R8, contract, WP01 T002, WP02 T044). |
