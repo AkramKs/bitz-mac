@@ -1,15 +1,13 @@
 import SwiftUI
 
 /// SwiftUI view hosted inside `MascotOverlayPanel`, rendering the transparent
-/// cyberpunk mascot canvas, reactive LED visor glow, standby `"ZZZ"` badge, and
-/// `"SYSTEM HOT! > <"` thermal warning speech bubble (`FR-001`, `FR-003`, `FR-004`).
+/// cyberpunk mascot canvas, reactive LED visor glow, and standby `"ZZZ"` badge (`FR-001`, `FR-003`).
+/// Speech bubbles live in `SpeechBubbleView` inside the panel's `SpeechBubblePanel` (#61).
 public struct MascotOverlayView: View {
     @ObservedObject public var engine: WellnessPointEngine
     @ObservedObject public var scaleStore: AvatarScaleStore
     @ObservedObject public var opacityStore: AvatarOpacityStore
     @ObservedObject public var positionStore: AvatarPositionStore
-    @ObservedObject public var agentMonitor: AgentMonitorService
-    @ObservedObject public var updateStore: AppUpdateStore
     @ObservedObject public var telemetryDashboard: TelemetryDashboardService
     @ObservedObject public var telemetrySettings: TelemetrySettingsStore
 
@@ -18,31 +16,32 @@ public struct MascotOverlayView: View {
     public var onGetOrigin: (() -> NSPoint?)?
     public var onGetSize: (() -> NSSize)?
     public var onOpenSettings: (() -> Void)?
+    /// Reports how far below the 250 pt canvas top Bitz's ear tips sit (unscaled pt), so the speech bubble can sit just above them.
+    public var onEarTopChanged: ((CGFloat) -> Void)?
 
     @State private var dragInitialOrigin: NSPoint? = nil
     @State private var isHovering: Bool = false
+
+    private static let canvasSpace = "mascotCanvas"
 
     public init(
         engine: WellnessPointEngine,
         scaleStore: AvatarScaleStore = AvatarScaleStore(),
         opacityStore: AvatarOpacityStore = AvatarOpacityStore(),
         positionStore: AvatarPositionStore = AvatarPositionStore(),
-        agentMonitor: AgentMonitorService = AgentMonitorService(),
-        updateStore: AppUpdateStore = AppUpdateStore(),
         telemetryDashboard: TelemetryDashboardService = TelemetryDashboardService(),
         telemetrySettings: TelemetrySettingsStore = TelemetrySettingsStore(),
         onDragChanged: ((NSPoint, NSScreen?) -> Void)? = nil,
         onDragEnded: ((NSPoint, NSScreen?) -> Void)? = nil,
         onGetOrigin: (() -> NSPoint?)? = nil,
         onGetSize: (() -> NSSize)? = nil,
-        onOpenSettings: (() -> Void)? = nil
+        onOpenSettings: (() -> Void)? = nil,
+        onEarTopChanged: ((CGFloat) -> Void)? = nil
     ) {
         self.engine = engine
         self.scaleStore = scaleStore
         self.opacityStore = opacityStore
         self.positionStore = positionStore
-        self.agentMonitor = agentMonitor
-        self.updateStore = updateStore
         self.telemetryDashboard = telemetryDashboard
         self.telemetrySettings = telemetrySettings
         self.onDragChanged = onDragChanged
@@ -50,6 +49,7 @@ public struct MascotOverlayView: View {
         self.onGetOrigin = onGetOrigin
         self.onGetSize = onGetSize
         self.onOpenSettings = onOpenSettings
+        self.onEarTopChanged = onEarTopChanged
     }
 
     /// Returns the RGB color values (`red`, `green`, `blue`) matching the current `BitzState` visor color.
@@ -76,9 +76,13 @@ public struct MascotOverlayView: View {
         }
     }
 
-    private var visorColor: Color {
-        let rgb = Self.visorRGB(for: engine.currentState)
+    public static func visorColor(for state: BitzState) -> Color {
+        let rgb = visorRGB(for: state)
         return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
+    }
+
+    private var visorColor: Color {
+        Self.visorColor(for: engine.currentState)
     }
 
     private var animationSpeedMultiplier: Double {
@@ -104,86 +108,9 @@ public struct MascotOverlayView: View {
         engine.currentState == .burnout || engine.currentState == .charging
     }
 
-    private func agentPopupColor(for kind: AgentEventKind) -> Color {
-        switch kind {
-        case .needsApproval:
-            return Color.yellow
-        case .done:
-            return Color.green
-        case .started, .working:
-            return Color.cyan
-        }
-    }
-
-    private func agentPopupBackground(for kind: AgentEventKind) -> Color {
-        switch kind {
-        case .needsApproval:
-            return Color(red: 0.85, green: 0.45, blue: 0.05).opacity(0.96)
-        case .done:
-            return Color(red: 0.05, green: 0.65, blue: 0.35).opacity(0.96)
-        case .started, .working:
-            return Color(red: 0.12, green: 0.45, blue: 0.85).opacity(0.96)
-        }
-    }
-
-    private func agentBubbleView(for popup: AgentPopupState) -> some View {
-        let strokeColor = agentPopupColor(for: popup.kind)
-        let bgColor = agentPopupBackground(for: popup.kind)
-        return Text(popup.text)
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .multilineTextAlignment(.center)
-            .lineLimit(2)
-            .minimumScaleFactor(0.75)
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .frame(maxWidth: 236)
-            .background(RoundedRectangle(cornerRadius: 8).fill(bgColor))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(strokeColor, lineWidth: 1.5))
-            .shadow(color: strokeColor.opacity(0.7), radius: 6)
-            .offset(y: isLoafPosture ? -30 : -50)
-            .zIndex(3)
-    }
-
-    private func updateBubbleView(for release: GitHubReleaseInfo) -> some View {
-        let accentColor = Color(red: 0.0, green: 0.94, blue: 1.0)
-        let bgColor = Color(red: 0.06, green: 0.08, blue: 0.12).opacity(0.96)
-        return VStack(spacing: 5) {
-            Text("UPDATE READY: v\(release.semanticVersion.description) 🚀")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color.white)
-                .multilineTextAlignment(.center)
-
-            HStack(spacing: 6) {
-                Button(action: { updateStore.openDownloadPage() }) {
-                    Text("DOWNLOAD")
-                        .font(.system(size: 8, weight: .heavy, design: .monospaced))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(accentColor))
-                        .foregroundStyle(Color.black)
-                }
-                .buttonStyle(.plain)
-
-                Button(action: { updateStore.dismissAlert() }) {
-                    Text("LATER")
-                        .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Capsule().stroke(Color.gray.opacity(0.6), lineWidth: 1))
-                        .foregroundStyle(Color.white.opacity(0.8))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(maxWidth: 236)
-        .background(RoundedRectangle(cornerRadius: 8).fill(bgColor))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(accentColor, lineWidth: 1.5))
-        .shadow(color: accentColor.opacity(0.6), radius: 6)
-        .offset(y: isLoafPosture ? -30 : -50)
-        .zIndex(3)
+    // Holding ⌥ alone only shows the border, so typing ⌥ shortcuts in other apps doesn't flash the HUD
+    private var showsDragPill: Bool {
+        positionStore.isPositionUnlocked || positionStore.isDragging
     }
 
     public var body: some View {
@@ -199,60 +126,6 @@ public struct MascotOverlayView: View {
             VStack(spacing: 6) {
                 Spacer(minLength: 0)
 
-                // Speech Bubble Notification (always 100% solid contrast for legibility)
-                // Priority: Agent Monitor active popup takes precedence over wellness text (T016)
-                if let agentPopup = agentMonitor.activePopup {
-                    agentBubbleView(for: agentPopup)
-                } else if updateStore.isSpeechBubbleAlertActive, let release = updateStore.latestRelease {
-                    updateBubbleView(for: release)
-                } else if let speechText = engine.activeSpeechBubbleText {
-                    Text(speechText)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-                        .foregroundStyle(Color.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .frame(maxWidth: 236)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(
-                                    engine.currentState == .overheating
-                                        ? Color(red: 0.75, green: 0.06, blue: 0.10).opacity(0.95)
-                                        : Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.94)
-                                )
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(visorColor, lineWidth: 1.5)
-                        )
-                        .shadow(color: visorColor.opacity(0.7), radius: 6)
-                        .offset(y: isLoafPosture ? -30 : -50)
-                        .zIndex(3)
-                } else if telemetrySettings.displayInSpeechBubbleCycle, let carouselText = telemetryDashboard.currentCarouselMessage {
-                    Text(carouselText)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-                        .foregroundStyle(Color.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .frame(maxWidth: 236)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.94))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(visorColor, lineWidth: 1.5)
-                        )
-                        .shadow(color: visorColor.opacity(0.7), radius: 6)
-                        .offset(y: isLoafPosture ? -30 : -50)
-                        .zIndex(3)
-                }
-
                 // Mascot Composition with user-selected see-through opacity
                 BitzCharacterView(
                     state: engine.currentState,
@@ -264,6 +137,12 @@ public struct MascotOverlayView: View {
                     customVisorColor: visorColor
                 )
                 .opacity(opacityStore.opacityFactor)
+                // Layout frame excludes the breathing offset, so this only fires when the HUD or posture changes
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.frame(in: .named(Self.canvasSpace)).minY - BitzCharacterView.earOverflow(isLoafPosture: isLoafPosture)
+                } action: { earTop in
+                    onEarTopChanged?(earTop)
+                }
 
                 // Live Cyberpunk Hardware Telemetry & Diagnostics HUD
                 if telemetrySettings.displayInMascotCyberHUD {
@@ -291,16 +170,18 @@ public struct MascotOverlayView: View {
                         )
                         .shadow(color: hudBorderColor.opacity(0.35), radius: 5)
                         .padding(.bottom, 4)
-                        .opacity(max(0.6, opacityStore.opacityFactor))
+                        // Drag pill takes over this slot in drag mode; opacity keeps the layout stable
+                        .opacity(showsDragPill ? 0 : max(0.6, opacityStore.opacityFactor))
                 } else {
                     Spacer().frame(height: 10)
                 }
             }
         }
         .frame(width: 250, height: 250)
+        .coordinateSpace(.named(Self.canvasSpace))
         .overlay {
             if positionStore.isInteractivityEnabled {
-                ZStack(alignment: .top) {
+                ZStack(alignment: .bottom) {
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(
                             visorColor.opacity(positionStore.isDragging ? 0.95 : 0.65),
@@ -308,34 +189,36 @@ public struct MascotOverlayView: View {
                         )
                         .shadow(color: visorColor.opacity(0.4), radius: 6)
 
-                    HStack(spacing: 5) {
-                        Image(systemName: positionStore.isDragging ? "arrow.up.and.down.and.arrow.left.and.right" : "lock.open.fill")
-                            .font(.system(size: 8))
-                        Text(positionStore.isDragging ? "DRAGGING" : (positionStore.isPositionUnlocked ? "DRAG • ⎋ ESC / RIGHT-CLICK TO LOCK" : "⌥ HOLD TO DRAG"))
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        if positionStore.isPositionUnlocked {
-                            Button(action: { positionStore.lockPosition() }) {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "lock.fill")
-                                        .font(.system(size: 7))
-                                    Text("LOCK")
-                                        .font(.system(size: 7, weight: .heavy, design: .monospaced))
+                    if showsDragPill {
+                        HStack(spacing: 5) {
+                            Image(systemName: positionStore.isDragging ? "arrow.up.and.down.and.arrow.left.and.right" : "lock.open.fill")
+                                .font(.system(size: 8))
+                            Text(positionStore.isDragging ? "DRAGGING" : "DRAG • ⎋ ESC / RIGHT-CLICK TO LOCK")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            if positionStore.isPositionUnlocked {
+                                Button(action: { positionStore.lockPosition() }) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "lock.fill")
+                                            .font(.system(size: 7))
+                                        Text("LOCK")
+                                            .font(.system(size: 7, weight: .heavy, design: .monospaced))
+                                    }
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(visorColor))
+                                    .foregroundStyle(Color.black)
                                 }
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Capsule().fill(visorColor))
-                                .foregroundStyle(Color.black)
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .foregroundStyle(visorColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.92)))
+                        .overlay(Capsule().stroke(visorColor.opacity(0.7), lineWidth: 1))
+                        .shadow(color: visorColor.opacity(0.4), radius: 4)
+                        .padding(.bottom, 10)
                     }
-                    .foregroundStyle(visorColor)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.92)))
-                    .overlay(Capsule().stroke(visorColor.opacity(0.7), lineWidth: 1))
-                    .shadow(color: visorColor.opacity(0.4), radius: 4)
-                    .offset(y: -14)
                 }
                 .allowsHitTesting(true)
             }
@@ -461,6 +344,6 @@ public struct MascotOverlayView: View {
                 Label("Quit Bitz", systemImage: "power")
             }
         }
-        .allowsHitTesting(positionStore.isInteractivityEnabled || updateStore.isSpeechBubbleAlertActive)
+        .allowsHitTesting(positionStore.isInteractivityEnabled)
     }
 }

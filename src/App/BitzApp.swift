@@ -28,7 +28,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
     nonisolated(unsafe) private var globalFlagsMonitor: Any?
     nonisolated(unsafe) private var localKeyMonitor: Any?
     nonisolated(unsafe) private var globalKeyMonitor: Any?
-    private var updateStoreCancellable: AnyCancellable?
+    private var bubbleInteractivityCancellable: AnyCancellable?
     private var screenReconfigTask: Task<Void, Never>?
 
     public override convenience init() {
@@ -107,11 +107,15 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             self?.positionStore.lockPosition()
             self?.updatePanelsInteractivity()
         }
-        self.updateStoreCancellable = self.updateStore.$isSpeechBubbleAlertActive
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updatePanelsInteractivity()
-            }
+        // An agent popup can cover the update alert's buttons, so re-check on either change
+        self.bubbleInteractivityCancellable = Publishers.Merge(
+            self.updateStore.$isSpeechBubbleAlertActive.map { _ in () },
+            self.agentMonitor.$activePopup.map { _ in () }
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] in
+            self?.updatePanelsInteractivity()
+        }
         self.displayStore.onDisplayPreferenceChanged = { [weak self] in
             self?.syncOverlayPanels()
         }
@@ -214,9 +218,19 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Mascot panel takes clicks only while dragging; the bubble panel only while the bubble on screen has buttons.
     public func updatePanelsInteractivity() {
-        let isInteractive = positionStore.isInteractivityEnabled || updateStore.isSpeechBubbleAlertActive
-        overlayPanels.forEach { $0.ignoresMouseEvents = !isInteractive }
+        let bubbleIsInteractive = SpeechBubbleContent.current(
+            engine: engine,
+            agentMonitor: agentMonitor,
+            updateStore: updateStore,
+            telemetryDashboard: telemetryDashboard,
+            telemetrySettings: telemetrySettings
+        )?.isInteractive ?? false
+        overlayPanels.forEach { panel in
+            panel.ignoresMouseEvents = !positionStore.isInteractivityEnabled
+            panel.speechBubblePanel.ignoresMouseEvents = !bubbleIsInteractive
+        }
     }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
@@ -372,6 +386,7 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             }
             panel.orderFrontRegardless()
         }
+        updatePanelsInteractivity()
     }
 
     /// Debounces display change notifications to prevent stutter and layout flashes.
@@ -386,7 +401,16 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
 
     private func createConfiguredPanel() -> MascotOverlayPanel {
         let panel = MascotOverlayPanel()
-        panel.ignoresMouseEvents = !(positionStore.isInteractivityEnabled || updateStore.isSpeechBubbleAlertActive)
+        panel.speechBubblePanel.contentView = NSHostingView(
+            rootView: SpeechBubbleView(
+                engine: engine,
+                scaleStore: scaleStore,
+                agentMonitor: agentMonitor,
+                updateStore: updateStore,
+                telemetryDashboard: telemetryDashboard,
+                telemetrySettings: telemetrySettings
+            )
+        )
         panel.onRightMouseDown = { [weak self] in
             Task { @MainActor [weak self] in
                 self?.positionStore.lockPosition()
@@ -397,8 +421,6 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             scaleStore: scaleStore,
             opacityStore: opacityStore,
             positionStore: positionStore,
-            agentMonitor: agentMonitor,
-            updateStore: updateStore,
             telemetryDashboard: telemetryDashboard,
             telemetrySettings: telemetrySettings,
             onDragChanged: { [weak panel] origin, _ in
@@ -420,6 +442,9 @@ public final class BitzAppDelegate: NSObject, NSApplicationDelegate {
             },
             onOpenSettings: { [weak self] in
                 self?.showSettingsWindow()
+            },
+            onEarTopChanged: { [weak panel] earTop in
+                panel?.earTopInset = earTop
             }
         )
         let hostingView = NSHostingView(rootView: rootView)

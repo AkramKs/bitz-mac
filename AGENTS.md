@@ -38,19 +38,23 @@ This file establishes mandatory engineering, git, and lifecycle invariants for a
 ## 🐱 2. Mascot & Window Invariants
 
 1. **100% Click-Through Guarantee**:
-   - `MascotOverlayPanel.ignoresMouseEvents` must remain `true` at all times during normal operation.
-   - It may only temporarily switch to `false` when:
-     - The user is dragging/moving the mascot (`positionStore.isInteractivityEnabled == true`).
-     - An interactive speech bubble alert is active (e.g., Update Download button or Agent Approval bubble).
+   - `MascotOverlayPanel` and its child `SpeechBubblePanel` keep `ignoresMouseEvents = true` during normal operation.
+   - Each switches to `false` only for its own interaction:
+     - `MascotOverlayPanel`: while the user drags/moves the mascot (`positionStore.isInteractivityEnabled == true`).
+     - `SpeechBubblePanel`: while an interactive bubble is showing (e.g., the Update Download buttons).
    - Once dismissed or locked, it MUST immediately revert to `ignoresMouseEvents = true`.
 
 2. **Zero Keyboard Focus Stealing**:
-   - The mascot panel must always be `.nonactivatingPanel` with `canBecomeKey = false`.
+   - Both panels must always be `.nonactivatingPanel` with `canBecomeKey = false`.
    - Modifiers and keybinds (`⌥ Option`, `⎋ Escape`, `⏎ Return`) must use global/local event monitors without making the panel key window or stealing focus from the user's IDE or terminal.
 
 3. **Multi-Display & Screen Clamping**:
    - Bitz must never be positioned off-screen or stranded behind a disconnected display.
    - Screen boundary clamping (`clampOriginToVisibleFrame`) and magnetic edge snapping (~20pt) must be preserved.
+
+4. **Nothing Drawn Outside Its Window**:
+   - Each panel clips to its own frame. `MascotOverlayView` fits the fixed 250×250 pt canvas; speech bubbles live in `SpeechBubbleView`, whose panel sizes itself to the bubble (#61).
+   - `MascotOverlayLayoutTests` renders both with an empty margin and fails if content lands outside; new mascot rows or bubble styles must keep it green.
 
 ---
 
