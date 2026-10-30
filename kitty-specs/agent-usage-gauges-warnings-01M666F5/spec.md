@@ -149,7 +149,7 @@ In Settings → AI Agents, the developer turns each signal on or off and tunes t
 
 ### Key Entities
 
-- **Agent Event**: a reported state change for an agent — kind (started, working, needs approval, almost done, warning, done), agent, optional message, optional details.
+- **Agent Event**: a reported state change for an agent — kind (started, working, needs approval, almost done, warning, done, or a never-shown usage reading), agent, optional message, optional details.
 - **Agent Warning**: the single active alert — agent, reason (context, loop, stall, or reported), text, acknowledged or not.
 - **Context Reading**: per agent — tokens used in the latest turn, configured window, percent (capped at 100%).
 - **Signal Settings**: per-signal on/off, context threshold, stall timeout, per-agent context window.
