@@ -4,12 +4,12 @@ artifact_type: spec-kitty.analysis-report
 command: /spec-kitty.analyze
 mission_slug: agent-usage-gauges-warnings-01M666F5
 mission_id: 01M666F5Z5VJTD1R7QXESMDY73
-generated_at: '2026-10-30T14:34:38.716915+00:00'
+generated_at: '2026-10-30T16:01:40.991988+00:00'
 analyzer_agent: unknown
 input_artifacts:
   spec.md:
     path: kitty-specs/agent-usage-gauges-warnings-01M666F5/spec.md
-    sha256: d3949c4a8338c14d5ed61b2977b8a82338823844833c1f8028370a4d72f68210
+    sha256: 52a5493c80fd76cd10d653178f47b3eeba18783e266ac91d5b25ba025f48c1bd
   plan.md:
     path: kitty-specs/agent-usage-gauges-warnings-01M666F5/plan.md
     sha256: e053aead703a3229a6d9a2fa78c22dc424dacc3e7053adac5be3518c6d2f79ef
@@ -21,9 +21,9 @@ input_artifacts:
     sha256: 7651897089e056618a1c4b783e579dfc8dcb9cd1909fb35d03178ab10f1ca31f
 verdict: ready
 issue_counts:
+  medium: 0
   high: 0
   low: 3
-  medium: 0
   critical: 0
   info: 0
 findings:
@@ -42,6 +42,8 @@ findings:
 ---
 
 ## Specification Analysis Report (re-run after remediation)
+
+> Re-recorded after commit `9a70647`: FR-014, Edge Cases, research R7, data-model and the event contract now require priming turn state from the seed, so a turn already in progress when an adapter attaches is tracked (WP03/WP04/WP05 reopened for a second cycle). Coverage unchanged (FR-014 → T008, T014, T016, T021, T024); no new findings.
 
 > Re-recorded 2026-10-30 after commit `0e9097d`: the zero-warnings Definition of Done now uses a clean build. The clean-build baseline is 3 pre-existing Swift 6 warnings at `src/Views/MascotOverlayView.swift:142` from #61; the earlier "baseline 0" came from an incremental build and was caught in the WP01 review. WP06 removes the 3 warnings. No other artifact changes; findings unchanged.
 
