@@ -212,14 +212,22 @@ final class SpeechBubblePanelTests: XCTestCase {
             defer: false
         )
         defer { window.close() }
-        window.contentView = NSHostingView(rootView: fixture.mascotView(onEarTopChanged: { reported = $0 }))
+        let hostingView = NSHostingView(rootView: fixture.mascotView(onEarTopChanged: { reported = $0 }))
+        window.contentView = hostingView
+        // An off-screen window gets no display cycle on macOS 14, so force the layout pass an on-screen panel gets
+        func reportArrives(_ condition: () -> Bool) -> Bool {
+            spinRunLoop(until: {
+                hostingView.layoutSubtreeIfNeeded()
+                return condition()
+            })
+        }
 
-        XCTAssertTrue(spinRunLoop(until: { reported != nil }), "Mascot view must report its ear position")
+        XCTAssertTrue(reportArrives { reported != nil }, "Mascot view must report its ear position")
         let standing = reported ?? 0
         XCTAssertGreaterThan(standing, 0, "Ears must sit inside the panel with the tallest HUD")
 
         fixture.engine.setChargingState(true)
-        XCTAssertTrue(spinRunLoop(until: { reported != standing }), "Posture change must be reported")
+        XCTAssertTrue(reportArrives { reported != standing }, "Posture change must be reported")
         let loaf = reported ?? 0
         XCTAssertEqual(
             loaf - standing,
@@ -229,7 +237,7 @@ final class SpeechBubblePanelTests: XCTestCase {
         )
 
         fixture.telemetrySettings.displayInMascotCyberHUD = false
-        XCTAssertTrue(spinRunLoop(until: { reported != loaf }), "HUD change must be reported")
+        XCTAssertTrue(reportArrives { reported != loaf }, "HUD change must be reported")
         XCTAssertGreaterThan(reported ?? 0, loaf, "Without the HUD, Bitz and its ears sit lower")
     }
 
