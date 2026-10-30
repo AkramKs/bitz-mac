@@ -554,6 +554,7 @@ struct BitzMenuBarContentView: View {
             Button("✓ Lock Position [⎋ Esc / Right-Click]") {
                 positionStore.lockPosition()
             }
+            .accessibilityLabel("Lock Position")
             .keyboardShortcut(.escape, modifiers: [])
         }
 
@@ -561,6 +562,8 @@ struct BitzMenuBarContentView: View {
             Button("🚀 Download v\(release.semanticVersion.description)...") {
                 updateStore.openDownloadPage()
             }
+            .accessibilityLabel("Download Update")
+            .keyboardShortcut("u", modifiers: [.command])
         }
     }
 
