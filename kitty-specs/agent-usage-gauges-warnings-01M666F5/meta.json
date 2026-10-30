@@ -11,6 +11,8 @@
   "purpose_context": "This mission advances agent usage gauges, almost-done milestones and critical warnings (GitHub issue #38) on feat/issue-38-agent-gauges-warnings so stakeholders can track the work from mission creation onward.",
   "purpose_tldr": "agent usage gauges and warnings",
   "slug": "agent-usage-gauges-warnings-01M666F5",
+  "source_description": "GitHub issue #38 (AkramKs/bitz-mac) via issues/2026-10-30-agent-usage-gauges-warnings.md",
   "target_branch": "feat/issue-38-agent-gauges-warnings",
-  "topology": "coord"
+  "topology": "coord",
+  "vcs": "git"
 }
