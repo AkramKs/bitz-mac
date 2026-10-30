@@ -97,7 +97,7 @@ In Settings → AI Agents, the developer turns each signal on or off and tunes t
 ### Edge Cases
 
 - **Subagents**: Claude Code subagent sessions are ignored; only the top-level session counts, so a running subagent never resets streaks or replaces the main session's gauge.
-- **Startup / session switch**: Bitz seeds the gauge from the recent end of the session log but shows no bubbles for anything logged before it started watching; loop and stall state starts fresh.
+- **Startup / session switch**: Bitz seeds the gauge from the recent end of the session log but shows no bubbles for anything logged before it started watching; loop and stall state starts fresh. A turn already in progress (e.g. the first prompt of a session that just started, or Bitz launching mid-turn) is picked up silently, so its next live reply and its end still produce bubbles.
 - **Multiple sessions**: only the most recently active top-level session per agent is tracked.
 - **Bubbles disabled**: turning off "Show Agent Speech Bubbles" hides bubbles only; the amber visor and the gauge keep working.
 - **Agent disabled**: disabling an agent immediately clears its warning and its gauge reading.
@@ -126,7 +126,7 @@ In Settings → AI Agents, the developer turns each signal on or off and tunes t
 | FR-011 | Amber Visor | As a developer, I want the visor amber while a warning is unacknowledged (overheating red keeps priority) so the alert is visible at a glance; the drawn visor and the animation's visor color input always show the same color. | Medium | Open |
 | FR-012 | Signal Settings | As a developer, I want Settings → AI Agents to offer on/off per signal (almost done, context, loop, stall), context threshold (50–99%, default 90), stall timeout (1–30 min, default 3), and context window per agent (Claude Code default 200k, Antigravity default 1M; 200k / 1M / custom), applied immediately and persisted. | Medium | Open |
 | FR-013 | Existing Toggles Respected | As a developer, I want "Show Agent Speech Bubbles" to hide bubbles only (visor and gauge still apply) and disabling an agent to clear its warning and gauge reading. | Medium | Open |
-| FR-014 | Quiet Startup | As a developer, I want Bitz, on startup or session switch, to seed the gauge from the recent end of the session log, reset loop and stall state, and show no bubbles for lines logged before it started watching. | Medium | Open |
+| FR-014 | Quiet Startup | As a developer, I want Bitz, on startup or session switch, to seed the gauge from the recent end of the session log, reset loop and stall state, and show no bubbles for lines logged before it started watching. A turn already in progress at that moment is tracked from then on: its next live reply shows working (if none was logged yet) and its end shows done. | Medium | Open |
 
 ### Non-Functional Requirements
 

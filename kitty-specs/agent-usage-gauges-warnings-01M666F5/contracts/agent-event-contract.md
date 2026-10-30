@@ -36,7 +36,7 @@ Applies to JSON files dropped into `~/Library/Application Support/Bitz/agent-eve
 | `contextTokens` | `usage` | integer string | context reading; percent uses the agent's configured window |
 | `pendingTools` | `usage` | integer string | stall suppressed while > 0 |
 | `turnActive` | `usage` | `true` \| `false` | stall only while `true` |
-| `seed` | `usage` | `true` | reading updates gauge; no context warning for this reading |
+| `seed` | `usage` | `true` | always emitted when an adapter attaches to a session log; carries the primed `turnActive` / `pendingTools` and `contextTokens` when known; reading updates gauge; no context warning for this reading |
 | `source` | any | `process` | set by Bitz's process adapter (app presence); a `done` with this source never clears a warning or ends a turn. Integrators should omit it. |
 
 ## Compatibility

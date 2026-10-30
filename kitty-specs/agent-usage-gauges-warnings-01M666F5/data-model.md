@@ -122,3 +122,4 @@ Input entries (from per-agent line parsers): `prompt`, `assistantOutput(tokens?)
 | `pendingIDs` | `toolCall` inserts, `toolResult` removes; Antigravity: replaced on each `PLANNER_RESPONSE`, cleared by any later line |
 | `loop` | same fingerprint → `count += 1`, else `count = 1`, `fired = false`; `count == 4 && !fired` → emit `warning(loop)`; reset by `compaction` / new session |
 | `latestTokens` | last non-nil `assistantOutput.tokens` |
+| `prime(fromSeed:)` | after `reset()`: silently ingest the seed entries (events discarded), then clear the loop streak; restores `turnActive` / `awaitingFirstOutput` / pending tools / `latestTokens` for a turn already in progress |
