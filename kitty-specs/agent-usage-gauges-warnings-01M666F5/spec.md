@@ -56,9 +56,10 @@ When any agent warning is active, Bitz's visor turns amber and a warning bubble 
 1. **Given** a warning is raised, **When** routine "working" or "almost done" events arrive, **Then** the warning bubble stays.
 2. **Given** a warning from agent A is shown, **When** agent A reports done or needs approval, **Then** the warning is cleared and replaced by that bubble.
 3. **Given** a warning from agent A is shown, **When** agent B reports done, **Then** agent A's warning stays.
-4. **Given** a warning is shown, **When** a newer warning arrives, **Then** the newer warning replaces it.
-5. **Given** a warning is shown, **When** the user clicks **Got it**, **Then** the bubble disappears, the visor returns to its wellness color, and the bubble no longer takes clicks.
-6. **Given** the CPU is overheating, **When** a warning is active, **Then** the visor stays overheating red.
+4. **Given** a warning from agent A is shown, **When** agent B needs approval, **Then** B's approval bubble is shown, the visor stays amber, and A's warning bubble returns when B's next event supersedes the approval.
+5. **Given** a warning is shown, **When** a newer warning arrives, **Then** the newer warning replaces it.
+6. **Given** a warning is shown, **When** the user clicks **Got it**, **Then** the bubble disappears, the visor returns to its wellness color, and the bubble no longer takes clicks.
+7. **Given** the CPU is overheating, **When** a warning is active, **Then** the visor stays overheating red.
 
 ---
 
@@ -118,7 +119,7 @@ In Settings → AI Agents, the developer turns each signal on or off and tunes t
 | FR-007 | Context Warning | As a developer, I want one warning when context usage reaches the threshold (default 90%), re-armed after usage drops below it. | High | Open |
 | FR-008 | Loop Warning | As a developer, I want one warning when the same tool call (same tool, identical input) occurs 4 times in a row; text or reasoning between calls does not break the streak; a different call or a new session resets it. | High | Open |
 | FR-009 | Stall Warning | As a developer, I want one warning when an agent is mid-turn, its session log gets no new output for the stall timeout (default 3 min), no tool call is running and it is not awaiting approval. | High | Open |
-| FR-010 | Warning Lifecycle | As a developer, I want a single persistent warning slot: a warning stays until I click **Got it** or the same agent reports done or needs approval; a newer warning replaces an older one; working and almost-done events never replace it. | High | Open |
+| FR-010 | Warning Lifecycle | As a developer, I want a single persistent warning slot: a warning stays until I click **Got it** or the same agent reports done or needs approval; a newer warning replaces an older one; working, almost-done and other agents' done events never replace it. Another agent's needs-approval temporarily takes the bubble while the warning stays active (amber visor); the warning bubble returns once that approval request is superseded. | High | Open |
 | FR-011 | Amber Visor | As a developer, I want the visor amber while a warning is unacknowledged (overheating red keeps priority) so the alert is visible at a glance. | Medium | Open |
 | FR-012 | Signal Settings | As a developer, I want Settings → AI Agents to offer on/off per signal (almost done, context, loop, stall), context threshold (50–99%, default 90), stall timeout (1–30 min, default 3), and context window per agent (Claude Code default 200k, Antigravity default 1M; 200k / 1M / custom), applied immediately and persisted. | Medium | Open |
 | FR-013 | Existing Toggles Respected | As a developer, I want "Show Agent Speech Bubbles" to hide bubbles only (visor and gauge still apply) and disabling an agent to clear its warning and gauge reading. | Medium | Open |

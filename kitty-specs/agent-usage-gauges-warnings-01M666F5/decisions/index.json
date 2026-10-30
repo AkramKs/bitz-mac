@@ -48,6 +48,54 @@
       "status": "resolved",
       "step_id": null,
       "summary_json": null
+    },
+    {
+      "created_at": "2026-10-30T13:26:59.371662Z",
+      "decision_id": "01M66FW0HB2C3MAT2X927BN0RG",
+      "final_answer": "AgentMonitorService evaluates; adapters only parse and emit readings (usage kind) plus fixed-threshold loop warnings",
+      "input_key": "policy_placement",
+      "mission_id": "01M666F5Z5VJTD1R7QXESMDY73",
+      "mission_slug": "agent-usage-gauges-warnings-01M666F5",
+      "opened_by": "cli",
+      "options": [
+        "AgentMonitorService evaluates; adapters only parse and emit readings",
+        "Adapters detect and emit finished warnings",
+        "Other"
+      ],
+      "origin_flow": "plan",
+      "other_answer": false,
+      "question": "Where should warning policy (thresholds, stall timer, warning slot, toggles) live?",
+      "rationale": null,
+      "resolved_at": "2026-10-30T13:31:48.504484Z",
+      "resolved_by": null,
+      "slot_key": "plan.architecture.policy-placement",
+      "status": "resolved",
+      "step_id": null,
+      "summary_json": null
+    },
+    {
+      "created_at": "2026-10-30T13:27:00.122594Z",
+      "decision_id": "01M66FW18T3SKV8DCMQQ8EMPB1",
+      "final_answer": "Yes - another agent's needs-approval takes the bubble; the warning stays active (amber visor) and its bubble returns once that approval is superseded (spec FR-010 amended)",
+      "input_key": "cross_agent_priority",
+      "mission_id": "01M666F5Z5VJTD1R7QXESMDY73",
+      "mission_slug": "agent-usage-gauges-warnings-01M666F5",
+      "opened_by": "cli",
+      "options": [
+        "No - keep FR-010 literal (only same agent, Got it, or newer warning)",
+        "Yes - any needs-approval takes the bubble, warning stays active on the visor",
+        "Other"
+      ],
+      "origin_flow": "plan",
+      "other_answer": false,
+      "question": "While agent A's warning is shown, may another agent's needs-approval replace the bubble?",
+      "rationale": null,
+      "resolved_at": "2026-10-30T13:31:49.255027Z",
+      "resolved_by": null,
+      "slot_key": "plan.lifecycle.cross-agent-priority",
+      "status": "resolved",
+      "step_id": null,
+      "summary_json": null
     }
   ],
   "mission_id": "01M666F5Z5VJTD1R7QXESMDY73",
