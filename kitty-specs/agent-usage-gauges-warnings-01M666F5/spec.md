@@ -59,7 +59,8 @@ When any agent warning is active, Bitz's visor turns amber and a warning bubble 
 4. **Given** a warning from agent A is shown, **When** agent B needs approval, **Then** B's approval bubble is shown, the visor stays amber, and A's warning bubble returns when B's next event supersedes the approval.
 5. **Given** a warning is shown, **When** a newer warning arrives, **Then** the newer warning replaces it.
 6. **Given** a warning is shown, **When** the user clicks **Got it**, **Then** the bubble disappears, the visor returns to its wellness color, and the bubble no longer takes clicks.
-7. **Given** the CPU is overheating, **When** a warning is active, **Then** the visor stays overheating red.
+7. **Given** a warning is active, **When** the user chooses **Dismiss Agent Warning** in the menu bar dropdown, **Then** the warning clears exactly as with **Got it**, even if its bubble was hidden.
+8. **Given** the CPU is overheating, **When** a warning is active, **Then** the visor stays overheating red.
 
 ---
 
@@ -101,6 +102,8 @@ In Settings → AI Agents, the developer turns each signal on or off and tunes t
 - **Bubbles disabled**: turning off "Show Agent Speech Bubbles" hides bubbles only; the amber visor and the gauge keep working.
 - **Agent disabled**: disabling an agent immediately clears its warning and its gauge reading.
 - **Duplicate done**: the session log and the existing Claude Code Stop hook may both report done; the second bubble simply replaces the first.
+- **Claude desktop app quits**: Claude Code and the Claude desktop app share the agent identity `claude`; the desktop app's "finished" event (app quit) never clears a Claude Code warning or ends its turn.
+- **No bubble to click**: when the warning bubble is hidden (bubbles turned off, or another agent's approval is showing), the warning can still be dismissed from the menu bar dropdown.
 - **Malformed or partial log lines**: skipped silently; the next complete line is processed normally.
 - **Unknown model window**: the session logs do not state the window size; a wrong setting is visible because raw tokens are shown next to the percent.
 
@@ -113,14 +116,14 @@ In Settings → AI Agents, the developer turns each signal on or off and tunes t
 | FR-001 | Almost-Done Event | As a developer, I want any agent, hook or script to report "almost done" through the drop-box so Bitz shows a distinct eager bubble that auto-dismisses after 6 s. No session-log heuristic in this mission. | Medium | Open |
 | FR-002 | Warning Event | As a developer, I want any agent, hook or script to report a warning with a reason through the drop-box so Bitz presents it per FR-010. | High | Open |
 | FR-003 | Event Details | As an integrator, I want events to carry optional key/value details (e.g. context tokens) so that richer signals travel through the same channel; events without details, or with the four existing kinds, are accepted unchanged. | High | Open |
-| FR-004 | Claude Code Session Tracking | As a developer, I want Bitz to follow my active top-level Claude Code session log (subagent sessions and sidechain lines ignored) so a user prompt marks the agent working and a finished turn marks it done, without installing new hooks. | High | Open |
+| FR-004 | Claude Code Session Tracking | As a developer, I want Bitz to follow my active top-level Claude Code session log (subagent sessions and sidechain lines ignored) so the agent's first reply to a prompt marks it working and a finished turn marks it done, without installing new hooks. A prompt that gets no reply (e.g. a local slash command) does not start a turn. | High | Open |
 | FR-005 | Context Usage Measure | As a developer, I want context usage computed from the latest model turn's input tokens (including cached tokens, excluding output) for Claude Code and Antigravity, as tokens and percent of that agent's configured window, capped at 100%. | High | Open |
 | FR-006 | Context Gauge Display | As a developer, I want the existing AI Agents telemetry metric to show the most recently active agent's context as tokens and percent (e.g. `Claude ctx 148k · 74%`) in its existing placements, refreshed within one telemetry interval. | High | Open |
 | FR-007 | Context Warning | As a developer, I want one warning when context usage reaches the threshold (default 90%), re-armed after usage drops below it. | High | Open |
-| FR-008 | Loop Warning | As a developer, I want one warning when the same tool call (same tool, identical input) occurs 4 times in a row; text or reasoning between calls does not break the streak; a different call or a new session resets it. | High | Open |
+| FR-008 | Loop Warning | As a developer, I want one warning when the same tool call (same tool, identical input) occurs 4 times in a row; text or reasoning between calls does not break the streak; a different call, a context compaction or a new session resets it. | High | Open |
 | FR-009 | Stall Warning | As a developer, I want one warning when an agent is mid-turn, its session log gets no new output for the stall timeout (default 3 min), no tool call is running and it is not awaiting approval. | High | Open |
-| FR-010 | Warning Lifecycle | As a developer, I want a single persistent warning slot: a warning stays until I click **Got it** or the same agent reports done or needs approval; a newer warning replaces an older one; working, almost-done and other agents' done events never replace it. Another agent's needs-approval temporarily takes the bubble while the warning stays active (amber visor); the warning bubble returns once that approval request is superseded. | High | Open |
-| FR-011 | Amber Visor | As a developer, I want the visor amber while a warning is unacknowledged (overheating red keeps priority) so the alert is visible at a glance. | Medium | Open |
+| FR-010 | Warning Lifecycle | As a developer, I want a single persistent warning slot: a warning stays until I click **Got it**, choose **Dismiss Agent Warning** in the menu bar dropdown, or the same agent reports done or needs approval; a newer warning replaces an older one; working, almost-done and other agents' done events never replace it. Another agent's needs-approval temporarily takes the bubble while the warning stays active (amber visor); the warning bubble returns once that approval request is superseded. | High | Open |
+| FR-011 | Amber Visor | As a developer, I want the visor amber while a warning is unacknowledged (overheating red keeps priority) so the alert is visible at a glance; the drawn visor and the animation's visor color input always show the same color. | Medium | Open |
 | FR-012 | Signal Settings | As a developer, I want Settings → AI Agents to offer on/off per signal (almost done, context, loop, stall), context threshold (50–99%, default 90), stall timeout (1–30 min, default 3), and context window per agent (Claude Code default 200k, Antigravity default 1M; 200k / 1M / custom), applied immediately and persisted. | Medium | Open |
 | FR-013 | Existing Toggles Respected | As a developer, I want "Show Agent Speech Bubbles" to hide bubbles only (visor and gauge still apply) and disabling an agent to clear its warning and gauge reading. | Medium | Open |
 | FR-014 | Quiet Startup | As a developer, I want Bitz, on startup or session switch, to seed the gauge from the recent end of the session log, reset loop and stall state, and show no bubbles for lines logged before it started watching. | Medium | Open |
@@ -158,7 +161,7 @@ In Settings → AI Agents, the developer turns each signal on or off and tunes t
 
 | Canonical term | Meaning | Avoid |
 |----------------|---------|-------|
-| Session log | An agent's local append-only transcript of a session | "history", "chat file" |
+| Session log | An agent's local append-only transcript of a session. Code types keep the existing `Transcript` naming (e.g. `ClaudeCodeTranscriptAdapter`); user-facing text says "session log". | "history", "chat file" |
 | Turn | One cycle from a user prompt to the model's final answer | "step" (Antigravity uses step for something else) |
 | Context usage | Input tokens of the latest turn, incl. cached tokens | "token usage" (ambiguous with output/cost) |
 | Agent warning | A persistent alert raised by the monitor or reported by an agent | "alert", "error" |

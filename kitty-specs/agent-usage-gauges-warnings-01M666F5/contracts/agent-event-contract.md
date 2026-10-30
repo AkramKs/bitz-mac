@@ -23,7 +23,7 @@ Applies to JSON files dropped into `~/Library/Application Support/Bitz/agent-eve
 | `started` | no | — | existing |
 | `working` | yes | 4 s, cyan | existing; never replaces an active warning |
 | `needsApproval` | yes | persistent, amber | existing; clears same-agent warning; takes the bubble over another agent's warning |
-| `done` | yes | 6 s, green | existing; clears same-agent warning |
+| `done` | yes | 6 s, green | existing; clears same-agent warning unless `metadata.source = process` (app presence) |
 | `almostDone` | yes | 6 s, distinct eager style | new; toggle `almostDoneEnabled`; never replaces an active warning |
 | `warning` | yes | persistent, warning style + **Got it** | new; `metadata.reason` ∈ `context` `loop` `stall` `reported` (default `reported`); toggles apply to `context` / `loop` / `stall` |
 | `usage` | no | — | new; readings + activity heartbeat |
@@ -37,6 +37,7 @@ Applies to JSON files dropped into `~/Library/Application Support/Bitz/agent-eve
 | `pendingTools` | `usage` | integer string | stall suppressed while > 0 |
 | `turnActive` | `usage` | `true` \| `false` | stall only while `true` |
 | `seed` | `usage` | `true` | reading updates gauge; no context warning for this reading |
+| `source` | any | `process` | set by Bitz's process adapter (app presence); a `done` with this source never clears a warning or ends a turn. Integrators should omit it. |
 
 ## Compatibility
 

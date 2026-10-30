@@ -19,6 +19,7 @@ Metadata keys (`AgentEvent.MetadataKey`):
 | `pendingTools` | `usage` | Non-negative integer |
 | `turnActive` | `usage` | `true` \| `false` |
 | `seed` | `usage` | `true` when produced from the startup / session-switch tail |
+| `source` | any | `process` on `ProcessAgentAdapter` events (app presence); such `done` events never clear a warning or end a turn |
 
 ### `AgentWarningReason`
 `context`, `loop`, `stall`, `reported` (`String` raw values matching `reason`).
@@ -85,16 +86,30 @@ Persisted as JSON at `Bitz.AgentMonitor.SignalSettings` in the injected `UserDef
            raise(w)                       raise(w') newer
   ∅ ───────────────────► Active(w) ──────────────────────► Active(w')
                            │  ▲
-   Got it / same-agent     │  │ other agent's next event
-   done|needsApproval /    │  │ after its approval
+   Got it / menu Dismiss / │  │ other agent's next lifecycle
+   same-agent done|        │  │ event (not usage) after its
+   needsApproval (not      │  │ approval
+   source=process) /       │  │
    agent disabled          ▼  │
                            ∅  Active(w), bubble = other agent's approval
 ```
 Invariants:
 - At most one `activeWarning`.
+- `done` with `metadata.source == "process"` never clears `activeWarning` and never changes `turnActive`.
+- `activeWarning != nil` ⇔ `WellnessPointEngine.isWarningVisorActive == true` (wired in `BitzAppDelegate`).
 - While `activeWarning != nil`, `activePopup` is the warning bubble unless another agent's `needsApproval` is showing.
 - `working` / `almostDone` / other agents' `done` never replace the warning bubble.
 - `popupsEnabled == false` → `activePopup` stays `nil`, but `activeWarning`, visor and gauge still update.
+
+## Warning visor input (`WellnessPointEngine`)
+
+| Member | Visibility | Rule |
+|--------|------------|------|
+| `isWarningVisorActive: Bool` | `@Published` read-only | Set only via `setWarningVisor(active:)` |
+| `setWarningVisor(active:)` | public | Stores the flag and calls `syncWithRive()`; never changes `currentState`, points or thresholds |
+| `syncWithRive()` | public (existing) | After the per-state inputs: if `isWarningVisorActive && currentState != .overheating` → `visorColor = BitzVisorColor.amber` |
+
+`MascotOverlayView` draws `visorColor(for: engine.currentState, warningVisorActive: engine.isWarningVisorActive)`, so the drawn visor and the Rive input always match.
 
 ## Adapter-side tracker (`AgentSessionTracker`, pure value type)
 
