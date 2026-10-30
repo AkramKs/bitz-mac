@@ -162,6 +162,11 @@ public final class AntigravityTranscriptAdapter: AgentAdapter, @unchecked Sendab
                 ))
             } else if type == "PLANNER_RESPONSE" {
                 let hasAskQuestion = toolCalls.contains { call in
+                    // Support both flat Antigravity format {"name": "ask_question"}
+                    // and OpenAI/legacy format {"function": {"name": "ask_question"}}
+                    if let name = call["name"] as? String, name == "ask_question" {
+                        return true
+                    }
                     if let function = call["function"] as? [String: Any],
                        let name = function["name"] as? String,
                        name == "ask_question" {

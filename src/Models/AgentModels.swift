@@ -87,13 +87,11 @@ public struct AgentDefinition: Codable, Sendable, Equatable, Identifiable {
 
     /// Checks if a given process name or bundle ID matches this agent definition.
     public func matches(processName: String? = nil, bundleIdentifier: String? = nil) -> Bool {
-        if let processName = processName?.lowercased() {
-            for name in processNames {
-                if processName == name.lowercased() || processName.hasPrefix(name.lowercased()) {
-                    return true
-                }
-            }
+        // Exclude Apple system bundles (e.g., com.apple.TextInputUI.xpc.CursorUIViewService)
+        if let bundle = bundleIdentifier?.lowercased(), bundle.hasPrefix("com.apple.") {
+            return false
         }
+
         if let bundleIdentifier = bundleIdentifier?.lowercased() {
             for bundle in bundleIdentifiers {
                 if bundleIdentifier == bundle.lowercased() {
@@ -101,6 +99,16 @@ public struct AgentDefinition: Codable, Sendable, Equatable, Identifiable {
                 }
             }
         }
+
+        if let processName = processName?.lowercased() {
+            for name in processNames {
+                let target = name.lowercased()
+                if processName == target || processName == "\(target) helper" {
+                    return true
+                }
+            }
+        }
+
         return false
     }
 
