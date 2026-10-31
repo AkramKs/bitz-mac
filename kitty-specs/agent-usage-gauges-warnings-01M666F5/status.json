@@ -1,0 +1,325 @@
+{
+  "event_count": 86,
+  "last_event_id": "01M68X23HH32PEHJAN7SVZ0QY3",
+  "materialized_at": "2026-10-31T11:55:59.409795+00:00",
+  "mission_number": "1",
+  "mission_slug": "agent-usage-gauges-warnings-01M666F5",
+  "mission_type": "software-dev",
+  "summary": {
+    "approved": 0,
+    "blocked": 0,
+    "canceled": 0,
+    "claimed": 0,
+    "done": 9,
+    "for_review": 0,
+    "in_progress": 0,
+    "in_review": 0,
+    "planned": 0
+  },
+  "work_packages": {
+    "WP01": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 1,
+      "lane": "done",
+      "last_event_id": "01M68X20KGRWJW0KJBEMW2FSDH",
+      "last_transition_at": "2026-10-31T11:55:56.400160+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: 167 tests pass, 0 build warnings; out-of-map placeholders declared in tasks.md",
+        "Review passed: event model v2 (almostDone/warning/usage + lenient metadata), value types and schema match data-model.md and agent-event-contract.md; old hook payload decodes unchanged; 167 tests green (152 baseline + 15 new); WP01 adds 0 compiler warnings. Placeholder cases in AgentMonitorService.handleEvent (WP02 replaces) and SpeechBubbleView.agentPopupColors (WP06 replaces) are behaviour-neutral. --force rationale: lane kitty-specs guard flagged only coordination-owned status artifacts that the review auto-rebase guard (R-STATUS-EVENTS-JSONL-UNION) requires to stay on the lane; implementer commit f1ad18d touches 0 kitty-specs files. Pre-existing: 3 Swift 6 warnings at src/Views/MascotOverlayView.swift:142 from #61 (verified by clean build)."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP01-event-model-and-dropbox-contract/review-cycle-1.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP01-event-model-and-dropbox-contract/review-cycle-1.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 59504,
+      "shell_pid_created_at": "1793370310.370346",
+      "subtasks": {
+        "T001": "done",
+        "T002": "done",
+        "T003": "done",
+        "T004": "done",
+        "T005": "done",
+        "T006": "done"
+      }
+    },
+    "WP02": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 2,
+      "lane": "done",
+      "last_event_id": "01M68X21021DG54A864HAWBXCZ",
+      "last_transition_at": "2026-10-31T11:55:56.802121+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: monitor signal policy (settings via injected UserDefaults, context crossing, stall sweep, warning slot with approval override, process-presence source tag); 193 tests pass (167 -> 193, 26 new); clean build adds 0 warnings (only the 3 pre-existing at MascotOverlayView.swift:142). --force rationale: lane kitty-specs guard flags only the 4 coordination-owned status artifacts required on the lane by the review auto-rebase guard; planning artifacts synced to planning branch tip (0981148); implementer commit a524f64 touches 0 kitty-specs files.",
+        "Review passed: T010 popup-priority table holds row by row incl. approval override/restore (lifecycle events only, never usage); context crossing fires once and re-arms, seed/toggle-off mark fired silently, window change recomputes without warning; stall sweep meets FR-009 conditions with activity reset and Task.isCancelled guard after sleep (accepted deviation); process-presence done never clears warning or ends turn (T044); settings persist via injected UserDefaults with clamping on set and load; disabling an agent clears warning/reading/session; existing AgentMonitorServiceTests untouched and green. 193 tests, 0 failures; clean build only the 3 allowed MascotOverlayView.swift:142 warnings; 26 new tests use isolated suites. Non-blocking: no real-time 5 s sweep test; process-presence working still starts a turn (unreachable: cpuPercent hardcoded 0.0). --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts required on the lane by the review auto-rebase guard; implementer commit a524f64 touches 0 kitty-specs files."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP02-monitor-policy-and-signal-settings/review-cycle-1.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP02-monitor-policy-and-signal-settings/review-cycle-1.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 73917,
+      "shell_pid_created_at": "1793371564.639407",
+      "subtasks": {
+        "T007": "done",
+        "T008": "done",
+        "T009": "done",
+        "T010": "done",
+        "T011": "done",
+        "T012": "done",
+        "T013": "done",
+        "T044": "done"
+      }
+    },
+    "WP03": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 5,
+      "lane": "done",
+      "last_event_id": "01M68X21BM3KP6378QYRSVSK0D",
+      "last_transition_at": "2026-10-31T11:55:57.172725+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: SessionLogTail + AgentSessionTracker (public API per prompt); 188 tests pass (167 -> 188, 21 new); clean build adds 0 warnings (only the 3 pre-existing at MascotOverlayView.swift:142). --force rationale: lane kitty-specs guard flags only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts were synced to the planning branch tip (8cbaf98); implementer commit efc0ef6 touches 0 kitty-specs files.",
+        "Review passed: SessionLogTail + AgentSessionTracker match the WP03 API used by WP04/WP05; 188 tests green (+21), clean build adds no warnings beyond the 3 pre-existing at MascotOverlayView.swift:142. Deviations accepted: readNew skips re-reading a pending partial line until bytes arrive (stricter NFR-001, growth counted once, completed line still delivered); fingerprint wraps input in [input] behind isValidJSONObject (key-order independent, value sensitive, scalar/nil/invalid safe); seed window inside one >256KB line yields a one-time fragment the parsers drop (acceptable under NFR-006, documented shortcut). No line text stored (NFR-004); Sendable value types; deterministic tests. --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts required on the lane by the review auto-rebase guard; implementer commit efc0ef6 touches 0 kitty-specs files.",
+        "Reopened (cycle 2) by orchestrator per user decision: prime tracker turn state from the seed so the first turn of a new session is not silent (spec amended 9a70647)",
+        "Cycle 2 ready for review: prime(fromSeed:) silently replays seed entries then clears the loop streak (FR-014 amended 9a70647); 6 new tests; 194 tests pass; clean build adds no warnings; commit eef8347 | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review passed (cycle 2): prime(fromSeed:) replays the seed silently via ingest(entries + [.compaction], at: .distantPast); events discarded (FR-014), turn state / pending tools / latestContextTokens match a live replay, trailing .compaction clears exactly the loop streak (coupling pinned by tests), no reset inside prime, public signatures unchanged. 6 tests map 1:1 to the required cases. 194 tests, 0 failures; clean build only the 3 pre-existing MascotOverlayView.swift:142 warnings. Non-blocking: a seeded pending approvalRequest is intentionally not re-shown (FR-014). | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review": null,
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP03-shared-session-log-foundation/review-cycle-3.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP03-shared-session-log-foundation/review-cycle-3.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 13882,
+      "shell_pid_created_at": "1793376321.312517",
+      "subtasks": {
+        "T014": "done",
+        "T015": "done",
+        "T016": "done",
+        "T017": "done",
+        "T018": "done",
+        "T019": "done"
+      }
+    },
+    "WP04": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 5,
+      "lane": "done",
+      "last_event_id": "01M68X21PZD6BAKEHGHZNC7HNN",
+      "last_transition_at": "2026-10-31T11:55:57.536012+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: ClaudeCodeTranscriptAdapter (depth-1 sessions, sidechain/meta skip, working on first reply, done on end_turn, silent turn ends, compaction, loop/usage via shared tracker, silent seed with turnActive=false/pendingTools=0); 198 tests pass (+10); clean build only the 3 allowed warnings; commit 3e10015 | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review passed: parser rules (sidechain/isMeta skip, input+cache token sum excl. output, end_turn->done, turn_duration/stop_hook_summary/[Request interrupted->silent end, compact_boundary->compaction, local_command->nothing), depth-1 discovery, seed path never ingests, no line text retained, all verified. 198 tests green; clean build shows only the 3 pre-existing MascotOverlayView:142 warnings. Seed usage carrying turnActive=false/pendingTools=0 is honoured by WP02's monitor. Non-blocking follow-ups: first turn of a session created while Bitz runs is silent (seed drops trailing prompt; design-level, R7); image-only prompt leaves the turn silent; poll task should exit when self is nil. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Reopened (cycle 2) by orchestrator per user decision: call AgentSessionTracker.prime(fromSeed:) on attach and always emit the primed seed usage (spec amended 9a70647)",
+        "Cycle 2 ready for review: attach = reset + prime(fromSeed:) + always-emitted primed seed usage; first turn of a new session now yields working+done; poll loop exits when self is gone; 3 new tests, 5 adjusted; 207 tests pass; clean build adds no warnings; commit d55a60d | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review passed (cycle 2): attach does reset()+prime(fromSeed:)+one always-emitted seed usage carrying primed turnActive/pendingTools/contextTokens; seed lines yield no working/done/warning (FR-014); first-turn-in-progress attach gives [working, done], mid-turn attach gives [done]; stale turn cleared on session switch; poll loop exits via guard let self; 5 adjusted tests keep intent vs 3e10015, 3 new tests cover R7/FR-014. 207 tests, 0 failures; clean build only the 3 pre-existing MascotOverlayView.swift:142 warnings. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review": null,
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP04-claude-code-transcript-adapter/review-cycle-3.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP04-claude-code-transcript-adapter/review-cycle-3.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 19121,
+      "shell_pid_created_at": "1793376739.751767",
+      "subtasks": {
+        "T020": "done",
+        "T021": "done",
+        "T022": "done"
+      }
+    },
+    "WP05": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 5,
+      "lane": "done",
+      "last_event_id": "01M68X222EWW7VGN3CV03BHFDN",
+      "last_transition_at": "2026-10-31T11:55:57.902339+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: Antigravity adapter on SessionLogTail + AgentSessionTracker (usage tokens input+cache_read, {name,args} loop fingerprints, anonymous pending cleared by next line, silent seed); ask_question function.name lookup kept for #63; 193 tests pass (+5); clean build only the 3 allowed warnings; commit ca21e6b | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review passed: adapter on SessionLogTail+AgentSessionTracker; parser rules match T023; ask_question lookup unchanged on function.name with #63 comment; messages byte-identical; existing test lifecycle assertions unchanged apart from the usage filter; no line text stored; findLatestTranscriptURL removal verified (no callers); seed-without-ingest mirrors WP04 and the monitor keeps the last reading when contextTokens is absent; first-turn done lost after launch/switch is inherent to the approved WP03 done gate (note for WP09 docs). 193 tests/0 failures; clean build only 3 pre-existing MascotOverlayView.swift:142 warnings. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Reopened (cycle 2) by orchestrator per user decision: call AgentSessionTracker.prime(fromSeed:) on attach and always emit the primed seed usage (spec amended 9a70647)",
+        "Cycle 2 ready for review: attach = reset + prime(fromSeed:) + always-emitted primed seed usage; mid-turn attach now yields done; 2 new tests; 201 tests pass; clean build adds no warnings; commit 1d6ee70 | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review passed (cycle 2): attach does tracker.reset() + prime(fromSeed:) + always one seed usage carrying primed turnActive/pendingTools/contextTokens; seed lines emit no working/done/warnings (FR-014); ask_question function.name lookup and #63 comment byte-identical to base; 2 new tests drive the real tail/tracker path; existing tests' intent kept; only owned files touched; 201 tests/0 failures; clean build shows only the 3 pre-existing MascotOverlayView.swift:142 warnings. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review": null,
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP05-antigravity-usage-and-loop-signals/review-cycle-3.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP05-antigravity-usage-and-loop-signals/review-cycle-3.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 18251,
+      "shell_pid_created_at": "1793376701.404617",
+      "subtasks": {
+        "T023": "done",
+        "T024": "done",
+        "T025": "done"
+      }
+    },
+    "WP06": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 2,
+      "lane": "done",
+      "last_event_id": "01M68X235HGGRT7RC27J08MPYD",
+      "last_transition_at": "2026-10-31T11:55:59.025856+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: warning bubble with GOT IT, almost-done style, warning visor through WellnessPointEngine (Rive input + drawn visor match), menu Dismiss Agent Warning, Claude adapter + injected defaults wired, end-to-end replay test; removed the 3 pre-existing MascotOverlayView:142 warnings; 237 tests pass; clean build 0 warnings; commit 7b09dfd | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review passed: xcrun swift test 237/0; clean build 0 warnings (prod and test target). Only .warning popups + update bubble interactive via existing isInteractive path, revert after acknowledge tested; canBecomeKey false, panel files untouched; layout tests green incl. warning bubble at max scale; setWarningVisor only flips flag and re-syncs, override last in syncWithRive, drawn visor == Rive input in every tested state; BitzApp wires Claude adapter, injected defaults, weak-self main-thread sink, menu Dismiss calls acknowledgeWarning; AgentSignalIntegrationTests use real adapter+monitor with injected clock, deterministic, cover SC-002; isolated defaults everywhere. Non-blocking for WP09 visual pass: wellness/carousel bubble strokes keep state colour while visor is amber (popups off only); almost-done layout test at default scale. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP06-warning-bubble-amber-visor-and-wiring/review-cycle-1.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP06-warning-bubble-amber-visor-and-wiring/review-cycle-1.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 9442,
+      "shell_pid_created_at": "1793375773.472296",
+      "subtasks": {
+        "T026": "done",
+        "T027": "done",
+        "T028": "done",
+        "T029": "done",
+        "T030": "done",
+        "T031": "done",
+        "T045": "done",
+        "T046": "done"
+      }
+    },
+    "WP07": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 2,
+      "lane": "done",
+      "last_event_id": "01M68X22E3GB0W816G8G7E5DKY",
+      "last_transition_at": "2026-10-31T11:55:58.275988+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: context gauge on AI Agents metric (badge '1 AGTS · 74%', carousel '🤖 1 active (Claude) · Claude ctx 148k · 74%', title '1 Agts 74%'); live tick passes active agent's reading; 196 tests pass (+3); clean build only the 3 allowed warnings; commit 078511d | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review passed: FR-006 context gauge renders in badge (1 AGTS · 74%), carousel (🤖 1 active (Claude) · Claude ctx 148k · 74%) and menu title (Bitz • 1 Agts 74%); byte-identical with nil reading; activeCount>0 gate unchanged in all three placements; live tick filters latestContext to active agents in production code. 196 tests / 0 failures; clean build shows only the 3 pre-existing MascotOverlayView.swift:142 warnings. Deviation accepted: test 3 drives async performSampleTick() because performSampleTickSync never reads agentMonitor. Isolated UserDefaults suite with cleanup. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP07-context-gauge-on-agents-metric/review-cycle-1.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP07-context-gauge-on-agents-metric/review-cycle-1.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 85726,
+      "shell_pid_created_at": "1793372187.590449",
+      "subtasks": {
+        "T032": "done",
+        "T033": "done",
+        "T034": "done"
+      }
+    },
+    "WP08": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 2,
+      "lane": "done",
+      "last_event_id": "01M68X22SJEDEG7NK6V1CRQK10",
+      "last_transition_at": "2026-10-31T11:55:58.642779+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Ready for review: Agent Signals & Warnings card (4 toggles, threshold + stall steppers, per-agent window picker 200k/1M/custom); binds via $agentMonitor.signalSettings only; 195 tests pass (+2); clean build only the 3 allowed warnings; commit d2eae38 | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review passed: Agent Signals & Warnings card placed between Notifications and Monitored Agents; all 4 toggles, both steppers (50...99 step 5, 1...30, disabled with their toggle), and per-agent 200k/1M/Custom pickers bind via $agentMonitor.signalSettings with no UserDefaults in the view; FR-013 caption present; 195 tests / 0 failures; clean build shows only the 3 pre-existing MascotOverlayView.swift:142 warnings. Accepted deviations: internal binding helpers for testability, non-persisted @State customWindowAgentIDs (cosmetic reopen limitation), one extra test for the <=0 guard and preset derivation. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP08-agent-signals-settings-card/review-cycle-1.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP08-agent-signals-settings-card/review-cycle-1.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 85726,
+      "shell_pid_created_at": "1793372187.590449",
+      "subtasks": {
+        "T035": "done",
+        "T036": "done",
+        "T037": "done",
+        "T038": "done"
+      }
+    },
+    "WP09": {
+      "actor": "merge",
+      "agent": "claude",
+      "agent_profile": "__resolved_profile_absent__",
+      "agent_profile_version": "__resolved_profile_version_absent__",
+      "force_count": 4,
+      "lane": "done",
+      "last_event_id": "01M68X23HH32PEHJAN7SVZ0QY3",
+      "last_transition_at": "2026-10-31T11:55:59.409795+00:00",
+      "model": "__resolved_model_absent__",
+      "notes": [
+        "Docs synced (ARCHITECTURE §5, STATE_MACHINE §8, ACCEPTANCE_CRITERIA §5); combined lanes: 258 tests 0 failures, clean build 0 warnings; T043 release walkthrough §1–§5 pass with user, NFR-003 <1 s, memory pass, idle CPU ~42% pre-existing on baseline (#70). | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review cycle 1: changes requested (doc wording; #63 fixed upstream by PR #65)",
+        "Cycle 1 feedback addressed: #63 wording (fixed upstream by PR #65, carried forward at main merge), isMeta rule, walkthrough stall timeout 1 min, dated verification bullets. Docs only. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files.",
+        "Review cycle 2 passed (independent Fable reviewer): all 4 cycle-1 findings fixed; docs match shipped code; 101 cited tests exist; 258 tests 0 failures, clean build 0 warnings (cycle 1). #63 code port deferred to upstream/main integration after mission merge; idle CPU #70 pre-existing on baseline. | --force rationale: lane kitty-specs guard flagged only the 4 coordination-owned status artifacts (status.json, status.events.jsonl, acceptance-matrix.json, issue-matrix.json) that the review auto-rebase guard requires on the lane; planning artifacts synced to the planning branch tip; implementer commit touches 0 kitty-specs files."
+      ],
+      "provider": "__resolved_provider_absent__",
+      "review": null,
+      "review_result": {
+        "feedback_path": "/Users/nealgysemans/Code/bitz-mac/kitty-specs/agent-usage-gauges-warnings-01M666F5/tasks/WP09-living-docs-and-release-verification/review-cycle-2.md",
+        "reference": "review-cycle://agent-usage-gauges-warnings-01M666F5/WP09-living-docs-and-release-verification/review-cycle-2.md",
+        "reviewer": "reviewer-renata (claude/fable)",
+        "verdict": "approved"
+      },
+      "role": "reviewer",
+      "shell_pid": 1227,
+      "shell_pid_created_at": "1793447563.504373",
+      "subtasks": {
+        "T039": "done",
+        "T040": "done",
+        "T041": "done",
+        "T042": "done",
+        "T043": "done"
+      }
+    }
+  }
+}

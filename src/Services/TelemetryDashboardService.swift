@@ -524,10 +524,13 @@ public final class TelemetryDashboardService: ObservableObject {
             .filter { activeAgentIDs.contains($0.id) }
             .map { $0.displayName } ?? []
         let lastAction = agentMonitor?.activePopup?.text
+        // Only show the gauge while its agent is active, so an ended session never leaves a stale reading.
+        let context = agentMonitor?.latestContext.flatMap { activeAgentIDs.contains($0.agentID) ? $0 : nil }
         let agentTelemetry = AgentTelemetry(
             activeCount: activeAgentIDs.count,
             agentNames: activeAgentNames,
-            lastActionMessage: lastAction
+            lastActionMessage: lastAction,
+            context: context
         )
 
         // Gather CPU & Thermal metrics

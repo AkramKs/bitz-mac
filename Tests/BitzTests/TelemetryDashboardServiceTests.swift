@@ -326,4 +326,61 @@ final class TelemetryDashboardServiceTests: XCTestCase {
         XCTAssertGreaterThan(service.snapshot.disk.totalBytes, 0)
         XCTAssertGreaterThan(service.snapshot.ram.totalBytes, 0)
     }
+
+    // MARK: - 6. Agent Context Gauge (FR-006)
+
+    private let claudeContext = AgentContextReading(agentID: "claude", agentName: "Claude", tokens: 148_000, windowTokens: 200_000)
+
+    func testAgentsMetricShowsContextInBadgeSummaryAndTitle() {
+        let agents = AgentTelemetry(activeCount: 1, agentNames: ["Claude"], context: claudeContext)
+        let snapshot = TelemetrySnapshot(agents: agents)
+
+        XCTAssertEqual(agents.compactBadge, "1 AGTS · 74%")
+        XCTAssertEqual(agents.formattedSummary, "1 active (Claude) · Claude ctx 148k · 74%")
+        XCTAssertEqual(snapshot.hudSummary(enabledMetrics: [.agents], focusPoints: 0), "1 AGTS · 74% • 0 PTS")
+        XCTAssertEqual(snapshot.speechBubbleCarouselMessages(enabledMetrics: [.agents]), ["🤖 1 active (Claude) · Claude ctx 148k · 74%"])
+        XCTAssertEqual(snapshot.menuBarTitle(enabledMetrics: [.agents]), "Bitz • 1 Agts 74%")
+    }
+
+    func testAgentsMetricUnchangedWithoutContext() {
+        let agents = AgentTelemetry(activeCount: 1, agentNames: ["Claude"])
+        let snapshot = TelemetrySnapshot(agents: agents)
+
+        XCTAssertNil(agents.context)
+        XCTAssertEqual(agents.compactBadge, "1 AGTS")
+        XCTAssertEqual(agents.formattedSummary, "1 active (Claude)")
+        XCTAssertEqual(snapshot.hudSummary(enabledMetrics: [.agents], focusPoints: 0), "1 AGTS • 0 PTS")
+        XCTAssertEqual(snapshot.speechBubbleCarouselMessages(enabledMetrics: [.agents]), ["🤖 1 active (Claude)"])
+        XCTAssertEqual(snapshot.menuBarTitle(enabledMetrics: [.agents]), "Bitz • 1 Agts")
+
+        // The activeCount gate still hides a stale reading in every placement.
+        let inactive = TelemetrySnapshot(agents: AgentTelemetry(activeCount: 0, context: claudeContext))
+        XCTAssertEqual(inactive.hudSummary(enabledMetrics: [.agents], focusPoints: 0), "0 PTS")
+        XCTAssertEqual(inactive.speechBubbleCarouselMessages(enabledMetrics: [.agents]), [])
+        XCTAssertEqual(inactive.menuBarTitle(enabledMetrics: [.agents]), "Bitz")
+    }
+
+    func testDashboardIncludesContextOnlyForActiveAgent() async {
+        let suiteName = "TelemetryAgentContext.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let monitor = AgentMonitorService(adapters: [], userDefaults: defaults)
+        let service = TelemetryDashboardService(
+            settingsStore: TelemetrySettingsStore(userDefaults: defaults),
+            provider: MockTelemetryDataProvider(),
+            agentMonitor: monitor
+        )
+
+        // A reading for an agent that is not active stays out of the snapshot.
+        monitor.handleEvent(AgentEvent(agentID: "claude", agentName: "Claude", kind: .usage,
+                                       metadata: [AgentEvent.MetadataKey.contextTokens: "148000"]))
+        await service.performSampleTick()
+        XCTAssertNil(service.snapshot.agents.context)
+
+        monitor.handleEvent(AgentEvent(agentID: "claude", agentName: "Claude", kind: .working))
+        await service.performSampleTick()
+        XCTAssertEqual(service.snapshot.agents.context, claudeContext)
+        XCTAssertEqual(service.snapshot.agents.compactBadge, "1 AGTS · 74%")
+    }
 }

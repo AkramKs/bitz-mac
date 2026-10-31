@@ -143,11 +143,14 @@ public struct AgentTelemetry: Equatable, Sendable {
     public let activeCount: Int
     public let agentNames: [String]
     public let lastActionMessage: String?
+    /// Context gauge of the most recently active agent (FR-006); nil leaves every placement unchanged.
+    public let context: AgentContextReading?
 
-    public init(activeCount: Int, agentNames: [String] = [], lastActionMessage: String? = nil) {
+    public init(activeCount: Int, agentNames: [String] = [], lastActionMessage: String? = nil, context: AgentContextReading? = nil) {
         self.activeCount = activeCount
         self.agentNames = agentNames
         self.lastActionMessage = lastActionMessage
+        self.context = context
     }
 
     public var formattedSummary: String {
@@ -155,11 +158,11 @@ public struct AgentTelemetry: Equatable, Sendable {
             return "No agents currently active"
         }
         let names = agentNames.isEmpty ? "" : " (\(agentNames.joined(separator: ", ")))"
-        return "\(activeCount) active\(names)"
+        return "\(activeCount) active\(names)" + (context.map { " · \($0.compactText)" } ?? "")
     }
 
     public var compactBadge: String {
-        "\(activeCount) AGTS"
+        "\(activeCount) AGTS" + (context.map { " · \($0.percent)%" } ?? "")
     }
 
     public static let empty = AgentTelemetry(activeCount: 0, agentNames: [], lastActionMessage: nil)
@@ -377,7 +380,7 @@ public struct TelemetrySnapshot: Equatable, Sendable {
 
         var items: [String] = []
         if enabledMetrics.contains(.agents) && agents.activeCount > 0 {
-            items.append("\(agents.activeCount) Agts")
+            items.append("\(agents.activeCount) Agts" + (agents.context.map { " \($0.percent)%" } ?? ""))
         }
         if enabledMetrics.contains(.cpu), let temp = cpu.temperatureCelsius {
             items.append(String(format: "%.0f°C", temp))
