@@ -1,6 +1,8 @@
 {
+  "accept_commit": "a5c284c7d72b8a2970180f02c1f6301275449e98",
   "acceptance_history": [
     {
+      "accept_commit": "a5c284c7d72b8a2970180f02c1f6301275449e98",
       "acceptance_mode": "pr",
       "accepted_at": "2026-10-31T11:54:59.971575+00:00",
       "accepted_by": "nealgysemans",
