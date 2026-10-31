@@ -26,6 +26,7 @@
   "purpose_tldr": "agent usage gauges and warnings",
   "slug": "agent-usage-gauges-warnings-01M666F5",
   "source_description": "GitHub issue #38 (AkramKs/bitz-mac) via issues/2026-10-30-agent-usage-gauges-warnings.md",
+  "status_phase": "1",
   "target_branch": "feat/issue-38-agent-gauges-warnings",
   "topology": "coord",
   "vcs": "git"
