@@ -69,7 +69,7 @@ final class SettingsViewsTests: XCTestCase {
         XCTAssertEqual(engine.currentPoints, 90.0)
     }
 
-    func testAgentSignalsCardBindsAndPersists() {
+    func testAgentSignalsCardSettingsPersistAndClamp() {
         let suiteName = "AgentSignalsCardTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -78,7 +78,8 @@ final class SettingsViewsTests: XCTestCase {
         let tab = AgentsSettingsTabView(agentMonitor: monitor)
         _ = tab.body
 
-        // Same key paths the card binds through `$agentMonitor.signalSettings.<field>`.
+        // Toggles and steppers bind `$agentMonitor.signalSettings.<field>`; this checks persistence of those fields,
+        // not the SwiftUI controls themselves. The window picker goes through its real binding.
         monitor.signalSettings.loopWarningEnabled = false
         monitor.signalSettings.contextThresholdPercent = 95
         tab.windowBinding("claude").wrappedValue = 1_000_000

@@ -104,6 +104,15 @@ public struct AgentSessionTracker: Sendable {
     public mutating func prime(fromSeed entries: [SessionLogEntry]) {
         // A trailing compaction clears exactly the loop streak (fingerprint, count, fired) and nothing else.
         _ = ingest(entries + [.compaction], at: .distantPast)
+        // The seed window can start after the turn's prompt: output since the last turn end still means a turn in progress.
+        let sinceLastEnd = entries.reversed().prefix { if case .turnEnd = $0 { return false } else { return true } }
+        let hasActivity = sinceLastEnd.contains {
+            switch $0 {
+            case .assistantOutput, .toolCall: return true
+            default: return false
+            }
+        }
+        if hasActivity && !turnActive && !awaitingFirstOutput { turnActive = true }
     }
 
     public func usageEvent(at now: Date, seed: Bool) -> AgentEvent {

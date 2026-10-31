@@ -53,11 +53,16 @@ public final class AgentMonitorService: ObservableObject {
         var lastActivity: Date
         var stallFired = false
         var contextFired = false
+        /// Sends `usage` heartbeats (a session-log adapter); only these can stall (FR-009).
+        var tracksLog = false
     }
     private var sessions: [String: SessionState] = [:]
     private var contextReadings: [String: AgentContextReading] = [:]
     /// Agent whose approval bubble currently covers the warning bubble.
     private var approvalOverrideAgentID: String? = nil
+    /// Agent whose approval popup was shown last; valid while `activePopup` is that approval.
+    private var approvalPopupAgentID: String? = nil
+    private let stallSweepInterval: TimeInterval
 
     private static let customAgentsKey = "Bitz.AgentMonitor.CustomAgents"
     private static let agentDisabledPrefix = "Bitz.AgentMonitor.Disabled."
@@ -67,11 +72,13 @@ public final class AgentMonitorService: ObservableObject {
     public init(
         adapters: [AgentAdapter] = [],
         clock: @escaping @Sendable () -> Date = { Date() },
-        userDefaults: UserDefaults = .standard
+        userDefaults: UserDefaults = .standard,
+        stallSweepInterval: TimeInterval = 5
     ) {
         self.adapters = adapters
         self.clock = clock
         self.userDefaults = userDefaults
+        self.stallSweepInterval = stallSweepInterval
         self.popupsEnabled = userDefaults.object(forKey: Self.popupsEnabledKey) as? Bool ?? true
         self.signalSettings = userDefaults.data(forKey: Self.signalSettingsKey)
             .flatMap { try? JSONDecoder().decode(AgentSignalSettings.self, from: $0) }?
@@ -173,9 +180,10 @@ public final class AgentMonitorService: ObservableObject {
             }
         }
         stallTask?.cancel()
+        let sweepNanoseconds = UInt64(stallSweepInterval * 1_000_000_000)
         stallTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                try? await Task.sleep(nanoseconds: sweepNanoseconds)
                 // Cancel wakes the sleep early: don't run one last sweep after stopMonitoring().
                 guard !Task.isCancelled, let self else { return }
                 self.evaluateStalls()
@@ -255,6 +263,7 @@ public final class AgentMonitorService: ObservableObject {
                 approvalOverrideAgentID = id
             }
             let text = event.message ?? "\(name) needs your approval!"
+            approvalPopupAgentID = id
             // Approval popup persists indefinitely until next event or manual action
             displayPopupIfEnabled(text: text, kind: .needsApproval, agentName: name, durationSeconds: nil)
         case .done:
@@ -282,6 +291,7 @@ public final class AgentMonitorService: ObservableObject {
                 restoreWarningBubble(ifOverriddenBy: id)
             }
         case .usage:
+            session.tracksLog = true
             session.lastActivity = now
             session.stallFired = false
             if let pending = event.pendingTools { session.pendingTools = pending }
@@ -313,7 +323,7 @@ public final class AgentMonitorService: ObservableObject {
         let now = clock()
         let minutes = signalSettings.stallTimeoutMinutes
         for (id, session) in sessions
-        where session.turnActive && !session.awaitingApproval && session.pendingTools == 0 && !session.stallFired
+        where session.tracksLog && session.turnActive && !session.awaitingApproval && session.pendingTools == 0 && !session.stallFired
             && now.timeIntervalSince(session.lastActivity) >= Double(minutes) * 60 {
             guard let agent = catalog.first(where: { $0.id == id }), agent.isEnabled else { continue }
             sessions[id]?.stallFired = true
@@ -333,6 +343,11 @@ public final class AgentMonitorService: ObservableObject {
 
     private func raiseWarning(_ warning: AgentWarning) {
         activeWarning = warning
+        // Approval takes the bubble (FR-010): a warning raised while another agent's approval shows waits behind it.
+        if activePopup?.kind == .needsApproval, let approver = approvalPopupAgentID, approver != warning.agentID {
+            approvalOverrideAgentID = approver
+            return
+        }
         approvalOverrideAgentID = nil
         presentWarningBubble()
     }

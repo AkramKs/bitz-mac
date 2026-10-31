@@ -172,6 +172,15 @@ final class ClaudeCodeTranscriptAdapterTests: XCTestCase {
         XCTAssertEqual(entries("{\"type\":\"assistant\",\"mess"), [], "fragment of a seeded line")
     }
 
+    func testParserSkipsSyntheticAssistantLines() {
+        let synthetic = json(["type": "assistant", "message": [
+            "model": "<synthetic>", "role": "assistant", "stop_reason": "stop_sequence",
+            "usage": ["input_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0],
+            "content": [["type": "text", "text": "No response requested."]],
+        ] as [String: Any]])
+        XCTAssertEqual(entries(synthetic), [], "A placeholder never resets the context reading or starts a turn")
+    }
+
     // MARK: - Adapter
 
     func testFullTurnEmitsWorkingThenDoneAndUsage() throws {

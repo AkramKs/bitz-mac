@@ -225,6 +225,18 @@ final class AgentSessionTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.ingest([.toolResult(id: "t1"), .turnEnd(isDone: true)], at: now).map(\.kind), [.done])
     }
 
+    func testPrimeSeedWithoutPromptButOutputSinceLastEndIsActive() {
+        // A long turn pushed its prompt out of the 256 KB seed window.
+        var tracker = claude()
+        tracker.prime(fromSeed: [.assistantOutput(contextTokens: 1_000), call("t1")])
+        XCTAssertTrue(tracker.turnActive)
+        XCTAssertEqual(tracker.ingest([.toolResult(id: "t1"), .turnEnd(isDone: true)], at: now).map(\.kind), [.done])
+
+        var finished = claude()
+        finished.prime(fromSeed: [.assistantOutput(contextTokens: 1_000), .turnEnd(isDone: true)])
+        XCTAssertFalse(finished.turnActive)
+    }
+
     func testPrimeAntigravitySeedPromptMarksTurnActive() {
         var tracker = antigravity()
 

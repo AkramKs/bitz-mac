@@ -501,6 +501,7 @@ struct BitzMenuBarContentView: View {
                 Text(agentWarning.text)
                     .font(.caption)
                     .foregroundStyle(.orange)
+                    .lineLimit(3)
                 Button("Dismiss Agent Warning") {
                     agentMonitor.acknowledgeWarning()
                 }

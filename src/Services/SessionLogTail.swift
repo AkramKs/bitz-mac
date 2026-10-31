@@ -27,7 +27,7 @@ public struct SessionLogTail: Sendable {
     /// Switches to `url` and returns complete lines from at most the last `seedLimit` bytes.
     public mutating func attach(to url: URL) -> Read {
         self.url = url
-        let size = Self.fileSize(url)
+        let size = Self.fileSize(url) ?? 0
         let start = size - min(size, UInt64(Self.seedLimit))
         knownSize = size
         let data = Self.read(url, from: start, to: size)
@@ -36,8 +36,8 @@ public struct SessionLogTail: Sendable {
 
     /// Returns lines completed since the previous call.
     public mutating func readNew() -> Read {
-        guard let url else { return .empty }
-        let size = Self.fileSize(url)
+        // A failed stat is not a truncation: resetting the offset would replay the whole log as live events.
+        guard let url, let size = Self.fileSize(url) else { return .empty }
         if size < knownSize {
             // Truncated or recreated: skip what is there now instead of replaying it.
             offset = size
@@ -58,6 +58,12 @@ public struct SessionLogTail: Sendable {
         let newest = candidates.max { $0.modified < $1.modified }?.url
         guard let current, let modified = candidates.first(where: { $0.url == current })?.modified else { return newest }
         return now.timeIntervalSince(modified) <= idleSwitchDelay ? current : newest
+    }
+
+    /// The followed file was modified within `idleSwitchDelay`, so `pickSession` would keep it (one stat, no directory scan).
+    public func isCurrentFresh(at now: Date) -> Bool {
+        guard let url, let modified = Self.attributes(url)?[.modificationDate] as? Date else { return false }
+        return now.timeIntervalSince(modified) <= Self.idleSwitchDelay
     }
 
     /// Splits `data` (read from byte `start`) into complete lines and moves `offset` just past the last `\n`.
@@ -81,8 +87,13 @@ public struct SessionLogTail: Sendable {
         }
     }
 
-    private static func fileSize(_ url: URL) -> UInt64 {
-        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? 0
+    private static func attributes(_ url: URL) -> [FileAttributeKey: Any]? {
+        try? FileManager.default.attributesOfItem(atPath: url.path)
+    }
+
+    /// nil when the file cannot be stat'ed.
+    private static func fileSize(_ url: URL) -> UInt64? {
+        attributes(url)?[.size] as? UInt64
     }
 
     private static func read(_ url: URL, from start: UInt64, to end: UInt64) -> Data {

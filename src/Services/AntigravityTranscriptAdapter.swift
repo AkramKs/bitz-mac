@@ -30,34 +30,37 @@ public final class AntigravityTranscriptAdapter: AgentAdapter, @unchecked Sendab
     }
 
     public func setHandlerForTesting(_ onEvent: @escaping @Sendable (AgentEvent) -> Void) {
-        self.eventHandler = onEvent
+        lock.withLock { eventHandler = onEvent }
     }
 
     public func start(onEvent: @escaping @Sendable (AgentEvent) -> Void) {
-        self.eventHandler = onEvent
-        self.pollTask?.cancel()
+        setHandlerForTesting(onEvent)
 
         // Attach to the active transcript; history primes turn state without emitting events (FR-014).
         checkForUpdates()
 
         // Poll for updates every 1.5 seconds
-        self.pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self = self else { break }
+        let task = Task { [weak self] in
+            // Task.sleep throws once cancelled, which ends the loop.
+            while (try? await Task.sleep(nanoseconds: 1_500_000_000)) != nil {
+                guard let self else { return }
                 self.checkForUpdates()
-                try? await Task.sleep(nanoseconds: 1_500_000_000)
             }
+        }
+        lock.withLock {
+            pollTask?.cancel()
+            pollTask = task
         }
     }
 
     public func stop() {
-        pollTask?.cancel()
-        pollTask = nil
-        eventHandler = nil
-        lock.lock()
-        tail = SessionLogTail()
-        tracker.reset()
-        lock.unlock()
+        lock.withLock {
+            pollTask?.cancel()
+            pollTask = nil
+            eventHandler = nil
+            tail = SessionLogTail()
+            tracker.reset()
+        }
     }
 
     /// Each `<brain>/<id>/.system_generated/logs/transcript.jsonl` with its modification date.
@@ -83,7 +86,9 @@ public final class AntigravityTranscriptAdapter: AgentAdapter, @unchecked Sendab
         guard let handler = eventHandler else { return }
         let now = clock()
 
-        if let chosen = SessionLogTail.pickSession(current: tail.url, candidates: sessionCandidates(), now: now),
+        // While the current transcript is fresh pickSession keeps it, so the directory scan is skipped.
+        if !tail.isCurrentFresh(at: now),
+           let chosen = SessionLogTail.pickSession(current: tail.url, candidates: sessionCandidates(), now: now),
            chosen != tail.url {
             let seed = tail.attach(to: chosen)
             // History primes turn state silently, so a turn in progress still ends in done (FR-014).

@@ -100,6 +100,12 @@ final class AgentModelsTests: XCTestCase {
 
     // MARK: - Value types
 
+    func testContextPercentDoesNotOverflowOnHugeTokenCounts() {
+        // Drop-box metadata comes from user scripts; `tokens * 100` in Int would trap.
+        let reading = AgentContextReading(agentID: "claude", agentName: "Claude", tokens: Int.max, windowTokens: 200_000)
+        XCTAssertEqual(reading.percent, 100)
+    }
+
     func testContextReadingPercentAndText() {
         let reading = AgentContextReading(agentID: "claude", agentName: "Claude", tokens: 148_000, windowTokens: 200_000)
         XCTAssertEqual(reading.percent, 74)

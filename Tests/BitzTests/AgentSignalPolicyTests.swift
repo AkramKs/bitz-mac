@@ -320,6 +320,21 @@ final class AgentSignalPolicyTests: XCTestCase {
         XCTAssertEqual(service.activePopup?.text, service.activeWarning?.text)
     }
 
+    func testWarningWaitsBehindAnotherAgentsApproval() {
+        let clock = ClockBox()
+        let (service, defaults, suite) = makeService(clock)
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        service.handleEvent(event("gemini", .needsApproval, clock))
+        service.handleEvent(warning("claude", clock, message: "Claude warning"))
+
+        XCTAssertEqual(service.activePopup?.kind, .needsApproval, "Approval keeps the bubble")
+        XCTAssertEqual(service.activeWarning?.agentID, "claude", "Warning is active (amber visor)")
+
+        service.handleEvent(event("gemini", .working, clock))
+        XCTAssertEqual(service.activePopup?.text, "Claude warning", "Warning bubble returns once the approval is superseded")
+    }
+
     // MARK: - Stall sweep (T011, US2)
 
     func testStallFiresOnceAfterTimeout() {
@@ -327,6 +342,7 @@ final class AgentSignalPolicyTests: XCTestCase {
         let (service, defaults, suite) = makeService(clock)
         defer { defaults.removePersistentDomain(forName: suite) }
 
+        service.handleEvent(event("claude", .usage, clock)) // session-log heartbeat: only log-backed sessions stall
         service.handleEvent(event("claude", .working, clock))
         clock.advance(minutes: 2, seconds: 59)
         service.evaluateStalls()
@@ -380,6 +396,7 @@ final class AgentSignalPolicyTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
 
         service.signalSettings.stallTimeoutMinutes = 1
+        service.handleEvent(event("claude", .usage, clock)) // session-log heartbeat: only log-backed sessions stall
         service.handleEvent(event("claude", .working, clock))
         clock.advance(minutes: 1)
         service.evaluateStalls()
@@ -395,6 +412,38 @@ final class AgentSignalPolicyTests: XCTestCase {
         clock.advance(seconds: 1)
         service.evaluateStalls()
         XCTAssertEqual(service.activeWarning?.reason, .stall, "Activity re-arms the stall warning")
+    }
+
+    func testAgentWithoutSessionLogNeverStalls() {
+        let clock = ClockBox()
+        let (service, defaults, suite) = makeService(clock)
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        // A drop-box-only agent sends no usage heartbeats, so its silence says nothing about a stall.
+        service.handleEvent(event("gemini", .working, clock))
+        clock.advance(minutes: 30)
+        service.evaluateStalls()
+        XCTAssertNil(service.activeWarning)
+    }
+
+    func testStallSweepTimerRaisesWarning() async throws {
+        let clock = ClockBox()
+        let suiteName = "AgentSignalPolicyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let service = AgentMonitorService(clock: { clock.now }, userDefaults: defaults, stallSweepInterval: 0.02)
+        service.startMonitoring()
+        defer { service.stopMonitoring() }
+
+        service.handleEvent(event("claude", .usage, clock))
+        service.handleEvent(event("claude", .working, clock))
+        clock.advance(minutes: 3)
+
+        // No manual evaluateStalls(): the sweep started by startMonitoring() must raise it.
+        for _ in 0..<100 where service.activeWarning == nil {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertEqual(service.activeWarning?.reason, .stall)
     }
 
     // MARK: - Disabled agents (T012, FR-013)
@@ -466,6 +515,7 @@ final class AgentSignalPolicyTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
 
         let presence = [AgentEvent.MetadataKey.source: "process"]
+        service.handleEvent(event("claude", .usage, clock)) // session-log heartbeat: only log-backed sessions stall
         service.handleEvent(event("claude", .working, clock))
         service.handleEvent(warning("claude", clock, message: "Claude warning"))
         service.handleEvent(event("claude", .done, clock, metadata: presence))

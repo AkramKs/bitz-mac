@@ -131,6 +131,33 @@ final class SessionLogTailTests: XCTestCase {
         XCTAssertEqual(strings(tail.readNew()), ["{\"d\":4}"])
     }
 
+    func testFailedStatDoesNotReplayFromStart() throws {
+        try write("{\"a\":1}\n")
+        var tail = SessionLogTail()
+        _ = tail.attach(to: file)
+
+        try FileManager.default.removeItem(at: file)
+        XCTAssertEqual(tail.readNew(), SessionLogTail.Read(lines: [], grew: false, bytesRead: 0))
+
+        try write("{\"a\":1}\n{\"b\":2}\n")
+        XCTAssertEqual(strings(tail.readNew()), ["{\"b\":2}"], "Position kept: earlier lines are not replayed")
+    }
+
+    func testIsCurrentFreshFollowsModificationDate() throws {
+        try write("{\"a\":1}\n")
+        var tail = SessionLogTail()
+        XCTAssertFalse(tail.isCurrentFresh(at: Date()), "No file followed")
+
+        _ = tail.attach(to: file)
+        let modified = Date(timeIntervalSince1970: 1_000_000)
+        try FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: file.path)
+        XCTAssertTrue(tail.isCurrentFresh(at: modified + SessionLogTail.idleSwitchDelay))
+        XCTAssertFalse(tail.isCurrentFresh(at: modified + SessionLogTail.idleSwitchDelay + 1))
+
+        try FileManager.default.removeItem(at: file)
+        XCTAssertFalse(tail.isCurrentFresh(at: modified), "Missing file triggers a rescan")
+    }
+
     func testPickSessionHysteresis() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         let current = URL(fileURLWithPath: "/sessions/current.jsonl")

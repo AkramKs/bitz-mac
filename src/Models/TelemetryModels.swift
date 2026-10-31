@@ -155,14 +155,15 @@ public struct AgentTelemetry: Equatable, Sendable {
 
     public var formattedSummary: String {
         if activeCount == 0 {
-            return "No agents currently active"
+            return "No agents currently active" + (context.map { " · \($0.compactText)" } ?? "")
         }
         let names = agentNames.isEmpty ? "" : " (\(agentNames.joined(separator: ", ")))"
         return "\(activeCount) active\(names)" + (context.map { " · \($0.compactText)" } ?? "")
     }
 
     public var compactBadge: String {
-        "\(activeCount) AGTS" + (context.map { " · \($0.percent)%" } ?? "")
+        if activeCount == 0, let context { return "CTX \(context.percent)%" }
+        return "\(activeCount) AGTS" + (context.map { " · \($0.percent)%" } ?? "")
     }
 
     public static let empty = AgentTelemetry(activeCount: 0, agentNames: [], lastActionMessage: nil)
@@ -379,8 +380,12 @@ public struct TelemetrySnapshot: Equatable, Sendable {
         guard !enabledMetrics.isEmpty else { return "Bitz" }
 
         var items: [String] = []
-        if enabledMetrics.contains(.agents) && agents.activeCount > 0 {
-            items.append("\(agents.activeCount) Agts" + (agents.context.map { " \($0.percent)%" } ?? ""))
+        if enabledMetrics.contains(.agents) {
+            if agents.activeCount > 0 {
+                items.append("\(agents.activeCount) Agts" + (agents.context.map { " \($0.percent)%" } ?? ""))
+            } else if let context = agents.context {
+                items.append("Ctx \(context.percent)%")
+            }
         }
         if enabledMetrics.contains(.cpu), let temp = cpu.temperatureCelsius {
             items.append(String(format: "%.0f°C", temp))
@@ -422,7 +427,7 @@ public struct TelemetrySnapshot: Equatable, Sendable {
         if enabledMetrics.contains(.ram) {
             items.append(ram.compactBadge)
         }
-        if enabledMetrics.contains(.agents) && agents.activeCount > 0 {
+        if enabledMetrics.contains(.agents) && (agents.activeCount > 0 || agents.context != nil) {
             items.append(agents.compactBadge)
         }
         if enabledMetrics.contains(.disk) {
@@ -456,7 +461,7 @@ public struct TelemetrySnapshot: Equatable, Sendable {
     public func speechBubbleCarouselMessages(enabledMetrics: Set<TelemetryMetric>) -> [String] {
         var messages: [String] = []
 
-        if enabledMetrics.contains(.agents) && agents.activeCount > 0 {
+        if enabledMetrics.contains(.agents) && (agents.activeCount > 0 || agents.context != nil) {
             messages.append("🤖 \(agents.formattedSummary)")
         }
         if enabledMetrics.contains(.disk) {

@@ -353,14 +353,24 @@ final class TelemetryDashboardServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.speechBubbleCarouselMessages(enabledMetrics: [.agents]), ["🤖 1 active (Claude)"])
         XCTAssertEqual(snapshot.menuBarTitle(enabledMetrics: [.agents]), "Bitz • 1 Agts")
 
-        // The activeCount gate still hides a stale reading in every placement.
-        let inactive = TelemetrySnapshot(agents: AgentTelemetry(activeCount: 0, context: claudeContext))
-        XCTAssertEqual(inactive.hudSummary(enabledMetrics: [.agents], focusPoints: 0), "0 PTS")
-        XCTAssertEqual(inactive.speechBubbleCarouselMessages(enabledMetrics: [.agents]), [])
-        XCTAssertEqual(inactive.menuBarTitle(enabledMetrics: [.agents]), "Bitz")
+        // Nothing active and no reading: agents stay out of every placement.
+        let empty = TelemetrySnapshot(agents: .empty)
+        XCTAssertEqual(empty.hudSummary(enabledMetrics: [.agents], focusPoints: 0), "0 PTS")
+        XCTAssertEqual(empty.speechBubbleCarouselMessages(enabledMetrics: [.agents]), [])
+        XCTAssertEqual(empty.menuBarTitle(enabledMetrics: [.agents]), "Bitz")
     }
 
-    func testDashboardIncludesContextOnlyForActiveAgent() async {
+    func testLastContextReadingStaysVisibleWhenNoAgentIsActive() {
+        let idle = TelemetrySnapshot(agents: AgentTelemetry(activeCount: 0, context: claudeContext))
+
+        XCTAssertEqual(idle.agents.compactBadge, "CTX 74%")
+        XCTAssertEqual(idle.hudSummary(enabledMetrics: [.agents], focusPoints: 0), "CTX 74% • 0 PTS")
+        XCTAssertEqual(idle.speechBubbleCarouselMessages(enabledMetrics: [.agents]),
+                       ["🤖 No agents currently active · Claude ctx 148k · 74%"])
+        XCTAssertEqual(idle.menuBarTitle(enabledMetrics: [.agents]), "Bitz • Ctx 74%")
+    }
+
+    func testDashboardKeepsLastContextReadingAfterTurnEnds() async {
         let suiteName = "TelemetryAgentContext.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -372,15 +382,18 @@ final class TelemetryDashboardServiceTests: XCTestCase {
             agentMonitor: monitor
         )
 
-        // A reading for an agent that is not active stays out of the snapshot.
+        monitor.handleEvent(AgentEvent(agentID: "claude", agentName: "Claude", kind: .working))
         monitor.handleEvent(AgentEvent(agentID: "claude", agentName: "Claude", kind: .usage,
                                        metadata: [AgentEvent.MetadataKey.contextTokens: "148000"]))
         await service.performSampleTick()
-        XCTAssertNil(service.snapshot.agents.context)
-
-        monitor.handleEvent(AgentEvent(agentID: "claude", agentName: "Claude", kind: .working))
-        await service.performSampleTick()
         XCTAssertEqual(service.snapshot.agents.context, claudeContext)
         XCTAssertEqual(service.snapshot.agents.compactBadge, "1 AGTS · 74%")
+
+        // The turn ends: the reading stays, which is when it is most worth checking.
+        monitor.handleEvent(AgentEvent(agentID: "claude", agentName: "Claude", kind: .done))
+        await service.performSampleTick()
+        XCTAssertEqual(service.snapshot.agents.activeCount, 0)
+        XCTAssertEqual(service.snapshot.agents.context, claudeContext)
+        XCTAssertEqual(service.snapshot.agents.compactBadge, "CTX 74%")
     }
 }

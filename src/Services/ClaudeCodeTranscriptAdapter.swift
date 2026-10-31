@@ -84,9 +84,11 @@ public final class ClaudeCodeTranscriptAdapter: AgentAdapter, @unchecked Sendabl
         defer { lock.unlock() }
         guard let handler = eventHandler else { return }
         let now = clock()
-        guard let chosen = SessionLogTail.pickSession(current: tail.url, candidates: sessionCandidates(), now: now) else { return }
 
-        if chosen != tail.url {
+        // While the current log is fresh pickSession keeps it, so the directory scan is skipped.
+        if !tail.isCurrentFresh(at: now),
+           let chosen = SessionLogTail.pickSession(current: tail.url, candidates: sessionCandidates(), now: now),
+           chosen != tail.url {
             let seed = tail.attach(to: chosen)
             // Seed lines silently restore turn state, so a turn already in progress is tracked;
             // the loop streak starts fresh (FR-014, R7). The seed reading always goes out to clear any stale turn.
@@ -111,7 +113,8 @@ public final class ClaudeCodeTranscriptAdapter: AgentAdapter, @unchecked Sendabl
 
         switch line["type"] as? String {
         case "assistant":
-            guard let message else { return [] }
+            // `<synthetic>` placeholders (interrupts, API errors) carry all-zero usage and are not model output.
+            guard let message, message["model"] as? String != "<synthetic>" else { return [] }
             let tokens = (message["usage"] as? [String: Any]).map { usage in
                 ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"].reduce(0) { $0 + (usage[$1] as? Int ?? 0) }
             }

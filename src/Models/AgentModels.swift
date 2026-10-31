@@ -167,7 +167,8 @@ public struct AgentContextReading: Sendable, Equatable {
 
     /// Percent of the configured window, capped at 100 (the window setting may be smaller than the real one).
     public var percent: Int {
-        windowTokens > 0 ? min(100, tokens * 100 / windowTokens) : 0
+        // Double math: drop-box token counts come from user scripts and could overflow `tokens * 100`.
+        windowTokens > 0 ? Int(min(100, Double(tokens) * 100 / Double(windowTokens))) : 0
     }
 
     /// e.g. `Claude ctx 148k · 74%`
