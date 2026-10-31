@@ -185,6 +185,7 @@ private final class Replay {
 
     private func poll() {
         adapter.checkForUpdates()
-        collector.drain().forEach(monitor.handleEvent)
+        // A loop, not `forEach(monitor.handleEvent)`: Swift 6.0 (CI's Xcode 16.2) treats that main-actor method reference as throwing.
+        for event in collector.drain() { monitor.handleEvent(event) }
     }
 }
