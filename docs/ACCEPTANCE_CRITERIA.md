@@ -167,7 +167,6 @@ IDs in this section refer to the mission spec (`kitty-specs/agent-usage-gauges-w
 | `L2` | After an auto-compaction, the summary line Claude Code logs can be parsed as a new prompt, so the next assistant line may show one extra "working" bubble. | `FR-004` |
 | `L3` | A pending approval that existed before Bitz attached is not re-shown, because seed priming emits no events. | `FR-014` |
 | `L4` | With agent speech bubbles off, wellness and carousel bubble borders keep their state colour while the visor is Amber. | `FR-013` |
-| `L5` | Antigravity `ask_question` detection still reads `function.name`, but logged calls use `{name, args}`, so Antigravity approval bubbles do not fire from the session log. Fixed on `main` by PR #65 (closes #63); this mission's adapter rewrite predates that merge and carries the fix forward when `main` is merged in. | Antigravity approvals |
 | `L6` | Session logs do not state the model's window size. The Claude Code default of 200k is wrong for 1M-context models; raw tokens are shown next to the percent, and the window is configurable. | `FR-005`, `FR-006` |
 
 ### 5.4 Verification Results
@@ -176,5 +175,6 @@ IDs in this section refer to the mission spec (`kitty-specs/agent-usage-gauges-w
 - 2026-10-30: clean test build (`--build-tests`, same fresh scratch path): **0** warnings.
 - 2026-10-30: `xcrun swift test`: `Executed 258 tests, with 0 failures (0 unexpected)` across 26 XCTest suites.
 - Release run and quickstart walkthrough (2026-10-31, macOS 26.6.2, M4 Max), §1–§5: all pass. That covers almost-done, context and reported warnings, **GOT IT**, the approval override and its restore, menu **Dismiss Agent Warning** with bubbles on and off, a live Claude Code turn with a 90 s tool call and the stall timeout set to 1 min, with no stall warning during or after it, and settings that survive a relaunch. §4.4 (quitting the Claude desktop app) was not run live; `AgentSignalPolicyTests` cover it.
+- 2026-10-31, after merging `main` (PR #65–#67; PR #65's flat `ask_question` lookup ported into the rewritten Antigravity adapter): clean build with tests, **0** warnings; `xcrun swift test`: `Executed 260 tests, with 0 failures (0 unexpected)`.
 - `NFR-003` latency: 3 timed runs, each < 1 s.
 - Resources, idle, `top` 10 s samples: mission build avg **43.7%** CPU (peak 46%), 47 MB; PR #62 baseline avg **41.8%** (peak 45%), 43 MB. The mission adds no measurable CPU (the difference is within run-to-run variation; adapters are ~10 of ~1,500 busy samples in a 5 s profile). Memory meets the `< 70MB` budget. The project-wide `< 2%` CPU budget is not met by the baseline either; tracked in #70.

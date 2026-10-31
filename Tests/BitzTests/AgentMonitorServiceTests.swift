@@ -170,4 +170,67 @@ final class AgentMonitorServiceTests: XCTestCase {
         service.handleEvent(event)
         XCTAssertNil(service.activePopup)
     }
+
+    func testAgentDefinitionRejectsAppleSystemProcessesAndPrefixCollisions() {
+        let cursorDef = AgentDefinition(
+            id: "cursor",
+            displayName: "Cursor",
+            processNames: ["cursor"],
+            bundleIdentifiers: ["com.todesktop.230313mzl4w4u92"]
+        )
+
+        // Apple XPC service CursorUIViewService must be rejected
+        XCTAssertFalse(cursorDef.matches(
+            processName: "CursorUIViewService",
+            bundleIdentifier: "com.apple.TextInputUI.xpc.CursorUIViewService"
+        ))
+
+        // Even without bundle ID, CursorUIViewService must not match "cursor"
+        XCTAssertFalse(cursorDef.matches(processName: "CursorUIViewService"))
+
+        // Prefix collisions on other tools (e.g. Amphetamine vs Amp)
+        let ampDef = AgentDefinition(
+            id: "amp",
+            displayName: "Amp",
+            processNames: ["amp"]
+        )
+        XCTAssertFalse(ampDef.matches(processName: "Amphetamine"))
+
+        // Background launcher (GeminiAppLauncher) vs Gemini
+        let geminiDef = AgentDefinition(
+            id: "gemini",
+            displayName: "Gemini",
+            processNames: ["gemini"],
+            bundleIdentifiers: ["com.google.GeminiMacOS"]
+        )
+        XCTAssertFalse(geminiDef.matches(
+            processName: "GeminiAppLauncher",
+            bundleIdentifier: "com.google.GeminiMacOS.launcher"
+        ))
+    }
+
+    func testAgentDefinitionMatchesValidAgentNamesAndHelpers() {
+        let cursorDef = AgentDefinition(
+            id: "cursor",
+            displayName: "Cursor",
+            processNames: ["cursor"],
+            bundleIdentifiers: ["com.todesktop.230313mzl4w4u92"]
+        )
+
+        XCTAssertTrue(cursorDef.matches(processName: "Cursor"))
+        XCTAssertTrue(cursorDef.matches(processName: "cursor"))
+        XCTAssertTrue(cursorDef.matches(processName: "Cursor Helper"))
+        XCTAssertTrue(cursorDef.matches(bundleIdentifier: "com.todesktop.230313mzl4w4u92"))
+
+        let antigravityDef = AgentDefinition(
+            id: "antigravity",
+            displayName: "Antigravity",
+            processNames: ["antigravity", "agy"],
+            bundleIdentifiers: ["com.google.antigravity"]
+        )
+        XCTAssertTrue(antigravityDef.matches(processName: "Antigravity"))
+        XCTAssertTrue(antigravityDef.matches(processName: "Antigravity Helper"))
+        XCTAssertTrue(antigravityDef.matches(processName: "agy"))
+        XCTAssertTrue(antigravityDef.matches(bundleIdentifier: "com.google.antigravity"))
+    }
 }

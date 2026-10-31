@@ -143,7 +143,7 @@ flowchart LR
 | Context tokens | `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` of the latest assistant line. | `input_tokens + cache_read_tokens` of the latest `PLANNER_RESPONSE`. |
 | Pending tools | `tool_use` ids without a matching `tool_result.tool_use_id`. | Tool calls of the latest `PLANNER_RESPONSE`, cleared by any later line (no call ids). |
 | Loop streak reset | A different call, `compact_boundary`, or a new session. | A different call or a new session. |
-| Approval | Not read from the session log; the optional `PermissionRequest` hook from `AgentHookInstaller` reports it through the drop-box. | `ask_question` lookup reads `function.name`, but logged calls use `{name, args}`, so it does not fire here. Fixed on `main` by PR #65 (closes #63); this mission's adapter rewrite predates that merge and carries the flat `name` lookup forward when `main` is merged in. |
+| Approval | Not read from the session log; the optional `PermissionRequest` hook from `AgentHookInstaller` reports it through the drop-box. | An `ask_question` tool call, flat `{name, args}` or legacy `function.name`, emits `needsApproval` (PR #65, #63). |
 
 Shared behaviour (`SessionLogTail`, `AgentSessionTracker`):
 

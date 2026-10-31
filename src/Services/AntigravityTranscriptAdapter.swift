@@ -119,8 +119,12 @@ public final class AntigravityTranscriptAdapter: AgentAdapter, @unchecked Sendab
                 contextTokens: input == nil && cacheRead == nil ? nil : (input ?? 0) + (cacheRead ?? 0)
             ))
 
-            // Tool-call shape fix tracked in #63.
             let hasAskQuestion = toolCalls.contains { call in
+                // Support both flat Antigravity format {"name": "ask_question"}
+                // and OpenAI/legacy format {"function": {"name": "ask_question"}}
+                if let name = call["name"] as? String, name == "ask_question" {
+                    return true
+                }
                 if let function = call["function"] as? [String: Any],
                    let name = function["name"] as? String,
                    name == "ask_question" {

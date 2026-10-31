@@ -68,14 +68,24 @@ final class AntigravityTranscriptAdapterTests: XCTestCase {
         XCTAssertEqual(lifecycle.first?.kind, .working)
         XCTAssertEqual(lifecycle.first?.agentID, "antigravity")
 
-        // 2. Question / Approval -> .needsApproval
-        let questionLine = "{\"step_index\":2,\"source\":\"MODEL\",\"type\":\"PLANNER_RESPONSE\",\"status\":\"DONE\",\"tool_calls\":[{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"ask_question\",\"arguments\":\"{}\"}}]}\n"
+        // 2. Question / Approval -> .needsApproval (flat format as actually written by Antigravity)
+        let questionLine = "{\"step_index\":2,\"source\":\"MODEL\",\"type\":\"PLANNER_RESPONSE\",\"status\":\"DONE\",\"tool_calls\":[{\"name\":\"ask_question\",\"args\":{}}]}\n"
         handle.seekToEndOfFile()
         handle.write(questionLine.data(using: .utf8)!)
 
         adapter.checkForUpdates()
         lifecycle = collector.snapshot.filter { $0.kind != .usage }
         XCTAssertEqual(lifecycle.count, 2)
+        XCTAssertEqual(lifecycle.last?.kind, .needsApproval)
+
+        // 2b. Legacy / nested format support -> .needsApproval
+        let legacyQuestionLine = "{\"step_index\":2,\"source\":\"MODEL\",\"type\":\"PLANNER_RESPONSE\",\"status\":\"DONE\",\"tool_calls\":[{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"ask_question\",\"arguments\":\"{}\"}}]}\n"
+        handle.seekToEndOfFile()
+        handle.write(legacyQuestionLine.data(using: .utf8)!)
+
+        adapter.checkForUpdates()
+        lifecycle = collector.snapshot.filter { $0.kind != .usage }
+        XCTAssertEqual(lifecycle.count, 3)
         XCTAssertEqual(lifecycle.last?.kind, .needsApproval)
 
         // 3. Final Model Response -> .done
@@ -85,7 +95,7 @@ final class AntigravityTranscriptAdapterTests: XCTestCase {
 
         adapter.checkForUpdates()
         lifecycle = collector.snapshot.filter { $0.kind != .usage }
-        XCTAssertEqual(lifecycle.count, 3)
+        XCTAssertEqual(lifecycle.count, 4)
         XCTAssertEqual(lifecycle.last?.kind, .done)
         XCTAssertEqual(lifecycle.last?.message, "Antigravity is done!")
 

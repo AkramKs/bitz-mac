@@ -210,6 +210,14 @@ public enum BrowserTabTelemetryReader {
     /// Cached chromium browser profile folder names to avoid repeated array allocation during fast path sampling.
     private static let chromiumProfileCandidates: [String] = ["Default", "Profile 1", "Profile 2", "Profile 3", ""]
 
+    // Cached base directories for chromium browsers
+    private static let braveBaseDirs = ["BraveSoftware/Brave-Browser"]
+    private static let edgeBaseDirs = ["Microsoft Edge"]
+    private static let arcBaseDirs = ["Arc/User Data"]
+    private static let operaBaseDirs = ["com.operasoftware.Opera", "com.operasoftware.OperaGX"]
+    private static let vivaldiBaseDirs = ["Vivaldi"]
+    private static let chromeBaseDirs = ["Google/Chrome", "Google/Chrome Canary", "Chromium"]
+
     /// Decompresses a Mozilla `mozLz40\0` LZ4 block into raw JSON `Data`.
     public static func decompressMozLZ4(_ data: Data) -> Data? {
         guard data.count > 12 else { return nil }
@@ -390,17 +398,17 @@ public enum BrowserTabTelemetryReader {
 
         let relativeBaseDirs: [String]
         if lower.contains("brave") {
-            relativeBaseDirs = ["BraveSoftware/Brave-Browser"]
+            relativeBaseDirs = braveBaseDirs
         } else if lower.contains("edgemac") || lower.contains("microsoft.edge") {
-            relativeBaseDirs = ["Microsoft Edge"]
+            relativeBaseDirs = edgeBaseDirs
         } else if lower.contains("thebrowser") || lower.contains("arc") {
-            relativeBaseDirs = ["Arc/User Data"]
+            relativeBaseDirs = arcBaseDirs
         } else if lower.contains("opera") {
-            relativeBaseDirs = ["com.operasoftware.Opera", "com.operasoftware.OperaGX"]
+            relativeBaseDirs = operaBaseDirs
         } else if lower.contains("vivaldi") {
-            relativeBaseDirs = ["Vivaldi"]
+            relativeBaseDirs = vivaldiBaseDirs
         } else {
-            relativeBaseDirs = ["Google/Chrome", "Google/Chrome Canary", "Chromium"]
+            relativeBaseDirs = chromeBaseDirs
         }
 
         var newestSessionFile: URL? = nil
